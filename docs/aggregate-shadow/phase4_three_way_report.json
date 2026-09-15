@@ -1,0 +1,4347 @@
+{
+  "registry_as_of": "2026-09-15T15:15:11.797886+00:00",
+  "case_count": 42,
+  "routes_run": {
+    "structured": true,
+    "age_text2cypher": true,
+    "semantic": true
+  },
+  "schema_card_chars": 6532,
+  "cases": [
+    {
+      "name": "count_cases",
+      "question": "How many cases are registered?",
+      "expected_outcome": "value",
+      "ground_truth": 73,
+      "ground_truth_route": "SQL",
+      "structured": {
+        "route": "structured",
+        "status": "SUCCESS",
+        "result_shape": "scalar",
+        "refusal_code": null,
+        "refusal_reason": null,
+        "warnings": [],
+        "provenance": {
+          "engine": "deterministic AggregateSpec compiler",
+          "population_definition": "Case",
+          "grain": "ENTITY",
+          "distinct_key": "case_id",
+          "injected_predicates": [],
+          "filters_applied": [],
+          "excluded_merged_n": 0,
+          "excluded_superseded_n": 0,
+          "calculation_steps": [
+            "count over Case"
+          ]
+        },
+        "execution_metadata": {
+          "elapsed_ms": 46.5,
+          "spec_hash": "46b205187d298bf7",
+          "registry_as_of": "2026-09-15T15:15:11.797886+00:00",
+          "queries": [
+            {
+              "backend": "age",
+              "text": "MATCH (n:Case) RETURN count(DISTINCT n.case_id) AS value",
+              "params": {},
+              "rows": 1,
+              "ms": 46.32049999781884
+            }
+          ]
+        },
+        "result": {
+          "value": 73,
+          "interpretation": "count",
+          "grain": "ENTITY",
+          "population": "Case",
+          "grouping": [],
+          "unit": null
+        },
+        "coverage_verdict": "COMPLETE"
+      },
+      "age": {
+        "route": "age_text2cypher",
+        "status": "SUCCESS",
+        "result_shape": "scalar",
+        "refusal_code": null,
+        "refusal_reason": null,
+        "warnings": [],
+        "provenance": {
+          "generated_cypher": "MATCH (c:Case) RETURN count(DISTINCT c.case_id) AS value",
+          "generated_params": {},
+          "model_interpretation": "count",
+          "model_grain": "ENTITY",
+          "model_reasoning": "Counting distinct case_id values gives the total number of registered cases.",
+          "guard_violations": [],
+          "expected_columns": [
+            "value"
+          ]
+        },
+        "execution_metadata": {
+          "generation_ms": 2722.2,
+          "execution_ms": 47.1,
+          "row_count": 1
+        },
+        "result": {
+          "value": 73,
+          "interpretation": "count",
+          "grain": "ENTITY",
+          "population": "generated: MATCH (c:Case) RETURN count(DISTINCT c.case_id) AS value",
+          "grouping": [],
+          "unit": null
+        }
+      },
+      "semantic": {
+        "route": "semantic",
+        "status": "EXECUTION_ERROR",
+        "result_shape": "none",
+        "refusal_code": "retrieval_failed",
+        "refusal_reason": "Semantic retrieval was unavailable: Client error '404 Not Found' for url 'https://discharge-fascism-richness.ngrok-free.dev/embed'\nFor more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/404",
+        "warnings": [],
+        "provenance": {},
+        "execution_metadata": {}
+      },
+      "reconciliation": {
+        "classification": "AGREEMENT",
+        "value": 73,
+        "interpretation": "count",
+        "grain": "ENTITY",
+        "agreeing_routes": [
+          "structured",
+          "age_text2cypher"
+        ],
+        "disagreeing_routes": [],
+        "refused_routes": [
+          "semantic"
+        ],
+        "semantic_support": null,
+        "invariant_violations": [],
+        "explanation": "Two structurally independent computation routes agree on 73 (count, ENTITY grain).",
+        "diagnosis": null,
+        "requires_investigation": false
+      },
+      "evaluation": "STRUCTURED_AND_AGE_AGREE",
+      "explanation": "both routes independently computed 73 (SQL ground truth)",
+      "elapsed_ms": 19119.8
+    },
+    {
+      "name": "count_distinct_active_persons",
+      "question": "How many distinct persons are on record?",
+      "expected_outcome": "value",
+      "ground_truth": 208,
+      "ground_truth_route": "PYTHON",
+      "structured": {
+        "route": "structured",
+        "status": "SUCCESS",
+        "result_shape": "scalar",
+        "refusal_code": null,
+        "refusal_reason": null,
+        "warnings": [],
+        "provenance": {
+          "engine": "deterministic AggregateSpec compiler",
+          "population_definition": "Person",
+          "grain": "ENTITY",
+          "distinct_key": "entity_id",
+          "injected_predicates": [
+            "n.merged_into IS NULL"
+          ],
+          "filters_applied": [],
+          "excluded_merged_n": 222,
+          "excluded_superseded_n": 0,
+          "calculation_steps": [
+            "count_distinct over Person"
+          ]
+        },
+        "execution_metadata": {
+          "elapsed_ms": 53.4,
+          "spec_hash": "fc5abfc07840f485",
+          "registry_as_of": "2026-09-15T15:15:11.797886+00:00",
+          "queries": [
+            {
+              "backend": "age",
+              "text": "MATCH (n:Person) WHERE n.merged_into IS NULL RETURN count(DISTINCT n.entity_id) AS value",
+              "params": {},
+              "rows": 1,
+              "ms": 53.0521999753546
+            }
+          ]
+        },
+        "result": {
+          "value": 208,
+          "interpretation": "count_distinct",
+          "grain": "ENTITY",
+          "population": "Person",
+          "grouping": [],
+          "unit": null
+        },
+        "coverage_verdict": "COMPLETE"
+      },
+      "age": {
+        "route": "age_text2cypher",
+        "status": "SUCCESS",
+        "result_shape": "scalar",
+        "refusal_code": null,
+        "refusal_reason": null,
+        "warnings": [],
+        "provenance": {
+          "generated_cypher": "MATCH (p:Person) WHERE p.merged_into IS NULL RETURN count(DISTINCT p.entity_id) AS value",
+          "generated_params": {},
+          "model_interpretation": "count_distinct",
+          "model_grain": "ENTITY",
+          "model_reasoning": "Counts each unique non‑tombstone Person entity_id to get the number of distinct persons on record.",
+          "guard_violations": [],
+          "expected_columns": [
+            "value"
+          ]
+        },
+        "execution_metadata": {
+          "generation_ms": 2888.7,
+          "execution_ms": 60.1,
+          "row_count": 1
+        },
+        "result": {
+          "value": 208,
+          "interpretation": "count_distinct",
+          "grain": "ENTITY",
+          "population": "generated: MATCH (p:Person) WHERE p.merged_into IS NULL RETURN count(DISTINCT p.entity_id) AS value",
+          "grouping": [],
+          "unit": null
+        }
+      },
+      "semantic": {
+        "route": "semantic",
+        "status": "EXECUTION_ERROR",
+        "result_shape": "none",
+        "refusal_code": "retrieval_failed",
+        "refusal_reason": "Semantic retrieval was unavailable: Client error '404 Not Found' for url 'https://discharge-fascism-richness.ngrok-free.dev/embed'\nFor more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/404",
+        "warnings": [],
+        "provenance": {},
+        "execution_metadata": {}
+      },
+      "reconciliation": {
+        "classification": "AGREEMENT",
+        "value": 208,
+        "interpretation": "count_distinct",
+        "grain": "ENTITY",
+        "agreeing_routes": [
+          "structured",
+          "age_text2cypher"
+        ],
+        "disagreeing_routes": [],
+        "refused_routes": [
+          "semantic"
+        ],
+        "semantic_support": null,
+        "invariant_violations": [],
+        "explanation": "Two structurally independent computation routes agree on 208 (count_distinct, ENTITY grain).",
+        "diagnosis": null,
+        "requires_investigation": false
+      },
+      "evaluation": "STRUCTURED_AND_AGE_AGREE",
+      "explanation": "both routes independently computed 208 (PYTHON ground truth)",
+      "elapsed_ms": 18557.6
+    },
+    {
+      "name": "min_person_age",
+      "question": "What is the min recorded age?",
+      "expected_outcome": "value",
+      "ground_truth": 24,
+      "ground_truth_route": "PYTHON",
+      "structured": {
+        "route": "structured",
+        "status": "SUCCESS",
+        "result_shape": "scalar",
+        "refusal_code": null,
+        "refusal_reason": null,
+        "warnings": [
+          "23 of 208 record(s) carry no Person.age for this field (96%); a figure computed over the remainder would not describe the population."
+        ],
+        "provenance": {
+          "engine": "deterministic AggregateSpec compiler",
+          "population_definition": "Person",
+          "grain": "ENTITY",
+          "distinct_key": "entity_id",
+          "injected_predicates": [
+            "n.merged_into IS NULL"
+          ],
+          "filters_applied": [],
+          "excluded_merged_n": 222,
+          "excluded_superseded_n": 0,
+          "calculation_steps": [
+            "min over Person"
+          ]
+        },
+        "execution_metadata": {
+          "elapsed_ms": 56.1,
+          "spec_hash": "b679b281f695c64b",
+          "registry_as_of": "2026-09-15T15:15:11.797886+00:00",
+          "queries": [
+            {
+              "backend": "age",
+              "text": "MATCH (n:Person) WHERE n.merged_into IS NULL RETURN min(n.age) AS value",
+              "params": {},
+              "rows": 1,
+              "ms": 55.81700001494028
+            }
+          ]
+        },
+        "result": {
+          "value": 24,
+          "interpretation": "min",
+          "grain": "ENTITY",
+          "population": "Person",
+          "grouping": [],
+          "unit": null
+        },
+        "coverage_verdict": "INSUFFICIENT"
+      },
+      "age": {
+        "route": "age_text2cypher",
+        "status": "REFUSED",
+        "result_shape": "none",
+        "refusal_code": "model_declined",
+        "refusal_reason": "Model declined to answer: The schema does not contain any property representing age on any node or relationship, so the minimum recorded age cannot be determined.",
+        "warnings": [],
+        "provenance": {
+          "model_reasoning": ""
+        },
+        "execution_metadata": {}
+      },
+      "semantic": {
+        "route": "semantic",
+        "status": "EXECUTION_ERROR",
+        "result_shape": "none",
+        "refusal_code": "retrieval_failed",
+        "refusal_reason": "Semantic retrieval was unavailable: Client error '404 Not Found' for url 'https://discharge-fascism-richness.ngrok-free.dev/embed'\nFor more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/404",
+        "warnings": [],
+        "provenance": {},
+        "execution_metadata": {}
+      },
+      "reconciliation": {
+        "classification": "SINGLE_ROUTE_VALID",
+        "value": 24,
+        "interpretation": "min",
+        "grain": "ENTITY",
+        "agreeing_routes": [
+          "structured"
+        ],
+        "disagreeing_routes": [],
+        "refused_routes": [
+          "age_text2cypher",
+          "semantic"
+        ],
+        "semantic_support": null,
+        "invariant_violations": [],
+        "explanation": "Only the structured route computed a value; no independent computation was available to corroborate it.",
+        "diagnosis": null,
+        "requires_investigation": false
+      },
+      "evaluation": "STRUCTURED_CORRECT_AGE_WRONG",
+      "explanation": "structured = 24 (correct); AGE route did not produce a value (model_declined)",
+      "elapsed_ms": 16981.8
+    },
+    {
+      "name": "max_person_age",
+      "question": "What is the max recorded age?",
+      "expected_outcome": "value",
+      "ground_truth": 49,
+      "ground_truth_route": "PYTHON",
+      "structured": {
+        "route": "structured",
+        "status": "SUCCESS",
+        "result_shape": "scalar",
+        "refusal_code": null,
+        "refusal_reason": null,
+        "warnings": [
+          "47 of 208 record(s) carry no Person.age for this field (96%); a figure computed over the remainder would not describe the population."
+        ],
+        "provenance": {
+          "engine": "deterministic AggregateSpec compiler",
+          "population_definition": "Person",
+          "grain": "ENTITY",
+          "distinct_key": "entity_id",
+          "injected_predicates": [
+            "n.merged_into IS NULL"
+          ],
+          "filters_applied": [],
+          "excluded_merged_n": 222,
+          "excluded_superseded_n": 0,
+          "calculation_steps": [
+            "max over Person"
+          ]
+        },
+        "execution_metadata": {
+          "elapsed_ms": 46.2,
+          "spec_hash": "f707347de72b2f8d",
+          "registry_as_of": "2026-09-15T15:15:11.797886+00:00",
+          "queries": [
+            {
+              "backend": "age",
+              "text": "MATCH (n:Person) WHERE n.merged_into IS NULL RETURN max(n.age) AS value",
+              "params": {},
+              "rows": 1,
+              "ms": 45.99600000074133
+            }
+          ]
+        },
+        "result": {
+          "value": 49,
+          "interpretation": "max",
+          "grain": "ENTITY",
+          "population": "Person",
+          "grouping": [],
+          "unit": null
+        },
+        "coverage_verdict": "INSUFFICIENT"
+      },
+      "age": {
+        "route": "age_text2cypher",
+        "status": "REFUSED",
+        "result_shape": "none",
+        "refusal_code": "model_declined",
+        "refusal_reason": "Model declined to answer: The schema does not contain an 'age' property on any node or relationship, so the maximum recorded age cannot be determined.",
+        "warnings": [],
+        "provenance": {
+          "model_reasoning": ""
+        },
+        "execution_metadata": {}
+      },
+      "semantic": {
+        "route": "semantic",
+        "status": "EXECUTION_ERROR",
+        "result_shape": "none",
+        "refusal_code": "retrieval_failed",
+        "refusal_reason": "Semantic retrieval was unavailable: Client error '404 Not Found' for url 'https://discharge-fascism-richness.ngrok-free.dev/embed'\nFor more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/404",
+        "warnings": [],
+        "provenance": {},
+        "execution_metadata": {}
+      },
+      "reconciliation": {
+        "classification": "SINGLE_ROUTE_VALID",
+        "value": 49,
+        "interpretation": "max",
+        "grain": "ENTITY",
+        "agreeing_routes": [
+          "structured"
+        ],
+        "disagreeing_routes": [],
+        "refused_routes": [
+          "age_text2cypher",
+          "semantic"
+        ],
+        "semantic_support": null,
+        "invariant_violations": [],
+        "explanation": "Only the structured route computed a value; no independent computation was available to corroborate it.",
+        "diagnosis": null,
+        "requires_investigation": false
+      },
+      "evaluation": "STRUCTURED_CORRECT_AGE_WRONG",
+      "explanation": "structured = 49 (correct); AGE route did not produce a value (model_declined)",
+      "elapsed_ms": 17216.2
+    },
+    {
+      "name": "avg_person_age",
+      "question": "What is the avg recorded age?",
+      "expected_outcome": "value",
+      "ground_truth": 31.842105263157894,
+      "ground_truth_route": "PYTHON",
+      "structured": {
+        "route": "structured",
+        "status": "SUCCESS",
+        "result_shape": "scalar",
+        "refusal_code": null,
+        "refusal_reason": null,
+        "warnings": [
+          "30 of 208 record(s) carry no Person.age for this field (97%); a figure computed over the remainder would not describe the population."
+        ],
+        "provenance": {
+          "engine": "deterministic AggregateSpec compiler",
+          "population_definition": "Person",
+          "grain": "ENTITY",
+          "distinct_key": "entity_id",
+          "injected_predicates": [
+            "n.merged_into IS NULL"
+          ],
+          "filters_applied": [],
+          "excluded_merged_n": 222,
+          "excluded_superseded_n": 0,
+          "calculation_steps": [
+            "avg over Person"
+          ]
+        },
+        "execution_metadata": {
+          "elapsed_ms": 49.5,
+          "spec_hash": "aae7ec2419da1752",
+          "registry_as_of": "2026-09-15T15:15:11.797886+00:00",
+          "queries": [
+            {
+              "backend": "age",
+              "text": "MATCH (n:Person) WHERE n.merged_into IS NULL RETURN avg(n.age) AS value",
+              "params": {},
+              "rows": 1,
+              "ms": 49.264000001130626
+            }
+          ]
+        },
+        "result": {
+          "value": 31.842105263157894,
+          "interpretation": "avg",
+          "grain": "ENTITY",
+          "population": "Person",
+          "grouping": [],
+          "unit": null
+        },
+        "coverage_verdict": "INSUFFICIENT"
+      },
+      "age": {
+        "route": "age_text2cypher",
+        "status": "REFUSED",
+        "result_shape": "none",
+        "refusal_code": "model_declined",
+        "refusal_reason": "Model declined to answer: The schema does not contain any property representing an individual's age, so the average recorded age cannot be computed.",
+        "warnings": [],
+        "provenance": {
+          "model_reasoning": ""
+        },
+        "execution_metadata": {}
+      },
+      "semantic": {
+        "route": "semantic",
+        "status": "EXECUTION_ERROR",
+        "result_shape": "none",
+        "refusal_code": "retrieval_failed",
+        "refusal_reason": "Semantic retrieval was unavailable: Client error '404 Not Found' for url 'https://discharge-fascism-richness.ngrok-free.dev/embed'\nFor more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/404",
+        "warnings": [],
+        "provenance": {},
+        "execution_metadata": {}
+      },
+      "reconciliation": {
+        "classification": "SINGLE_ROUTE_VALID",
+        "value": 31.842105263157894,
+        "interpretation": "avg",
+        "grain": "ENTITY",
+        "agreeing_routes": [
+          "structured"
+        ],
+        "disagreeing_routes": [],
+        "refused_routes": [
+          "age_text2cypher",
+          "semantic"
+        ],
+        "semantic_support": null,
+        "invariant_violations": [],
+        "explanation": "Only the structured route computed a value; no independent computation was available to corroborate it.",
+        "diagnosis": null,
+        "requires_investigation": false
+      },
+      "evaluation": "STRUCTURED_CORRECT_AGE_WRONG",
+      "explanation": "structured = 31.842105263157894 (correct); AGE route did not produce a value (model_declined)",
+      "elapsed_ms": 16965.4
+    },
+    {
+      "name": "sum_person_age",
+      "question": "What is the sum recorded age?",
+      "expected_outcome": "value",
+      "ground_truth": 605,
+      "ground_truth_route": "PYTHON",
+      "structured": {
+        "route": "structured",
+        "status": "SUCCESS",
+        "result_shape": "scalar",
+        "refusal_code": null,
+        "refusal_reason": null,
+        "warnings": [
+          "578 of 208 record(s) carry no Person.age for this field (96%); a figure computed over the remainder would not describe the population."
+        ],
+        "provenance": {
+          "engine": "deterministic AggregateSpec compiler",
+          "population_definition": "Person",
+          "grain": "ENTITY",
+          "distinct_key": "entity_id",
+          "injected_predicates": [
+            "n.merged_into IS NULL"
+          ],
+          "filters_applied": [],
+          "excluded_merged_n": 222,
+          "excluded_superseded_n": 0,
+          "calculation_steps": [
+            "sum over Person"
+          ]
+        },
+        "execution_metadata": {
+          "elapsed_ms": 50.6,
+          "spec_hash": "8af734176129fff4",
+          "registry_as_of": "2026-09-15T15:15:11.797886+00:00",
+          "queries": [
+            {
+              "backend": "age",
+              "text": "MATCH (n:Person) WHERE n.merged_into IS NULL RETURN sum(n.age) AS value",
+              "params": {},
+              "rows": 1,
+              "ms": 50.33589998492971
+            }
+          ]
+        },
+        "result": {
+          "value": 605,
+          "interpretation": "sum",
+          "grain": "ENTITY",
+          "population": "Person",
+          "grouping": [],
+          "unit": null
+        },
+        "coverage_verdict": "INSUFFICIENT"
+      },
+      "age": {
+        "route": "age_text2cypher",
+        "status": "REFUSED",
+        "result_shape": "none",
+        "refusal_code": "model_declined",
+        "refusal_reason": "Model declined to answer: The schema does not contain an 'age' property on any node or relationship, so the sum of recorded age cannot be computed.",
+        "warnings": [],
+        "provenance": {
+          "model_reasoning": ""
+        },
+        "execution_metadata": {}
+      },
+      "semantic": {
+        "route": "semantic",
+        "status": "EXECUTION_ERROR",
+        "result_shape": "none",
+        "refusal_code": "retrieval_failed",
+        "refusal_reason": "Semantic retrieval was unavailable: Client error '404 Not Found' for url 'https://discharge-fascism-richness.ngrok-free.dev/embed'\nFor more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/404",
+        "warnings": [],
+        "provenance": {},
+        "execution_metadata": {}
+      },
+      "reconciliation": {
+        "classification": "SINGLE_ROUTE_VALID",
+        "value": 605,
+        "interpretation": "sum",
+        "grain": "ENTITY",
+        "agreeing_routes": [
+          "structured"
+        ],
+        "disagreeing_routes": [],
+        "refused_routes": [
+          "age_text2cypher",
+          "semantic"
+        ],
+        "semantic_support": null,
+        "invariant_violations": [],
+        "explanation": "Only the structured route computed a value; no independent computation was available to corroborate it.",
+        "diagnosis": null,
+        "requires_investigation": false
+      },
+      "evaluation": "STRUCTURED_CORRECT_AGE_WRONG",
+      "explanation": "structured = 605 (correct); AGE route did not produce a value (model_declined)",
+      "elapsed_ms": 16738.1
+    },
+    {
+      "name": "median_refused",
+      "question": "What is the median age?",
+      "expected_outcome": "refused",
+      "ground_truth": null,
+      "ground_truth_route": null,
+      "structured": {
+        "route": "structured",
+        "status": "REFUSED",
+        "result_shape": "none",
+        "refusal_code": "unsupported_operation",
+        "refusal_reason": "median is not computable in AGE and the Python fetch path is not implemented; refused rather than raised at compile time.",
+        "warnings": [],
+        "provenance": {
+          "engine": "deterministic AggregateSpec compiler",
+          "population_definition": "Person",
+          "grain": "ENTITY",
+          "distinct_key": "entity_id",
+          "injected_predicates": [],
+          "filters_applied": [],
+          "excluded_merged_n": 0,
+          "excluded_superseded_n": 0,
+          "calculation_steps": []
+        },
+        "execution_metadata": {
+          "elapsed_ms": 0.4,
+          "spec_hash": "9d686a0a65ac07b9",
+          "registry_as_of": "2026-09-15T15:15:11.797886+00:00",
+          "queries": []
+        }
+      },
+      "age": {
+        "route": "age_text2cypher",
+        "status": "REFUSED",
+        "result_shape": "none",
+        "refusal_code": "model_declined",
+        "refusal_reason": "Model declined to answer: The schema does not contain any age or birthdate properties from which a median age could be computed.",
+        "warnings": [],
+        "provenance": {
+          "model_reasoning": ""
+        },
+        "execution_metadata": {}
+      },
+      "semantic": {
+        "route": "semantic",
+        "status": "EXECUTION_ERROR",
+        "result_shape": "none",
+        "refusal_code": "retrieval_failed",
+        "refusal_reason": "Semantic retrieval was unavailable: Client error '404 Not Found' for url 'https://discharge-fascism-richness.ngrok-free.dev/embed'\nFor more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/404",
+        "warnings": [],
+        "provenance": {},
+        "execution_metadata": {}
+      },
+      "reconciliation": {
+        "classification": "REFUSED",
+        "value": null,
+        "interpretation": null,
+        "grain": null,
+        "agreeing_routes": [],
+        "disagreeing_routes": [],
+        "refused_routes": [
+          "structured",
+          "age_text2cypher",
+          "semantic"
+        ],
+        "semantic_support": null,
+        "invariant_violations": [],
+        "explanation": "No computation route produced a value (structured: unsupported_operation; age_text2cypher: model_declined; semantic: retrieval_failed). The semantic route corroborates interpretation only and cannot supply an aggregate.",
+        "diagnosis": null,
+        "requires_investigation": false
+      },
+      "evaluation": "CORRECT_REFUSAL",
+      "explanation": "structured refused as expected (unsupported_operation)",
+      "elapsed_ms": 16802.7
+    },
+    {
+      "name": "weapons_unlicensed_property_filter",
+      "question": "How many recovered weapons are unlicensed?",
+      "expected_outcome": "value",
+      "ground_truth": 30,
+      "ground_truth_route": "GRAPH",
+      "structured": {
+        "route": "structured",
+        "status": "SUCCESS",
+        "result_shape": "scalar",
+        "refusal_code": null,
+        "refusal_reason": null,
+        "warnings": [],
+        "provenance": {
+          "engine": "deterministic AggregateSpec compiler",
+          "population_definition": "Weapon where Weapon.license_status contains 'لائسنس'",
+          "grain": "ENTITY",
+          "distinct_key": "entity_id",
+          "injected_predicates": [],
+          "filters_applied": [],
+          "excluded_merged_n": 0,
+          "excluded_superseded_n": 0,
+          "calculation_steps": [
+            "count_distinct over Weapon where Weapon.license_status contains 'لائسنس'"
+          ]
+        },
+        "execution_metadata": {
+          "elapsed_ms": 55.2,
+          "spec_hash": "e2b0379577332d17",
+          "registry_as_of": "2026-09-15T15:15:11.797886+00:00",
+          "queries": [
+            {
+              "backend": "age",
+              "text": "MATCH (n:Weapon) WHERE n.license_status CONTAINS $p0 RETURN count(DISTINCT n.entity_id) AS value",
+              "params": {
+                "p0": "لائسنس"
+              },
+              "rows": 1,
+              "ms": 54.84159998013638
+            }
+          ]
+        },
+        "result": {
+          "value": 30,
+          "interpretation": "count_distinct",
+          "grain": "ENTITY",
+          "population": "Weapon where Weapon.license_status contains 'لائسنس'",
+          "grouping": [],
+          "unit": null
+        },
+        "coverage_verdict": "COMPLETE"
+      },
+      "age": {
+        "route": "age_text2cypher",
+        "status": "REFUSED",
+        "result_shape": "none",
+        "refusal_code": "guard_semantic",
+        "refusal_reason": "Generated query refused: [SEMANTIC] superseded_not_excluded: Query traverses APPEARS_IN, which carries 222 superseded edge version(s), without excluding `superseded_by IS NULL`.",
+        "warnings": [],
+        "provenance": {
+          "generated_cypher": "MATCH (w:Weapon)-[:APPEARS_IN]->(:Document) WHERE (w.license_status IS NULL OR w.license_status <> $licensed) RETURN count(DISTINCT w.entity_id) AS value",
+          "generated_params": {
+            "licensed": "licensed"
+          },
+          "model_interpretation": "count",
+          "model_grain": "ENTITY",
+          "model_reasoning": "Count distinct Weapon entities that appear in any Document and do not have a license_status of 'licensed', representing recovered unlicensed weapons.",
+          "guard_violations": [
+            "superseded_not_excluded"
+          ]
+        },
+        "execution_metadata": {}
+      },
+      "semantic": {
+        "route": "semantic",
+        "status": "EXECUTION_ERROR",
+        "result_shape": "none",
+        "refusal_code": "retrieval_failed",
+        "refusal_reason": "Semantic retrieval was unavailable: Client error '404 Not Found' for url 'https://discharge-fascism-richness.ngrok-free.dev/embed'\nFor more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/404",
+        "warnings": [],
+        "provenance": {},
+        "execution_metadata": {}
+      },
+      "reconciliation": {
+        "classification": "SINGLE_ROUTE_VALID",
+        "value": 30,
+        "interpretation": "count_distinct",
+        "grain": "ENTITY",
+        "agreeing_routes": [
+          "structured"
+        ],
+        "disagreeing_routes": [],
+        "refused_routes": [
+          "age_text2cypher",
+          "semantic"
+        ],
+        "semantic_support": null,
+        "invariant_violations": [],
+        "explanation": "Only the structured route computed a value; no independent computation was available to corroborate it.",
+        "diagnosis": null,
+        "requires_investigation": false
+      },
+      "evaluation": "STRUCTURED_CORRECT_AGE_WRONG",
+      "explanation": "structured = 30 (correct); AGE route did not produce a value (guard_semantic)",
+      "elapsed_ms": 17896.8
+    },
+    {
+      "name": "cases_with_a_weapon",
+      "question": "How many cases have a weapon recorded?",
+      "expected_outcome": "value",
+      "ground_truth": 32,
+      "ground_truth_route": "GRAPH",
+      "structured": {
+        "route": "structured",
+        "status": "SUCCESS",
+        "result_shape": "scalar",
+        "refusal_code": null,
+        "refusal_reason": null,
+        "warnings": [],
+        "provenance": {
+          "engine": "deterministic AggregateSpec compiler",
+          "population_definition": "Case <-BELONGS_TO_CASEWeapon",
+          "grain": "ENTITY",
+          "distinct_key": "case_id",
+          "injected_predicates": [],
+          "filters_applied": [],
+          "excluded_merged_n": 0,
+          "excluded_superseded_n": 0,
+          "calculation_steps": [
+            "count_distinct over Case <-BELONGS_TO_CASEWeapon"
+          ]
+        },
+        "execution_metadata": {
+          "elapsed_ms": 60.9,
+          "spec_hash": "c9240bf67fa6ec20",
+          "registry_as_of": "2026-09-15T15:15:11.797886+00:00",
+          "queries": [
+            {
+              "backend": "age",
+              "text": "MATCH (m0:Weapon)-[e0:BELONGS_TO_CASE]->(n:Case) RETURN count(DISTINCT n.case_id) AS value",
+              "params": {},
+              "rows": 1,
+              "ms": 60.46280000009574
+            }
+          ]
+        },
+        "result": {
+          "value": 32,
+          "interpretation": "count_distinct",
+          "grain": "ENTITY",
+          "population": "Case <-BELONGS_TO_CASEWeapon",
+          "grouping": [],
+          "unit": null
+        },
+        "coverage_verdict": "COMPLETE"
+      },
+      "age": {
+        "route": "age_text2cypher",
+        "status": "REFUSED",
+        "result_shape": "none",
+        "refusal_code": "guard_semantic",
+        "refusal_reason": "Generated query refused: [SEMANTIC] superseded_not_excluded: Query traverses BELONGS_TO_CASE, which carries 222 superseded edge version(s), without excluding `superseded_by IS NULL`.",
+        "warnings": [],
+        "provenance": {
+          "generated_cypher": "MATCH (w:Weapon)-[:BELONGS_TO_CASE]->(c:Case) RETURN count(DISTINCT c.case_id) AS value",
+          "generated_params": {},
+          "model_interpretation": "count",
+          "model_grain": "ENTITY",
+          "model_reasoning": "Count distinct Case nodes that have at least one incoming BELONGS_TO_CASE relationship from a Weapon.",
+          "guard_violations": [
+            "superseded_not_excluded"
+          ]
+        },
+        "execution_metadata": {}
+      },
+      "semantic": {
+        "route": "semantic",
+        "status": "EXECUTION_ERROR",
+        "result_shape": "none",
+        "refusal_code": "retrieval_failed",
+        "refusal_reason": "Semantic retrieval was unavailable: Client error '404 Not Found' for url 'https://discharge-fascism-richness.ngrok-free.dev/embed'\nFor more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/404",
+        "warnings": [],
+        "provenance": {},
+        "execution_metadata": {}
+      },
+      "reconciliation": {
+        "classification": "SINGLE_ROUTE_VALID",
+        "value": 32,
+        "interpretation": "count_distinct",
+        "grain": "ENTITY",
+        "agreeing_routes": [
+          "structured"
+        ],
+        "disagreeing_routes": [],
+        "refused_routes": [
+          "age_text2cypher",
+          "semantic"
+        ],
+        "semantic_support": null,
+        "invariant_violations": [],
+        "explanation": "Only the structured route computed a value; no independent computation was available to corroborate it.",
+        "diagnosis": null,
+        "requires_investigation": false
+      },
+      "evaluation": "STRUCTURED_CORRECT_AGE_WRONG",
+      "explanation": "structured = 32 (correct); AGE route did not produce a value (guard_semantic)",
+      "elapsed_ms": 17826.2
+    },
+    {
+      "name": "accused_distinct_through_relationship",
+      "question": "How many distinct accused persons are there?",
+      "expected_outcome": "value",
+      "ground_truth": 92,
+      "ground_truth_route": "GRAPH",
+      "structured": {
+        "route": "structured",
+        "status": "SUCCESS",
+        "result_shape": "scalar",
+        "refusal_code": null,
+        "refusal_reason": null,
+        "warnings": [],
+        "provenance": {
+          "engine": "deterministic AggregateSpec compiler",
+          "population_definition": "Person ->INVOLVED_IN[role=accused]Incident",
+          "grain": "ENTITY",
+          "distinct_key": "entity_id",
+          "injected_predicates": [
+            "n.merged_into IS NULL"
+          ],
+          "filters_applied": [],
+          "excluded_merged_n": 222,
+          "excluded_superseded_n": 0,
+          "calculation_steps": [
+            "count_distinct over Person ->INVOLVED_IN[role=accused]Incident"
+          ]
+        },
+        "execution_metadata": {
+          "elapsed_ms": 67.4,
+          "spec_hash": "113779d151948836",
+          "registry_as_of": "2026-09-15T15:15:11.797886+00:00",
+          "queries": [
+            {
+              "backend": "age",
+              "text": "MATCH (n:Person)-[e0:INVOLVED_IN]->(m0:Incident) WHERE n.merged_into IS NULL AND e0.role = $p0 RETURN count(DISTINCT n.entity_id) AS value",
+              "params": {
+                "p0": "accused"
+              },
+              "rows": 1,
+              "ms": 67.11930001620203
+            }
+          ]
+        },
+        "result": {
+          "value": 92,
+          "interpretation": "count_distinct",
+          "grain": "ENTITY",
+          "population": "Person ->INVOLVED_IN[role=accused]Incident",
+          "grouping": [],
+          "unit": null
+        },
+        "coverage_verdict": "COMPLETE"
+      },
+      "age": {
+        "route": "age_text2cypher",
+        "status": "REFUSED",
+        "result_shape": "none",
+        "refusal_code": "model_declined",
+        "refusal_reason": "Model declined to answer: The schema does not contain a relationship or property that explicitly identifies which Person nodes are 'accused', so the question cannot be answered safely and unambiguously.",
+        "warnings": [],
+        "provenance": {
+          "model_reasoning": ""
+        },
+        "execution_metadata": {}
+      },
+      "semantic": {
+        "route": "semantic",
+        "status": "EXECUTION_ERROR",
+        "result_shape": "none",
+        "refusal_code": "retrieval_failed",
+        "refusal_reason": "Semantic retrieval was unavailable: Client error '404 Not Found' for url 'https://discharge-fascism-richness.ngrok-free.dev/embed'\nFor more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/404",
+        "warnings": [],
+        "provenance": {},
+        "execution_metadata": {}
+      },
+      "reconciliation": {
+        "classification": "SINGLE_ROUTE_VALID",
+        "value": 92,
+        "interpretation": "count_distinct",
+        "grain": "ENTITY",
+        "agreeing_routes": [
+          "structured"
+        ],
+        "disagreeing_routes": [],
+        "refused_routes": [
+          "age_text2cypher",
+          "semantic"
+        ],
+        "semantic_support": null,
+        "invariant_violations": [],
+        "explanation": "Only the structured route computed a value; no independent computation was available to corroborate it.",
+        "diagnosis": null,
+        "requires_investigation": false
+      },
+      "evaluation": "STRUCTURED_CORRECT_AGE_WRONG",
+      "explanation": "structured = 92 (correct); AGE route did not produce a value (model_declined)",
+      "elapsed_ms": 17814.0
+    },
+    {
+      "name": "accused_edges_relationship_grain",
+      "question": "How many accused involvements are recorded?",
+      "expected_outcome": "value",
+      "ground_truth": 94,
+      "ground_truth_route": "GRAPH",
+      "structured": {
+        "route": "structured",
+        "status": "SUCCESS",
+        "result_shape": "scalar",
+        "refusal_code": null,
+        "refusal_reason": null,
+        "warnings": [],
+        "provenance": {
+          "engine": "deterministic AggregateSpec compiler",
+          "population_definition": "Person ->INVOLVED_IN[role=accused]Incident",
+          "grain": "RELATIONSHIP",
+          "distinct_key": null,
+          "injected_predicates": [
+            "n.merged_into IS NULL"
+          ],
+          "filters_applied": [],
+          "excluded_merged_n": 222,
+          "excluded_superseded_n": 0,
+          "calculation_steps": [
+            "count over Person ->INVOLVED_IN[role=accused]Incident"
+          ]
+        },
+        "execution_metadata": {
+          "elapsed_ms": 82.3,
+          "spec_hash": "e1690bc3bdb51ea2",
+          "registry_as_of": "2026-09-15T15:15:11.797886+00:00",
+          "queries": [
+            {
+              "backend": "age",
+              "text": "MATCH (n:Person)-[e0:INVOLVED_IN]->(m0:Incident) WHERE n.merged_into IS NULL AND e0.role = $p0 RETURN count(n) AS value",
+              "params": {
+                "p0": "accused"
+              },
+              "rows": 1,
+              "ms": 82.0118999981787
+            }
+          ]
+        },
+        "result": {
+          "value": 94,
+          "interpretation": "count",
+          "grain": "RELATIONSHIP",
+          "population": "Person ->INVOLVED_IN[role=accused]Incident",
+          "grouping": [],
+          "unit": null
+        },
+        "coverage_verdict": "COMPLETE"
+      },
+      "age": {
+        "route": "age_text2cypher",
+        "status": "REFUSED",
+        "result_shape": "none",
+        "refusal_code": "guard_semantic",
+        "refusal_reason": "Generated query refused: [SEMANTIC] fanout_without_distinct: Query counts without DISTINCT across a fanning traversal [Person-[INVOLVED_IN]->Incident (up to 3 rows per Person)], so it counts relationship rows rather than entities.",
+        "warnings": [],
+        "provenance": {
+          "generated_cypher": "MATCH (p:Person)-[r:INVOLVED_IN]->(i:Incident) WHERE p.merged_into IS NULL RETURN count(r) AS value",
+          "generated_params": {},
+          "model_interpretation": "count",
+          "model_grain": "RELATIONSHIP",
+          "model_reasoning": "Count each current Person‑INVOLVED_IN edge, excluding merged‑into tombstone persons.",
+          "guard_violations": [
+            "fanout_without_distinct"
+          ]
+        },
+        "execution_metadata": {}
+      },
+      "semantic": {
+        "route": "semantic",
+        "status": "EXECUTION_ERROR",
+        "result_shape": "none",
+        "refusal_code": "retrieval_failed",
+        "refusal_reason": "Semantic retrieval was unavailable: Client error '404 Not Found' for url 'https://discharge-fascism-richness.ngrok-free.dev/embed'\nFor more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/404",
+        "warnings": [],
+        "provenance": {},
+        "execution_metadata": {}
+      },
+      "reconciliation": {
+        "classification": "SINGLE_ROUTE_VALID",
+        "value": 94,
+        "interpretation": "count",
+        "grain": "RELATIONSHIP",
+        "agreeing_routes": [
+          "structured"
+        ],
+        "disagreeing_routes": [],
+        "refused_routes": [
+          "age_text2cypher",
+          "semantic"
+        ],
+        "semantic_support": null,
+        "invariant_violations": [],
+        "explanation": "Only the structured route computed a value; no independent computation was available to corroborate it.",
+        "diagnosis": null,
+        "requires_investigation": false
+      },
+      "evaluation": "STRUCTURED_CORRECT_AGE_WRONG",
+      "explanation": "structured = 94 (correct); AGE route did not produce a value (guard_semantic)",
+      "elapsed_ms": 18367.8
+    },
+    {
+      "name": "active_persons_via_belongs_to_case",
+      "question": "How many distinct persons are linked to cases?",
+      "expected_outcome": "value",
+      "ground_truth": 208,
+      "ground_truth_route": "GRAPH",
+      "structured": {
+        "route": "structured",
+        "status": "SUCCESS",
+        "result_shape": "scalar",
+        "refusal_code": null,
+        "refusal_reason": null,
+        "warnings": [],
+        "provenance": {
+          "engine": "deterministic AggregateSpec compiler",
+          "population_definition": "Person ->BELONGS_TO_CASECase",
+          "grain": "ENTITY",
+          "distinct_key": "entity_id",
+          "injected_predicates": [
+            "n.merged_into IS NULL",
+            "e0.superseded_by IS NULL"
+          ],
+          "filters_applied": [],
+          "excluded_merged_n": 222,
+          "excluded_superseded_n": 0,
+          "calculation_steps": [
+            "count_distinct over Person ->BELONGS_TO_CASECase"
+          ]
+        },
+        "execution_metadata": {
+          "elapsed_ms": 78.4,
+          "spec_hash": "c669c8c843ea2ab7",
+          "registry_as_of": "2026-09-15T15:15:11.797886+00:00",
+          "queries": [
+            {
+              "backend": "age",
+              "text": "MATCH (n:Person)-[e0:BELONGS_TO_CASE]->(m0:Case) WHERE n.merged_into IS NULL AND e0.superseded_by IS NULL RETURN count(DISTINCT n.entity_id) AS value",
+              "params": {},
+              "rows": 1,
+              "ms": 78.13609999720939
+            }
+          ]
+        },
+        "result": {
+          "value": 208,
+          "interpretation": "count_distinct",
+          "grain": "ENTITY",
+          "population": "Person ->BELONGS_TO_CASECase",
+          "grouping": [],
+          "unit": null
+        },
+        "coverage_verdict": "COMPLETE"
+      },
+      "age": {
+        "route": "age_text2cypher",
+        "status": "SUCCESS",
+        "result_shape": "scalar",
+        "refusal_code": null,
+        "refusal_reason": null,
+        "warnings": [],
+        "provenance": {
+          "generated_cypher": "MATCH (p:Person)-[r:BELONGS_TO_CASE]->(c:Case)\nWHERE p.merged_into IS NULL AND r.superseded_by IS NULL\nRETURN count(DISTINCT p.entity_id) AS value",
+          "generated_params": {},
+          "model_interpretation": "count_distinct",
+          "model_grain": "ENTITY",
+          "model_reasoning": "Counts each unique person (excluding merged tombstones) that has a current (non‑superseded) BELONGS_TO_CASE relationship to any case.",
+          "guard_violations": [],
+          "expected_columns": [
+            "value"
+          ]
+        },
+        "execution_metadata": {
+          "generation_ms": 2892.1,
+          "execution_ms": 77.0,
+          "row_count": 1
+        },
+        "result": {
+          "value": 208,
+          "interpretation": "count_distinct",
+          "grain": "ENTITY",
+          "population": "generated: MATCH (p:Person)-[r:BELONGS_TO_CASE]->(c:Case)\nWHERE p.merged_into IS NULL AND r.superseded_by IS NULL\nRETURN count(DIST",
+          "grouping": [],
+          "unit": null
+        }
+      },
+      "semantic": {
+        "route": "semantic",
+        "status": "EXECUTION_ERROR",
+        "result_shape": "none",
+        "refusal_code": "retrieval_failed",
+        "refusal_reason": "Semantic retrieval was unavailable: Client error '404 Not Found' for url 'https://discharge-fascism-richness.ngrok-free.dev/embed'\nFor more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/404",
+        "warnings": [],
+        "provenance": {},
+        "execution_metadata": {}
+      },
+      "reconciliation": {
+        "classification": "AGREEMENT",
+        "value": 208,
+        "interpretation": "count_distinct",
+        "grain": "ENTITY",
+        "agreeing_routes": [
+          "structured",
+          "age_text2cypher"
+        ],
+        "disagreeing_routes": [],
+        "refused_routes": [
+          "semantic"
+        ],
+        "semantic_support": null,
+        "invariant_violations": [],
+        "explanation": "Two structurally independent computation routes agree on 208 (count_distinct, ENTITY grain).",
+        "diagnosis": null,
+        "requires_investigation": false
+      },
+      "evaluation": "STRUCTURED_AND_AGE_AGREE",
+      "explanation": "both routes independently computed 208 (GRAPH ground truth)",
+      "elapsed_ms": 18792.0
+    },
+    {
+      "name": "malkhana_records",
+      "question": "How many malkhana register entries exist?",
+      "expected_outcome": "value",
+      "ground_truth": 45,
+      "ground_truth_route": "GRAPH",
+      "structured": {
+        "route": "structured",
+        "status": "SUCCESS",
+        "result_shape": "scalar",
+        "refusal_code": null,
+        "refusal_reason": null,
+        "warnings": [],
+        "provenance": {
+          "engine": "deterministic AggregateSpec compiler",
+          "population_definition": "StructuredRecord where StructuredRecord.record_type eq 'malkhana_register'",
+          "grain": "RECORD",
+          "distinct_key": "record_id",
+          "injected_predicates": [],
+          "filters_applied": [],
+          "excluded_merged_n": 0,
+          "excluded_superseded_n": 0,
+          "calculation_steps": [
+            "count_distinct over StructuredRecord where StructuredRecord.record_type eq 'malkhana_register'"
+          ]
+        },
+        "execution_metadata": {
+          "elapsed_ms": 59.5,
+          "spec_hash": "067e048ef197b35e",
+          "registry_as_of": "2026-09-15T15:15:11.797886+00:00",
+          "queries": [
+            {
+              "backend": "age",
+              "text": "MATCH (n:StructuredRecord) WHERE n.record_type = $p0 RETURN count(DISTINCT n.record_id) AS value",
+              "params": {
+                "p0": "malkhana_register"
+              },
+              "rows": 1,
+              "ms": 59.04439999721944
+            }
+          ]
+        },
+        "result": {
+          "value": 45,
+          "interpretation": "count_distinct",
+          "grain": "RECORD",
+          "population": "StructuredRecord where StructuredRecord.record_type eq 'malkhana_register'",
+          "grouping": [],
+          "unit": null
+        },
+        "coverage_verdict": "COMPLETE"
+      },
+      "age": {
+        "route": "age_text2cypher",
+        "status": "SUCCESS",
+        "result_shape": "scalar",
+        "refusal_code": null,
+        "refusal_reason": null,
+        "warnings": [],
+        "provenance": {
+          "generated_cypher": "MATCH (s:StructuredRecord) WHERE s.record_id IS NOT NULL RETURN count(DISTINCT s.record_id) AS value",
+          "generated_params": {},
+          "model_interpretation": "count",
+          "model_grain": "ENTITY",
+          "model_reasoning": "StructuredRecord nodes represent register entries, and counting distinct record_id gives the total number of entries.",
+          "guard_violations": [],
+          "expected_columns": [
+            "value"
+          ]
+        },
+        "execution_metadata": {
+          "generation_ms": 2144.2,
+          "execution_ms": 57.4,
+          "row_count": 1
+        },
+        "result": {
+          "value": 713,
+          "interpretation": "count",
+          "grain": "ENTITY",
+          "population": "generated: MATCH (s:StructuredRecord) WHERE s.record_id IS NOT NULL RETURN count(DISTINCT s.record_id) AS value",
+          "grouping": [],
+          "unit": null
+        }
+      },
+      "semantic": {
+        "route": "semantic",
+        "status": "EXECUTION_ERROR",
+        "result_shape": "none",
+        "refusal_code": "retrieval_failed",
+        "refusal_reason": "Semantic retrieval was unavailable: Client error '404 Not Found' for url 'https://discharge-fascism-richness.ngrok-free.dev/embed'\nFor more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/404",
+        "warnings": [],
+        "provenance": {},
+        "execution_metadata": {}
+      },
+      "reconciliation": {
+        "classification": "SEMANTICALLY_DIFFERENT",
+        "value": null,
+        "interpretation": null,
+        "grain": null,
+        "agreeing_routes": [],
+        "disagreeing_routes": [
+          "structured",
+          "age_text2cypher"
+        ],
+        "refused_routes": [
+          "semantic"
+        ],
+        "semantic_support": null,
+        "invariant_violations": [],
+        "explanation": "The routes computed different quantities, so their values are not comparable: structured produced count_distinct/RECORD = 45, age_text2cypher produced count/ENTITY = 713. Both may be arithmetically correct.",
+        "diagnosis": "grain differs: structured computed at RECORD, generated query declared ENTITY; generated query does not exclude merge tombstones, which the structured route excludes by construction; generated query does not exclude superseded edge versions, which the structured route excludes by construction",
+        "requires_investigation": true
+      },
+      "evaluation": "STRUCTURED_CORRECT_AGE_WRONG",
+      "explanation": "structured = 45 (correct); AGE = 713 (wrong, truth 45)",
+      "elapsed_ms": 18101.2
+    },
+    {
+      "name": "cases_by_station_via_traversal",
+      "question": "How many cases per police station?",
+      "expected_outcome": "value",
+      "ground_truth": 19,
+      "ground_truth_route": "SQL",
+      "structured": {
+        "route": "structured",
+        "status": "SUCCESS",
+        "result_shape": "grouped",
+        "refusal_code": null,
+        "refusal_reason": null,
+        "warnings": [],
+        "provenance": {
+          "engine": "deterministic AggregateSpec compiler",
+          "population_definition": "Case ->FILED_ATPoliceStation",
+          "grain": "ENTITY",
+          "distinct_key": "case_id",
+          "injected_predicates": [],
+          "filters_applied": [],
+          "excluded_merged_n": 0,
+          "excluded_superseded_n": 0,
+          "calculation_steps": [
+            "count over Case ->FILED_ATPoliceStation"
+          ]
+        },
+        "execution_metadata": {
+          "elapsed_ms": 61.3,
+          "spec_hash": "96218bcdf7ac95ac",
+          "registry_as_of": "2026-09-15T15:15:11.797886+00:00",
+          "queries": [
+            {
+              "backend": "age",
+              "text": "MATCH (n:Case)-[e0:FILED_AT]->(m0:PoliceStation) WITH m0.name AS gkey, count(DISTINCT n.case_id) AS value RETURN gkey, value ORDER BY value DESC",
+              "params": {},
+              "rows": 19,
+              "ms": 60.62980002025142
+            }
+          ]
+        },
+        "result": [
+          {
+            "key": "تھانہ ماڈل ٹاؤن، لاہور",
+            "count": 7
+          },
+          {
+            "key": "خواتین تھانہ، فیصل آباد",
+            "count": 5
+          },
+          {
+            "key": "سائبر کرائم سرکل، اسلام آباد",
+            "count": 5
+          },
+          {
+            "key": "موٹروے پولیس اسٹیشن ایم ٹو، لاہور",
+            "count": 5
+          },
+          {
+            "key": "تھانہ شاہ فیصل کالونی، کراچی",
+            "count": 5
+          },
+          {
+            "key": "تھانہ برکی، لاہور",
+            "count": 5
+          },
+          {
+            "key": "تھانہ صدر، ضلع چنیوٹ",
+            "count": 5
+          },
+          {
+            "key": "تھانہ نیو کراچی، کراچی",
+            "count": 5
+          },
+          {
+            "key": "تھانہ جھنگ روڈ، فیصل آباد",
+            "count": 5
+          },
+          {
+            "key": "تھانہ لطیف آباد، حیدر آباد",
+            "count": 5
+          },
+          {
+            "key": "تھانہ سول لائنز، فیصل آباد",
+            "count": 4
+          },
+          {
+            "key": "سائبر کرائم سرکل، راولپنڈی",
+            "count": 4
+          },
+          {
+            "key": "تھانہ کوتوالی، فیصل آباد",
+            "count": 4
+          },
+          {
+            "key": "تھانہ راجہ بازار، راولپنڈی",
+            "count": 4
+          },
+          {
+            "key": "تھانہ کینٹ، ملتان",
+            "count": 1
+          },
+          {
+            "key": "تھانہ صدر، راولپنڈی",
+            "count": 1
+          },
+          {
+            "key": "تھانہ اقبال ٹاؤن، لاہور",
+            "count": 1
+          },
+          {
+            "key": "تھانہ مدینہ ٹاؤن، فیصل آباد",
+            "count": 1
+          },
+          {
+            "key": "تھانہ وارث خان، راولپنڈی",
+            "count": 1
+          }
+        ],
+        "coverage_verdict": "COMPLETE"
+      },
+      "age": {
+        "route": "age_text2cypher",
+        "status": "REFUSED",
+        "result_shape": "none",
+        "refusal_code": "unparseable_result_shape",
+        "refusal_reason": "Every RETURN term must carry an explicit alias; AGE cannot infer result shape at runtime, so the query cannot be executed safely.",
+        "warnings": [],
+        "provenance": {
+          "generated_cypher": "MATCH (c:Case)-[:FILED_AT]->(s:PoliceStation)\nWITH s.station_id AS station_id, count(DISTINCT c.case_id) AS case_count\nRETURN station_id, case_count",
+          "generated_params": {},
+          "model_interpretation": "count",
+          "model_grain": "ENTITY",
+          "model_reasoning": "Counts distinct Case nodes linked to each PoliceStation via the FILED_AT relationship.",
+          "guard_violations": []
+        },
+        "execution_metadata": {}
+      },
+      "semantic": {
+        "route": "semantic",
+        "status": "EXECUTION_ERROR",
+        "result_shape": "none",
+        "refusal_code": "retrieval_failed",
+        "refusal_reason": "Semantic retrieval was unavailable: Client error '404 Not Found' for url 'https://discharge-fascism-richness.ngrok-free.dev/embed'\nFor more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/404",
+        "warnings": [],
+        "provenance": {},
+        "execution_metadata": {}
+      },
+      "reconciliation": {
+        "classification": "REFUSED",
+        "value": null,
+        "interpretation": null,
+        "grain": null,
+        "agreeing_routes": [],
+        "disagreeing_routes": [],
+        "refused_routes": [
+          "age_text2cypher",
+          "semantic"
+        ],
+        "semantic_support": null,
+        "invariant_violations": [],
+        "explanation": "No computation route produced a value (age_text2cypher: unparseable_result_shape; semantic: retrieval_failed). The semantic route corroborates interpretation only and cannot supply an aggregate.",
+        "diagnosis": null,
+        "requires_investigation": false
+      },
+      "evaluation": "INCORRECT_REFUSAL",
+      "explanation": "no route produced the expected value 19; structured: None, AGE: unparseable_result_shape",
+      "elapsed_ms": 18642.9
+    },
+    {
+      "name": "group_by_sparse_field_refused",
+      "question": "How many cases per investigation status?",
+      "expected_outcome": "refused",
+      "ground_truth": null,
+      "ground_truth_route": null,
+      "structured": {
+        "route": "structured",
+        "status": "REFUSED",
+        "result_shape": "none",
+        "refusal_code": "grouping_field_too_sparse",
+        "refusal_reason": "Cannot group by 'investigation_status': present on 21 of 73 records (29%); below the 50% threshold the absent records form a misleading NULL group.",
+        "warnings": [],
+        "provenance": {
+          "engine": "deterministic AggregateSpec compiler",
+          "population_definition": "Case",
+          "grain": "ENTITY",
+          "distinct_key": "case_id",
+          "injected_predicates": [],
+          "filters_applied": [],
+          "excluded_merged_n": 0,
+          "excluded_superseded_n": 0,
+          "calculation_steps": []
+        },
+        "execution_metadata": {
+          "elapsed_ms": 0.4,
+          "spec_hash": "16c5dac5e1d20a9d",
+          "registry_as_of": "2026-09-15T15:15:11.797886+00:00",
+          "queries": []
+        }
+      },
+      "age": {
+        "route": "age_text2cypher",
+        "status": "REFUSED",
+        "result_shape": "none",
+        "refusal_code": "model_declined",
+        "refusal_reason": "Model declined to answer: The schema does not contain an 'investigation status' property or relationship, so the question cannot be answered unambiguously.",
+        "warnings": [],
+        "provenance": {
+          "model_reasoning": ""
+        },
+        "execution_metadata": {}
+      },
+      "semantic": {
+        "route": "semantic",
+        "status": "EXECUTION_ERROR",
+        "result_shape": "none",
+        "refusal_code": "retrieval_failed",
+        "refusal_reason": "Semantic retrieval was unavailable: Client error '404 Not Found' for url 'https://discharge-fascism-richness.ngrok-free.dev/embed'\nFor more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/404",
+        "warnings": [],
+        "provenance": {},
+        "execution_metadata": {}
+      },
+      "reconciliation": {
+        "classification": "REFUSED",
+        "value": null,
+        "interpretation": null,
+        "grain": null,
+        "agreeing_routes": [],
+        "disagreeing_routes": [],
+        "refused_routes": [
+          "structured",
+          "age_text2cypher",
+          "semantic"
+        ],
+        "semantic_support": null,
+        "invariant_violations": [],
+        "explanation": "No computation route produced a value (structured: grouping_field_too_sparse; age_text2cypher: model_declined; semantic: retrieval_failed). The semantic route corroborates interpretation only and cannot supply an aggregate.",
+        "diagnosis": null,
+        "requires_investigation": false
+      },
+      "evaluation": "CORRECT_REFUSAL",
+      "explanation": "structured refused as expected (grouping_field_too_sparse)",
+      "elapsed_ms": 17944.5
+    },
+    {
+      "name": "group_by_unknown_field_refused",
+      "question": "How many cases per verdict?",
+      "expected_outcome": "refused",
+      "ground_truth": null,
+      "ground_truth_route": null,
+      "structured": {
+        "route": "structured",
+        "status": "REFUSED",
+        "result_shape": "none",
+        "refusal_code": "unknown_field",
+        "refusal_reason": "Cannot group by 'verdict': no such field on Case.",
+        "warnings": [],
+        "provenance": {
+          "engine": "deterministic AggregateSpec compiler",
+          "population_definition": "Case",
+          "grain": "ENTITY",
+          "distinct_key": "case_id",
+          "injected_predicates": [],
+          "filters_applied": [],
+          "excluded_merged_n": 0,
+          "excluded_superseded_n": 0,
+          "calculation_steps": []
+        },
+        "execution_metadata": {
+          "elapsed_ms": 0.4,
+          "spec_hash": "9156e27b6da94ee7",
+          "registry_as_of": "2026-09-15T15:15:11.797886+00:00",
+          "queries": []
+        }
+      },
+      "age": {
+        "route": "age_text2cypher",
+        "status": "REFUSED",
+        "result_shape": "none",
+        "refusal_code": "model_declined",
+        "refusal_reason": "Model declined to answer: The provided schema does not contain a Verdict label, property, or relationship, so the question cannot be answered safely.",
+        "warnings": [],
+        "provenance": {
+          "model_reasoning": ""
+        },
+        "execution_metadata": {}
+      },
+      "semantic": {
+        "route": "semantic",
+        "status": "EXECUTION_ERROR",
+        "result_shape": "none",
+        "refusal_code": "retrieval_failed",
+        "refusal_reason": "Semantic retrieval was unavailable: Client error '404 Not Found' for url 'https://discharge-fascism-richness.ngrok-free.dev/embed'\nFor more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/404",
+        "warnings": [],
+        "provenance": {},
+        "execution_metadata": {}
+      },
+      "reconciliation": {
+        "classification": "REFUSED",
+        "value": null,
+        "interpretation": null,
+        "grain": null,
+        "agreeing_routes": [],
+        "disagreeing_routes": [],
+        "refused_routes": [
+          "structured",
+          "age_text2cypher",
+          "semantic"
+        ],
+        "semantic_support": null,
+        "invariant_violations": [],
+        "explanation": "No computation route produced a value (structured: unknown_field; age_text2cypher: model_declined; semantic: retrieval_failed). The semantic route corroborates interpretation only and cannot supply an aggregate.",
+        "diagnosis": null,
+        "requires_investigation": false
+      },
+      "evaluation": "CORRECT_REFUSAL",
+      "explanation": "structured refused as expected (unknown_field)",
+      "elapsed_ms": 16525.8
+    },
+    {
+      "name": "group_by_two_dimensions_refused",
+      "question": "Cases by station and category?",
+      "expected_outcome": "refused",
+      "ground_truth": null,
+      "ground_truth_route": null,
+      "structured": {
+        "route": "structured",
+        "status": "REFUSED",
+        "result_shape": "none",
+        "refusal_code": "unsupported_operation",
+        "refusal_reason": "group_by carries 2 dimensions but the compiler emits only the first; a cross-tab would silently collapse to a one-dimensional breakdown. Refused rather than ignored.",
+        "warnings": [],
+        "provenance": {
+          "engine": "deterministic AggregateSpec compiler",
+          "population_definition": "Case",
+          "grain": "ENTITY",
+          "distinct_key": "case_id",
+          "injected_predicates": [],
+          "filters_applied": [],
+          "excluded_merged_n": 0,
+          "excluded_superseded_n": 0,
+          "calculation_steps": []
+        },
+        "execution_metadata": {
+          "elapsed_ms": 0.5,
+          "spec_hash": "cd55144f4bcc9455",
+          "registry_as_of": "2026-09-15T15:15:11.797886+00:00",
+          "queries": []
+        }
+      },
+      "age": {
+        "route": "age_text2cypher",
+        "status": "REFUSED",
+        "result_shape": "none",
+        "refusal_code": "model_declined",
+        "refusal_reason": "Model declined to answer: The schema does not contain a 'category' property on either Case or PoliceStation nodes, so the request cannot be answered unambiguously.",
+        "warnings": [],
+        "provenance": {
+          "model_reasoning": ""
+        },
+        "execution_metadata": {}
+      },
+      "semantic": {
+        "route": "semantic",
+        "status": "EXECUTION_ERROR",
+        "result_shape": "none",
+        "refusal_code": "retrieval_failed",
+        "refusal_reason": "Semantic retrieval was unavailable: Client error '404 Not Found' for url 'https://discharge-fascism-richness.ngrok-free.dev/embed'\nFor more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/404",
+        "warnings": [],
+        "provenance": {},
+        "execution_metadata": {}
+      },
+      "reconciliation": {
+        "classification": "REFUSED",
+        "value": null,
+        "interpretation": null,
+        "grain": null,
+        "agreeing_routes": [],
+        "disagreeing_routes": [],
+        "refused_routes": [
+          "structured",
+          "age_text2cypher",
+          "semantic"
+        ],
+        "semantic_support": null,
+        "invariant_violations": [],
+        "explanation": "No computation route produced a value (structured: unsupported_operation; age_text2cypher: model_declined; semantic: retrieval_failed). The semantic route corroborates interpretation only and cannot supply an aggregate.",
+        "diagnosis": null,
+        "requires_investigation": false
+      },
+      "evaluation": "CORRECT_REFUSAL",
+      "explanation": "structured refused as expected (unsupported_operation)",
+      "elapsed_ms": 17145.0
+    },
+    {
+      "name": "ratio_cases_multi_officer_entity_grain",
+      "question": "What percentage of cases involved more than one officer?",
+      "expected_outcome": "value",
+      "ground_truth": 5.47945205479452,
+      "ground_truth_route": "PYTHON",
+      "structured": {
+        "route": "structured",
+        "status": "SUCCESS",
+        "result_shape": "ratio",
+        "refusal_code": null,
+        "refusal_reason": null,
+        "warnings": [],
+        "provenance": {
+          "engine": "deterministic AggregateSpec compiler",
+          "population_definition": "Case",
+          "grain": "ENTITY",
+          "distinct_key": "case_id",
+          "injected_predicates": [
+            "rc0.superseded_by IS NULL"
+          ],
+          "filters_applied": [],
+          "excluded_merged_n": 0,
+          "excluded_superseded_n": 0,
+          "calculation_steps": [
+            "numerator = 4 (Case where having gt 1 related Officer (counted at ENTITY grain))",
+            "denominator = 73",
+            "4 / 73 = 5.4795"
+          ]
+        },
+        "execution_metadata": {
+          "elapsed_ms": 110.5,
+          "spec_hash": "116e0f70d7480ccf",
+          "registry_as_of": "2026-09-15T15:15:11.797886+00:00",
+          "queries": [
+            {
+              "backend": "age",
+              "text": "MATCH (n:Case) MATCH (rt0:Officer)-[rc0:ASSIGNED_TO]->(n) WHERE rc0.superseded_by IS NULL WITH n, count(DISTINCT rt0.entity_id) AS relcnt WHERE relcnt > $p0 RETURN count(DISTINCT n.case_id) AS value",
+              "params": {
+                "p0": 1
+              },
+              "rows": 1,
+              "ms": 58.0424000218045
+            },
+            {
+              "backend": "age",
+              "text": "MATCH (n:Case) RETURN count(DISTINCT n.case_id) AS value",
+              "params": {},
+              "rows": 1,
+              "ms": 51.690799999050796
+            }
+          ]
+        },
+        "result": {
+          "value": 5.47945205479452,
+          "interpretation": "percentage",
+          "grain": "ENTITY",
+          "population": "Case",
+          "grouping": [],
+          "unit": "percent"
+        },
+        "coverage_verdict": "COMPLETE"
+      },
+      "age": {
+        "route": "age_text2cypher",
+        "status": "SUCCESS",
+        "result_shape": "scalar",
+        "refusal_code": null,
+        "refusal_reason": null,
+        "warnings": [],
+        "provenance": {
+          "generated_cypher": "MATCH (c:Case)\nOPTIONAL MATCH (o:Officer)-[:BELONGS_TO_CASE]->(c)\nWITH c, count(DISTINCT o.entity_id) AS officer_cnt\nWITH count(*) AS total_cases,\n     sum(CASE WHEN officer_cnt > 1 THEN 1 ELSE 0 END) AS multi_officer_cases\nRETURN (toFloat(multi_officer_cases) / total_cases) * 100 AS value",
+          "generated_params": {},
+          "model_interpretation": "percentage",
+          "model_grain": "ENTITY",
+          "model_reasoning": "Counts all cases, determines how many have more than one distinct officer via BELONGS_TO_CASE, and computes the proportion as a percentage.",
+          "guard_violations": [],
+          "expected_columns": [
+            "value"
+          ]
+        },
+        "execution_metadata": {
+          "generation_ms": 2211.6,
+          "execution_ms": 67.7,
+          "row_count": 1
+        },
+        "result": {
+          "value": 24.65753424657534,
+          "interpretation": "percentage",
+          "grain": "ENTITY",
+          "population": "generated: MATCH (c:Case)\nOPTIONAL MATCH (o:Officer)-[:BELONGS_TO_CASE]->(c)\nWITH c, count(DISTINCT o.entity_id) AS officer_cnt\nWIT",
+          "grouping": [],
+          "unit": null
+        }
+      },
+      "semantic": {
+        "route": "semantic",
+        "status": "EXECUTION_ERROR",
+        "result_shape": "none",
+        "refusal_code": "retrieval_failed",
+        "refusal_reason": "Semantic retrieval was unavailable: Client error '404 Not Found' for url 'https://discharge-fascism-richness.ngrok-free.dev/embed'\nFor more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/404",
+        "warnings": [],
+        "provenance": {},
+        "execution_metadata": {}
+      },
+      "reconciliation": {
+        "classification": "CONFLICT",
+        "value": null,
+        "interpretation": null,
+        "grain": null,
+        "agreeing_routes": [],
+        "disagreeing_routes": [
+          "structured",
+          "age_text2cypher"
+        ],
+        "refused_routes": [
+          "semantic"
+        ],
+        "semantic_support": null,
+        "invariant_violations": [],
+        "explanation": "Independent routes disagree: structured = 5.47945205479452, age_text2cypher = 24.65753424657534, both claiming percentage at ENTITY grain. No value is served; neither route is preferred, averaged, nor adjudicated.",
+        "diagnosis": "generated query does not exclude merge tombstones, which the structured route excludes by construction; generated query does not exclude superseded edge versions, which the structured route excludes by construction",
+        "requires_investigation": true
+      },
+      "evaluation": "STRUCTURED_CORRECT_AGE_WRONG",
+      "explanation": "structured = 5.47945205479452 (correct); AGE = 24.65753424657534 (wrong, truth 5.47945205479452)",
+      "elapsed_ms": 17570.3
+    },
+    {
+      "name": "ratio_cases_multi_officer_relationship_grain",
+      "question": "What percentage of cases have more than one officer assignment?",
+      "expected_outcome": "value",
+      "ground_truth": 95.89041095890411,
+      "ground_truth_route": "GRAPH",
+      "structured": {
+        "route": "structured",
+        "status": "SUCCESS",
+        "result_shape": "ratio",
+        "refusal_code": null,
+        "refusal_reason": null,
+        "warnings": [],
+        "provenance": {
+          "engine": "deterministic AggregateSpec compiler",
+          "population_definition": "Case",
+          "grain": "ENTITY",
+          "distinct_key": "case_id",
+          "injected_predicates": [
+            "rc0.superseded_by IS NULL"
+          ],
+          "filters_applied": [],
+          "excluded_merged_n": 0,
+          "excluded_superseded_n": 0,
+          "calculation_steps": [
+            "numerator = 70 (Case where having gt 1 related Officer (counted at RELATIONSHIP grain))",
+            "denominator = 73",
+            "70 / 73 = 95.8904"
+          ]
+        },
+        "execution_metadata": {
+          "elapsed_ms": 117.9,
+          "spec_hash": "1ed4c6f4bf5c8404",
+          "registry_as_of": "2026-09-15T15:15:11.797886+00:00",
+          "queries": [
+            {
+              "backend": "age",
+              "text": "MATCH (n:Case) MATCH (rt0:Officer)-[rc0:ASSIGNED_TO]->(n) WHERE rc0.superseded_by IS NULL WITH n, count(rc0) AS relcnt WHERE relcnt > $p0 RETURN count(DISTINCT n.case_id) AS value",
+              "params": {
+                "p0": 1
+              },
+              "rows": 1,
+              "ms": 60.13990001520142
+            },
+            {
+              "backend": "age",
+              "text": "MATCH (n:Case) RETURN count(DISTINCT n.case_id) AS value",
+              "params": {},
+              "rows": 1,
+              "ms": 56.92609999096021
+            }
+          ]
+        },
+        "result": {
+          "value": 95.89041095890411,
+          "interpretation": "percentage",
+          "grain": "ENTITY",
+          "population": "Case",
+          "grouping": [],
+          "unit": "percent"
+        },
+        "coverage_verdict": "COMPLETE"
+      },
+      "age": {
+        "route": "age_text2cypher",
+        "status": "SUCCESS",
+        "result_shape": "scalar",
+        "refusal_code": null,
+        "refusal_reason": null,
+        "warnings": [],
+        "provenance": {
+          "generated_cypher": "MATCH (c:Case)\nOPTIONAL MATCH (o:Officer)-[r:ASSIGNED_TO]->(c)\nWHERE r.superseded_by IS NULL\nWITH c, count(DISTINCT o) AS officer_cnt\nWITH count(*) AS total_cases,\n     sum(CASE WHEN officer_cnt > 1 THEN 1 ELSE 0 END) AS multi_cases\nRETURN (toFloat(multi_cases) / total_cases) * 100 AS value",
+          "generated_params": {},
+          "model_interpretation": "percentage",
+          "model_grain": "ENTITY",
+          "model_reasoning": "Counts cases with >1 distinct officer assigned via non‑superseded ASSIGNED_TO edges and divides by total cases.",
+          "guard_violations": [],
+          "expected_columns": [
+            "value"
+          ]
+        },
+        "execution_metadata": {
+          "generation_ms": 5060.4,
+          "execution_ms": 62.6,
+          "row_count": 1
+        },
+        "result": {
+          "value": 5.47945205479452,
+          "interpretation": "percentage",
+          "grain": "ENTITY",
+          "population": "generated: MATCH (c:Case)\nOPTIONAL MATCH (o:Officer)-[r:ASSIGNED_TO]->(c)\nWHERE r.superseded_by IS NULL\nWITH c, count(DISTINCT o) A",
+          "grouping": [],
+          "unit": null
+        }
+      },
+      "semantic": {
+        "route": "semantic",
+        "status": "EXECUTION_ERROR",
+        "result_shape": "none",
+        "refusal_code": "retrieval_failed",
+        "refusal_reason": "Semantic retrieval was unavailable: Client error '404 Not Found' for url 'https://discharge-fascism-richness.ngrok-free.dev/embed'\nFor more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/404",
+        "warnings": [],
+        "provenance": {},
+        "execution_metadata": {}
+      },
+      "reconciliation": {
+        "classification": "CONFLICT",
+        "value": null,
+        "interpretation": null,
+        "grain": null,
+        "agreeing_routes": [],
+        "disagreeing_routes": [
+          "structured",
+          "age_text2cypher"
+        ],
+        "refused_routes": [
+          "semantic"
+        ],
+        "semantic_support": null,
+        "invariant_violations": [],
+        "explanation": "Independent routes disagree: structured = 95.89041095890411, age_text2cypher = 5.47945205479452, both claiming percentage at ENTITY grain. No value is served; neither route is preferred, averaged, nor adjudicated.",
+        "diagnosis": "generated query does not exclude merge tombstones, which the structured route excludes by construction",
+        "requires_investigation": true
+      },
+      "evaluation": "STRUCTURED_CORRECT_AGE_WRONG",
+      "explanation": "structured = 95.89041095890411 (correct); AGE = 5.47945205479452 (wrong, truth 95.89041095890411)",
+      "elapsed_ms": 20519.7
+    },
+    {
+      "name": "threshold_cases_with_more_than_one_weapon",
+      "question": "How many cases involve more than one weapon?",
+      "expected_outcome": "value",
+      "ground_truth": 0,
+      "ground_truth_route": "GRAPH",
+      "structured": {
+        "route": "structured",
+        "status": "SUCCESS",
+        "result_shape": "scalar",
+        "refusal_code": null,
+        "refusal_reason": null,
+        "warnings": [
+          "Only 0 record(s) qualify — too few to report a meaningful figure."
+        ],
+        "provenance": {
+          "engine": "deterministic AggregateSpec compiler",
+          "population_definition": "Case where having gt 1 related Weapon (counted at ENTITY grain)",
+          "grain": "ENTITY",
+          "distinct_key": "case_id",
+          "injected_predicates": [],
+          "filters_applied": [],
+          "excluded_merged_n": 0,
+          "excluded_superseded_n": 0,
+          "calculation_steps": [
+            "count_distinct over Case where having gt 1 related Weapon (counted at ENTITY grain)"
+          ]
+        },
+        "execution_metadata": {
+          "elapsed_ms": 59.8,
+          "spec_hash": "43ce98abeab08dd7",
+          "registry_as_of": "2026-09-15T15:15:11.797886+00:00",
+          "queries": [
+            {
+              "backend": "age",
+              "text": "MATCH (n:Case) MATCH (rt0:Weapon)-[rc0:BELONGS_TO_CASE]->(n) WITH n, count(DISTINCT rt0.entity_id) AS relcnt WHERE relcnt > $p0 RETURN count(DISTINCT n.case_id) AS value",
+              "params": {
+                "p0": 1
+              },
+              "rows": 1,
+              "ms": 59.38419999438338
+            }
+          ]
+        },
+        "result": {
+          "value": 0,
+          "interpretation": "count_distinct",
+          "grain": "ENTITY",
+          "population": "Case where having gt 1 related Weapon (counted at ENTITY grain)",
+          "grouping": [],
+          "unit": null
+        },
+        "coverage_verdict": "INSUFFICIENT"
+      },
+      "age": {
+        "route": "age_text2cypher",
+        "status": "REFUSED",
+        "result_shape": "none",
+        "refusal_code": "guard_semantic",
+        "refusal_reason": "Generated query refused: [SEMANTIC] superseded_not_excluded: Query traverses BELONGS_TO_CASE, which carries 222 superseded edge version(s), without excluding `superseded_by IS NULL`.",
+        "warnings": [],
+        "provenance": {
+          "generated_cypher": "MATCH (w:Weapon)-[:BELONGS_TO_CASE]->(c:Case) WITH c, count(DISTINCT w) AS weaponCount WHERE weaponCount > 1 RETURN count(DISTINCT c.case_id) AS value",
+          "generated_params": {},
+          "model_interpretation": "count",
+          "model_grain": "ENTITY",
+          "model_reasoning": "Aggregates weapons per case and counts cases where the weapon count exceeds one.",
+          "guard_violations": [
+            "superseded_not_excluded"
+          ]
+        },
+        "execution_metadata": {}
+      },
+      "semantic": {
+        "route": "semantic",
+        "status": "EXECUTION_ERROR",
+        "result_shape": "none",
+        "refusal_code": "retrieval_failed",
+        "refusal_reason": "Semantic retrieval was unavailable: Client error '404 Not Found' for url 'https://discharge-fascism-richness.ngrok-free.dev/embed'\nFor more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/404",
+        "warnings": [],
+        "provenance": {},
+        "execution_metadata": {}
+      },
+      "reconciliation": {
+        "classification": "SINGLE_ROUTE_VALID",
+        "value": 0,
+        "interpretation": "count_distinct",
+        "grain": "ENTITY",
+        "agreeing_routes": [
+          "structured"
+        ],
+        "disagreeing_routes": [],
+        "refused_routes": [
+          "age_text2cypher",
+          "semantic"
+        ],
+        "semantic_support": null,
+        "invariant_violations": [],
+        "explanation": "Only the structured route computed a value; no independent computation was available to corroborate it.",
+        "diagnosis": null,
+        "requires_investigation": false
+      },
+      "evaluation": "STRUCTURED_CORRECT_AGE_WRONG",
+      "explanation": "structured = 0 (correct); AGE route did not produce a value (guard_semantic)",
+      "elapsed_ms": 26077.3
+    },
+    {
+      "name": "ratio_zero_denominator_refused",
+      "question": "What percentage of vehicles with no plate are stolen?",
+      "expected_outcome": "refused",
+      "ground_truth": null,
+      "ground_truth_route": null,
+      "structured": {
+        "route": "structured",
+        "status": "REFUSED",
+        "result_shape": "none",
+        "refusal_code": "zero_denominator",
+        "refusal_reason": "Ratio denominator is zero; the percentage is undefined.",
+        "warnings": [],
+        "provenance": {
+          "engine": "deterministic AggregateSpec compiler",
+          "population_definition": "Vehicle",
+          "grain": "ENTITY",
+          "distinct_key": "entity_id",
+          "injected_predicates": [],
+          "filters_applied": [],
+          "excluded_merged_n": 0,
+          "excluded_superseded_n": 0,
+          "calculation_steps": []
+        },
+        "execution_metadata": {
+          "elapsed_ms": 103.4,
+          "spec_hash": "fe8b51ad48d2a6bb",
+          "registry_as_of": "2026-09-15T15:15:11.797886+00:00",
+          "queries": [
+            {
+              "backend": "age",
+              "text": "MATCH (n:Vehicle) WHERE n.entity_id = $p0 RETURN count(DISTINCT n.entity_id) AS value",
+              "params": {
+                "p0": "__nonexistent__"
+              },
+              "rows": 1,
+              "ms": 51.5599999926053
+            },
+            {
+              "backend": "age",
+              "text": "MATCH (n:Vehicle) WHERE n.entity_id = $p0 RETURN count(DISTINCT n.entity_id) AS value",
+              "params": {
+                "p0": "__nonexistent__"
+              },
+              "rows": 1,
+              "ms": 51.35209998115897
+            }
+          ]
+        }
+      },
+      "age": {
+        "route": "age_text2cypher",
+        "status": "REFUSED",
+        "result_shape": "none",
+        "refusal_code": "model_declined",
+        "refusal_reason": "Model declined to answer: The schema provides no relationship or property indicating whether a Vehicle is stolen, nor does it identify vehicles without a plate (all Vehicle nodes have a plate property). Therefore the percentage cannot be computed safely.",
+        "warnings": [],
+        "provenance": {
+          "model_reasoning": ""
+        },
+        "execution_metadata": {}
+      },
+      "semantic": {
+        "route": "semantic",
+        "status": "EXECUTION_ERROR",
+        "result_shape": "none",
+        "refusal_code": "retrieval_failed",
+        "refusal_reason": "Semantic retrieval was unavailable: Client error '404 Not Found' for url 'https://discharge-fascism-richness.ngrok-free.dev/embed'\nFor more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/404",
+        "warnings": [],
+        "provenance": {},
+        "execution_metadata": {}
+      },
+      "reconciliation": {
+        "classification": "REFUSED",
+        "value": null,
+        "interpretation": null,
+        "grain": null,
+        "agreeing_routes": [],
+        "disagreeing_routes": [],
+        "refused_routes": [
+          "structured",
+          "age_text2cypher",
+          "semantic"
+        ],
+        "semantic_support": null,
+        "invariant_violations": [],
+        "explanation": "No computation route produced a value (structured: zero_denominator; age_text2cypher: model_declined; semantic: retrieval_failed). The semantic route corroborates interpretation only and cannot supply an aggregate.",
+        "diagnosis": null,
+        "requires_investigation": false
+      },
+      "evaluation": "CORRECT_REFUSAL",
+      "explanation": "structured refused as expected (zero_denominator)",
+      "elapsed_ms": 16865.0
+    },
+    {
+      "name": "time_window_2024",
+      "question": "How many cases fall in the 2024 window?",
+      "expected_outcome": "value",
+      "ground_truth": 13,
+      "ground_truth_route": "SQL",
+      "structured": {
+        "route": "structured",
+        "status": "SUCCESS",
+        "result_shape": "scalar",
+        "refusal_code": null,
+        "refusal_reason": null,
+        "warnings": [],
+        "provenance": {
+          "engine": "deterministic AggregateSpec compiler",
+          "population_definition": "Case within incident_date [2024-01-01 .. 2024-12-31]",
+          "grain": "ENTITY",
+          "distinct_key": "case_id",
+          "injected_predicates": [],
+          "filters_applied": [
+            "incident_date in [2024-01-01 .. 2024-12-31] (inclusive, via cases.incident_date) -> 13 case(s); 51 outside the window, 9 with no recorded incident_date (authority: postgres, cases.incident_date)"
+          ],
+          "excluded_merged_n": 0,
+          "excluded_superseded_n": 0,
+          "calculation_steps": [
+            "resolved incident_date in [2024-01-01 .. 2024-12-31] (inclusive, via cases.incident_date) against cases.incident_date -> 13 case id(s)",
+            "count over Case within incident_date [2024-01-01 .. 2024-12-31]"
+          ]
+        },
+        "execution_metadata": {
+          "elapsed_ms": 80.9,
+          "spec_hash": "575dd72c59e8ae64",
+          "registry_as_of": "2026-09-15T15:15:11.797886+00:00",
+          "queries": [
+            {
+              "backend": "age",
+              "text": "MATCH (n:Case) WHERE n.case_id IN $p0 RETURN count(DISTINCT n.case_id) AS value",
+              "params": {
+                "p0": [
+                  "fir-1001-26",
+                  "fir-201-26",
+                  "fir-204-26",
+                  "fir-212-26",
+                  "fir-217-26",
+                  "fir-401-26",
+                  "fir-408-26",
+                  "fir-410-26",
+                  "fir-420-26",
+                  "fir-430-26",
+                  "fir-445-26",
+                  "fir-465-26",
+                  "fir-891-24"
+                ]
+              },
+              "rows": 1,
+              "ms": 49.053499998990446
+            }
+          ]
+        },
+        "result": {
+          "value": 13,
+          "interpretation": "count",
+          "grain": "ENTITY",
+          "population": "Case within incident_date [2024-01-01 .. 2024-12-31]",
+          "grouping": [],
+          "unit": null
+        },
+        "coverage_verdict": "COMPLETE"
+      },
+      "age": {
+        "route": "age_text2cypher",
+        "status": "REFUSED",
+        "result_shape": "none",
+        "refusal_code": "guard_semantic",
+        "refusal_reason": "Generated query refused: [SEMANTIC] superseded_not_excluded: Query traverses BELONGS_TO_CASE, which carries 222 superseded edge version(s), without excluding `superseded_by IS NULL`.",
+        "warnings": [],
+        "provenance": {
+          "generated_cypher": "MATCH (c:Case)<-[:BELONGS_TO_CASE]-(i:Incident)-[:OCCURRED_ON]->(d:Date) WHERE d.date STARTS WITH $year RETURN count(DISTINCT c.case_id) AS value",
+          "generated_params": {
+            "year": "2024"
+          },
+          "model_interpretation": "count",
+          "model_grain": "ENTITY",
+          "model_reasoning": "Counts distinct cases that have at least one incident occurring on a date in the year 2024.",
+          "guard_violations": [
+            "superseded_not_excluded"
+          ]
+        },
+        "execution_metadata": {}
+      },
+      "semantic": {
+        "route": "semantic",
+        "status": "EXECUTION_ERROR",
+        "result_shape": "none",
+        "refusal_code": "retrieval_failed",
+        "refusal_reason": "Semantic retrieval was unavailable: Client error '404 Not Found' for url 'https://discharge-fascism-richness.ngrok-free.dev/embed'\nFor more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/404",
+        "warnings": [],
+        "provenance": {},
+        "execution_metadata": {}
+      },
+      "reconciliation": {
+        "classification": "SINGLE_ROUTE_VALID",
+        "value": 13,
+        "interpretation": "count",
+        "grain": "ENTITY",
+        "agreeing_routes": [
+          "structured"
+        ],
+        "disagreeing_routes": [],
+        "refused_routes": [
+          "age_text2cypher",
+          "semantic"
+        ],
+        "semantic_support": null,
+        "invariant_violations": [],
+        "explanation": "Only the structured route computed a value; no independent computation was available to corroborate it.",
+        "diagnosis": null,
+        "requires_investigation": false
+      },
+      "evaluation": "STRUCTURED_CORRECT_AGE_WRONG",
+      "explanation": "structured = 13 (correct); AGE route did not produce a value (guard_semantic)",
+      "elapsed_ms": 17808.6
+    },
+    {
+      "name": "time_window_2026",
+      "question": "How many cases fall in the 2026 window?",
+      "expected_outcome": "value",
+      "ground_truth": 51,
+      "ground_truth_route": "SQL",
+      "structured": {
+        "route": "structured",
+        "status": "SUCCESS",
+        "result_shape": "scalar",
+        "refusal_code": null,
+        "refusal_reason": null,
+        "warnings": [],
+        "provenance": {
+          "engine": "deterministic AggregateSpec compiler",
+          "population_definition": "Case within incident_date [2026-01-01 .. 2026-12-31]",
+          "grain": "ENTITY",
+          "distinct_key": "case_id",
+          "injected_predicates": [],
+          "filters_applied": [
+            "incident_date in [2026-01-01 .. 2026-12-31] (inclusive, via cases.incident_date) -> 51 case(s); 13 outside the window, 9 with no recorded incident_date (authority: postgres, cases.incident_date)"
+          ],
+          "excluded_merged_n": 0,
+          "excluded_superseded_n": 0,
+          "calculation_steps": [
+            "resolved incident_date in [2026-01-01 .. 2026-12-31] (inclusive, via cases.incident_date) against cases.incident_date -> 51 case id(s)",
+            "count over Case within incident_date [2026-01-01 .. 2026-12-31]"
+          ]
+        },
+        "execution_metadata": {
+          "elapsed_ms": 63.2,
+          "spec_hash": "bf3e256bf9d7782e",
+          "registry_as_of": "2026-09-15T15:15:11.797886+00:00",
+          "queries": [
+            {
+              "backend": "age",
+              "text": "MATCH (n:Case) WHERE n.case_id IN $p0 RETURN count(DISTINCT n.case_id) AS value",
+              "params": {
+                "p0": [
+                  "fir-117-26",
+                  "fir-118-26",
+                  "fir-142-26",
+                  "fir-202-26",
+                  "fir-203-26",
+                  "fir-208-26",
+                  "fir-209-26",
+                  "fir-210-26",
+                  "fir-213-26",
+                  "fir-214-26",
+                  "fir-216-26",
+                  "fir-218-26",
+                  "fir-233-26",
+                  "fir-245-26",
+                  "fir-266-26",
+                  "fir-301-26",
+                  "fir-312-26",
+                  "fir-403-26",
+                  "fir-407-26",
+                  "fir-409-26",
+                  "fir-413-26",
+                  "fir-417-26",
+                  "fir-418-26",
+                  "fir-421-26",
+                  "fir-423-26",
+                  "fir-424-26",
+                  "fir-425-26",
+                  "fir-427-26",
+                  "fir-428-26",
+                  "fir-429-26",
+                  "fir-431-26",
+                  "fir-434-26",
+                  "fir-435-26",
+                  "fir-449-26",
+                  "fir-453-26",
+                  "fir-458-26",
+                  "fir-460-26",
+                  "fir-462-26",
+                  "fir-464-26",
+                  "fir-466-26",
+                  "fir-468-26",
+                  "fir-620-26",
+                  "fir-64-26",
+                  "fir-65-26",
+                  "fir-88-26",
+                  "fir-954-26",
+                  "fir-955-26",
+                  "fir-416-26",
+                  "fir-426-26",
+                  "fir-436-26",
+                  "fir-97-26"
+                ]
+              },
+              "rows": 1,
+              "ms": 48.44529999536462
+            }
+          ]
+        },
+        "result": {
+          "value": 51,
+          "interpretation": "count",
+          "grain": "ENTITY",
+          "population": "Case within incident_date [2026-01-01 .. 2026-12-31]",
+          "grouping": [],
+          "unit": null
+        },
+        "coverage_verdict": "COMPLETE"
+      },
+      "age": {
+        "route": "age_text2cypher",
+        "status": "EXECUTION_ERROR",
+        "result_shape": "none",
+        "refusal_code": "execution_failed",
+        "refusal_reason": "Generated query failed at execution: syntax error at or near \"|\"",
+        "warnings": [],
+        "provenance": {
+          "generated_cypher": "MATCH (c:Case)<-[:BELONGS_TO_CASE|:PART_OF]-(i:Incident) WHERE i.report_datetime STARTS WITH $year RETURN count(DISTINCT c.case_id) AS value",
+          "generated_params": {
+            "year": "2026"
+          },
+          "model_interpretation": "count",
+          "model_grain": "ENTITY",
+          "model_reasoning": "Count distinct cases that have at least one incident whose report_datetime begins with the year 2026.",
+          "guard_violations": [],
+          "expected_columns": [
+            "value"
+          ]
+        },
+        "execution_metadata": {}
+      },
+      "semantic": {
+        "route": "semantic",
+        "status": "EXECUTION_ERROR",
+        "result_shape": "none",
+        "refusal_code": "retrieval_failed",
+        "refusal_reason": "Semantic retrieval was unavailable: Client error '404 Not Found' for url 'https://discharge-fascism-richness.ngrok-free.dev/embed'\nFor more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/404",
+        "warnings": [],
+        "provenance": {},
+        "execution_metadata": {}
+      },
+      "reconciliation": {
+        "classification": "SINGLE_ROUTE_VALID",
+        "value": 51,
+        "interpretation": "count",
+        "grain": "ENTITY",
+        "agreeing_routes": [
+          "structured"
+        ],
+        "disagreeing_routes": [],
+        "refused_routes": [
+          "age_text2cypher",
+          "semantic"
+        ],
+        "semantic_support": null,
+        "invariant_violations": [],
+        "explanation": "Only the structured route computed a value; no independent computation was available to corroborate it.",
+        "diagnosis": null,
+        "requires_investigation": false
+      },
+      "evaluation": "STRUCTURED_CORRECT_AGE_WRONG",
+      "explanation": "structured = 51 (correct); AGE route did not produce a value (execution_failed)",
+      "elapsed_ms": 17369.8
+    },
+    {
+      "name": "time_window_2025_empty",
+      "question": "How many cases fall in the 2025_empty window?",
+      "expected_outcome": "value",
+      "ground_truth": 0,
+      "ground_truth_route": "SQL",
+      "structured": {
+        "route": "structured",
+        "status": "SUCCESS",
+        "result_shape": "scalar",
+        "refusal_code": null,
+        "refusal_reason": null,
+        "warnings": [
+          "Only 0 record(s) qualify — too few to report a meaningful figure."
+        ],
+        "provenance": {
+          "engine": "deterministic AggregateSpec compiler",
+          "population_definition": "Case within incident_date [2025-01-01 .. 2025-12-31]",
+          "grain": "ENTITY",
+          "distinct_key": "case_id",
+          "injected_predicates": [],
+          "filters_applied": [
+            "incident_date in [2025-01-01 .. 2025-12-31] (inclusive, via cases.incident_date) -> 0 case(s); 64 outside the window, 9 with no recorded incident_date (authority: postgres, cases.incident_date)"
+          ],
+          "excluded_merged_n": 0,
+          "excluded_superseded_n": 0,
+          "calculation_steps": [
+            "resolved incident_date in [2025-01-01 .. 2025-12-31] (inclusive, via cases.incident_date) against cases.incident_date -> 0 case id(s)",
+            "count over Case within incident_date [2025-01-01 .. 2025-12-31]"
+          ]
+        },
+        "execution_metadata": {
+          "elapsed_ms": 75.8,
+          "spec_hash": "97c344fa95440135",
+          "registry_as_of": "2026-09-15T15:15:11.797886+00:00",
+          "queries": [
+            {
+              "backend": "age",
+              "text": "MATCH (n:Case) WHERE n.case_id IN $p0 RETURN count(DISTINCT n.case_id) AS value",
+              "params": {
+                "p0": []
+              },
+              "rows": 1,
+              "ms": 59.20449999393895
+            }
+          ]
+        },
+        "result": {
+          "value": 0,
+          "interpretation": "count",
+          "grain": "ENTITY",
+          "population": "Case within incident_date [2025-01-01 .. 2025-12-31]",
+          "grouping": [],
+          "unit": null
+        },
+        "coverage_verdict": "INSUFFICIENT"
+      },
+      "age": {
+        "route": "age_text2cypher",
+        "status": "REFUSED",
+        "result_shape": "none",
+        "refusal_code": "model_declined",
+        "refusal_reason": "Model declined to answer: The question refers to a '2025_empty window' which is not defined in the provided schema, and there is no date or window property on Case nodes to filter by, so the query cannot be constructed unambiguously.",
+        "warnings": [],
+        "provenance": {
+          "model_reasoning": ""
+        },
+        "execution_metadata": {}
+      },
+      "semantic": {
+        "route": "semantic",
+        "status": "EXECUTION_ERROR",
+        "result_shape": "none",
+        "refusal_code": "retrieval_failed",
+        "refusal_reason": "Semantic retrieval was unavailable: Client error '404 Not Found' for url 'https://discharge-fascism-richness.ngrok-free.dev/embed'\nFor more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/404",
+        "warnings": [],
+        "provenance": {},
+        "execution_metadata": {}
+      },
+      "reconciliation": {
+        "classification": "SINGLE_ROUTE_VALID",
+        "value": 0,
+        "interpretation": "count",
+        "grain": "ENTITY",
+        "agreeing_routes": [
+          "structured"
+        ],
+        "disagreeing_routes": [],
+        "refused_routes": [
+          "age_text2cypher",
+          "semantic"
+        ],
+        "semantic_support": null,
+        "invariant_violations": [],
+        "explanation": "Only the structured route computed a value; no independent computation was available to corroborate it.",
+        "diagnosis": null,
+        "requires_investigation": false
+      },
+      "evaluation": "STRUCTURED_CORRECT_AGE_WRONG",
+      "explanation": "structured = 0 (correct); AGE route did not produce a value (model_declined)",
+      "elapsed_ms": 16564.2
+    },
+    {
+      "name": "time_window_lower_bound_only",
+      "question": "How many cases fall in the lower_bound_only window?",
+      "expected_outcome": "value",
+      "ground_truth": 51,
+      "ground_truth_route": "SQL",
+      "structured": {
+        "route": "structured",
+        "status": "SUCCESS",
+        "result_shape": "scalar",
+        "refusal_code": null,
+        "refusal_reason": null,
+        "warnings": [],
+        "provenance": {
+          "engine": "deterministic AggregateSpec compiler",
+          "population_definition": "Case within incident_date [2026-01-01 .. +inf]",
+          "grain": "ENTITY",
+          "distinct_key": "case_id",
+          "injected_predicates": [],
+          "filters_applied": [
+            "incident_date in [2026-01-01 .. +inf] (inclusive, via cases.incident_date) -> 51 case(s); 13 outside the window, 9 with no recorded incident_date (authority: postgres, cases.incident_date)"
+          ],
+          "excluded_merged_n": 0,
+          "excluded_superseded_n": 0,
+          "calculation_steps": [
+            "resolved incident_date in [2026-01-01 .. +inf] (inclusive, via cases.incident_date) against cases.incident_date -> 51 case id(s)",
+            "count over Case within incident_date [2026-01-01 .. +inf]"
+          ]
+        },
+        "execution_metadata": {
+          "elapsed_ms": 76.5,
+          "spec_hash": "5fa42f4b8a6f6090",
+          "registry_as_of": "2026-09-15T15:15:11.797886+00:00",
+          "queries": [
+            {
+              "backend": "age",
+              "text": "MATCH (n:Case) WHERE n.case_id IN $p0 RETURN count(DISTINCT n.case_id) AS value",
+              "params": {
+                "p0": [
+                  "fir-117-26",
+                  "fir-118-26",
+                  "fir-142-26",
+                  "fir-202-26",
+                  "fir-203-26",
+                  "fir-208-26",
+                  "fir-209-26",
+                  "fir-210-26",
+                  "fir-213-26",
+                  "fir-214-26",
+                  "fir-216-26",
+                  "fir-218-26",
+                  "fir-233-26",
+                  "fir-245-26",
+                  "fir-266-26",
+                  "fir-301-26",
+                  "fir-312-26",
+                  "fir-403-26",
+                  "fir-407-26",
+                  "fir-409-26",
+                  "fir-413-26",
+                  "fir-417-26",
+                  "fir-418-26",
+                  "fir-421-26",
+                  "fir-423-26",
+                  "fir-424-26",
+                  "fir-425-26",
+                  "fir-427-26",
+                  "fir-428-26",
+                  "fir-429-26",
+                  "fir-431-26",
+                  "fir-434-26",
+                  "fir-435-26",
+                  "fir-449-26",
+                  "fir-453-26",
+                  "fir-458-26",
+                  "fir-460-26",
+                  "fir-462-26",
+                  "fir-464-26",
+                  "fir-466-26",
+                  "fir-468-26",
+                  "fir-620-26",
+                  "fir-64-26",
+                  "fir-65-26",
+                  "fir-88-26",
+                  "fir-954-26",
+                  "fir-955-26",
+                  "fir-416-26",
+                  "fir-426-26",
+                  "fir-436-26",
+                  "fir-97-26"
+                ]
+              },
+              "rows": 1,
+              "ms": 54.655799991451204
+            }
+          ]
+        },
+        "result": {
+          "value": 51,
+          "interpretation": "count",
+          "grain": "ENTITY",
+          "population": "Case within incident_date [2026-01-01 .. +inf]",
+          "grouping": [],
+          "unit": null
+        },
+        "coverage_verdict": "COMPLETE"
+      },
+      "age": {
+        "route": "age_text2cypher",
+        "status": "REFUSED",
+        "result_shape": "none",
+        "refusal_code": "model_declined",
+        "refusal_reason": "Model declined to answer: The schema does not contain any property, relationship, or context named 'lower_bound_only' or a defined window for cases, so the question cannot be answered unambiguously.",
+        "warnings": [],
+        "provenance": {
+          "model_reasoning": ""
+        },
+        "execution_metadata": {}
+      },
+      "semantic": {
+        "route": "semantic",
+        "status": "EXECUTION_ERROR",
+        "result_shape": "none",
+        "refusal_code": "retrieval_failed",
+        "refusal_reason": "Semantic retrieval was unavailable: Client error '404 Not Found' for url 'https://discharge-fascism-richness.ngrok-free.dev/embed'\nFor more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/404",
+        "warnings": [],
+        "provenance": {},
+        "execution_metadata": {}
+      },
+      "reconciliation": {
+        "classification": "SINGLE_ROUTE_VALID",
+        "value": 51,
+        "interpretation": "count",
+        "grain": "ENTITY",
+        "agreeing_routes": [
+          "structured"
+        ],
+        "disagreeing_routes": [],
+        "refused_routes": [
+          "age_text2cypher",
+          "semantic"
+        ],
+        "semantic_support": null,
+        "invariant_violations": [],
+        "explanation": "Only the structured route computed a value; no independent computation was available to corroborate it.",
+        "diagnosis": null,
+        "requires_investigation": false
+      },
+      "evaluation": "STRUCTURED_CORRECT_AGE_WRONG",
+      "explanation": "structured = 51 (correct); AGE route did not produce a value (model_declined)",
+      "elapsed_ms": 17321.9
+    },
+    {
+      "name": "time_window_upper_bound_only",
+      "question": "How many cases fall in the upper_bound_only window?",
+      "expected_outcome": "value",
+      "ground_truth": 13,
+      "ground_truth_route": "SQL",
+      "structured": {
+        "route": "structured",
+        "status": "SUCCESS",
+        "result_shape": "scalar",
+        "refusal_code": null,
+        "refusal_reason": null,
+        "warnings": [],
+        "provenance": {
+          "engine": "deterministic AggregateSpec compiler",
+          "population_definition": "Case within incident_date [-inf .. 2024-12-31]",
+          "grain": "ENTITY",
+          "distinct_key": "case_id",
+          "injected_predicates": [],
+          "filters_applied": [
+            "incident_date in [-inf .. 2024-12-31] (inclusive, via cases.incident_date) -> 13 case(s); 51 outside the window, 9 with no recorded incident_date (authority: postgres, cases.incident_date)"
+          ],
+          "excluded_merged_n": 0,
+          "excluded_superseded_n": 0,
+          "calculation_steps": [
+            "resolved incident_date in [-inf .. 2024-12-31] (inclusive, via cases.incident_date) against cases.incident_date -> 13 case id(s)",
+            "count over Case within incident_date [-inf .. 2024-12-31]"
+          ]
+        },
+        "execution_metadata": {
+          "elapsed_ms": 76.9,
+          "spec_hash": "21c7aad0eb358902",
+          "registry_as_of": "2026-09-15T15:15:11.797886+00:00",
+          "queries": [
+            {
+              "backend": "age",
+              "text": "MATCH (n:Case) WHERE n.case_id IN $p0 RETURN count(DISTINCT n.case_id) AS value",
+              "params": {
+                "p0": [
+                  "fir-1001-26",
+                  "fir-201-26",
+                  "fir-204-26",
+                  "fir-212-26",
+                  "fir-217-26",
+                  "fir-401-26",
+                  "fir-408-26",
+                  "fir-410-26",
+                  "fir-420-26",
+                  "fir-430-26",
+                  "fir-445-26",
+                  "fir-465-26",
+                  "fir-891-24"
+                ]
+              },
+              "rows": 1,
+              "ms": 54.76790000102483
+            }
+          ]
+        },
+        "result": {
+          "value": 13,
+          "interpretation": "count",
+          "grain": "ENTITY",
+          "population": "Case within incident_date [-inf .. 2024-12-31]",
+          "grouping": [],
+          "unit": null
+        },
+        "coverage_verdict": "COMPLETE"
+      },
+      "age": {
+        "route": "age_text2cypher",
+        "status": "REFUSED",
+        "result_shape": "none",
+        "refusal_code": "model_declined",
+        "refusal_reason": "Model declined to answer: The question refers to an 'upper_bound_only' window, which is not defined in the provided schema, so the query cannot be constructed unambiguously.",
+        "warnings": [],
+        "provenance": {
+          "model_reasoning": ""
+        },
+        "execution_metadata": {}
+      },
+      "semantic": {
+        "route": "semantic",
+        "status": "EXECUTION_ERROR",
+        "result_shape": "none",
+        "refusal_code": "retrieval_failed",
+        "refusal_reason": "Semantic retrieval was unavailable: Client error '404 Not Found' for url 'https://discharge-fascism-richness.ngrok-free.dev/embed'\nFor more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/404",
+        "warnings": [],
+        "provenance": {},
+        "execution_metadata": {}
+      },
+      "reconciliation": {
+        "classification": "SINGLE_ROUTE_VALID",
+        "value": 13,
+        "interpretation": "count",
+        "grain": "ENTITY",
+        "agreeing_routes": [
+          "structured"
+        ],
+        "disagreeing_routes": [],
+        "refused_routes": [
+          "age_text2cypher",
+          "semantic"
+        ],
+        "semantic_support": null,
+        "invariant_violations": [],
+        "explanation": "Only the structured route computed a value; no independent computation was available to corroborate it.",
+        "diagnosis": null,
+        "requires_investigation": false
+      },
+      "evaluation": "STRUCTURED_CORRECT_AGE_WRONG",
+      "explanation": "structured = 13 (correct); AGE route did not produce a value (model_declined)",
+      "elapsed_ms": 17136.9
+    },
+    {
+      "name": "time_window_narrow_sept_2024",
+      "question": "How many cases fall in the narrow_sept_2024 window?",
+      "expected_outcome": "value",
+      "ground_truth": 13,
+      "ground_truth_route": "SQL",
+      "structured": {
+        "route": "structured",
+        "status": "SUCCESS",
+        "result_shape": "scalar",
+        "refusal_code": null,
+        "refusal_reason": null,
+        "warnings": [],
+        "provenance": {
+          "engine": "deterministic AggregateSpec compiler",
+          "population_definition": "Case within incident_date [2024-09-01 .. 2024-09-30]",
+          "grain": "ENTITY",
+          "distinct_key": "case_id",
+          "injected_predicates": [],
+          "filters_applied": [
+            "incident_date in [2024-09-01 .. 2024-09-30] (inclusive, via cases.incident_date) -> 13 case(s); 51 outside the window, 9 with no recorded incident_date (authority: postgres, cases.incident_date)"
+          ],
+          "excluded_merged_n": 0,
+          "excluded_superseded_n": 0,
+          "calculation_steps": [
+            "resolved incident_date in [2024-09-01 .. 2024-09-30] (inclusive, via cases.incident_date) against cases.incident_date -> 13 case id(s)",
+            "count over Case within incident_date [2024-09-01 .. 2024-09-30]"
+          ]
+        },
+        "execution_metadata": {
+          "elapsed_ms": 75.8,
+          "spec_hash": "1e0de53adcfded50",
+          "registry_as_of": "2026-09-15T15:15:11.797886+00:00",
+          "queries": [
+            {
+              "backend": "age",
+              "text": "MATCH (n:Case) WHERE n.case_id IN $p0 RETURN count(DISTINCT n.case_id) AS value",
+              "params": {
+                "p0": [
+                  "fir-1001-26",
+                  "fir-201-26",
+                  "fir-204-26",
+                  "fir-212-26",
+                  "fir-217-26",
+                  "fir-401-26",
+                  "fir-408-26",
+                  "fir-410-26",
+                  "fir-420-26",
+                  "fir-430-26",
+                  "fir-445-26",
+                  "fir-465-26",
+                  "fir-891-24"
+                ]
+              },
+              "rows": 1,
+              "ms": 55.1248999836389
+            }
+          ]
+        },
+        "result": {
+          "value": 13,
+          "interpretation": "count",
+          "grain": "ENTITY",
+          "population": "Case within incident_date [2024-09-01 .. 2024-09-30]",
+          "grouping": [],
+          "unit": null
+        },
+        "coverage_verdict": "COMPLETE"
+      },
+      "age": {
+        "route": "age_text2cypher",
+        "status": "SUCCESS",
+        "result_shape": "scalar",
+        "refusal_code": null,
+        "refusal_reason": null,
+        "warnings": [],
+        "provenance": {
+          "generated_cypher": "MATCH (c:Case) WHERE c.as_of >= $start AND c.as_of <= $end RETURN count(DISTINCT c.case_id) AS value",
+          "generated_params": {
+            "start": "2024-09-01",
+            "end": "2024-09-30"
+          },
+          "model_interpretation": "count",
+          "model_grain": "ENTITY",
+          "model_reasoning": "Count distinct case identifiers whose as_of timestamp falls within the specified September 2024 window.",
+          "guard_violations": [],
+          "expected_columns": [
+            "value"
+          ]
+        },
+        "execution_metadata": {
+          "generation_ms": 9704.3,
+          "execution_ms": 66.5,
+          "row_count": 1
+        },
+        "result": {
+          "value": 0,
+          "interpretation": "count",
+          "grain": "ENTITY",
+          "population": "generated: MATCH (c:Case) WHERE c.as_of >= $start AND c.as_of <= $end RETURN count(DISTINCT c.case_id) AS value",
+          "grouping": [],
+          "unit": null
+        }
+      },
+      "semantic": {
+        "route": "semantic",
+        "status": "EXECUTION_ERROR",
+        "result_shape": "none",
+        "refusal_code": "retrieval_failed",
+        "refusal_reason": "Semantic retrieval was unavailable: Client error '404 Not Found' for url 'https://discharge-fascism-richness.ngrok-free.dev/embed'\nFor more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/404",
+        "warnings": [],
+        "provenance": {},
+        "execution_metadata": {}
+      },
+      "reconciliation": {
+        "classification": "CONFLICT",
+        "value": null,
+        "interpretation": null,
+        "grain": null,
+        "agreeing_routes": [],
+        "disagreeing_routes": [
+          "structured",
+          "age_text2cypher"
+        ],
+        "refused_routes": [
+          "semantic"
+        ],
+        "semantic_support": null,
+        "invariant_violations": [],
+        "explanation": "Independent routes disagree: structured = 13, age_text2cypher = 0, both claiming count at ENTITY grain. No value is served; neither route is preferred, averaged, nor adjudicated.",
+        "diagnosis": "generated query does not exclude merge tombstones, which the structured route excludes by construction; generated query does not exclude superseded edge versions, which the structured route excludes by construction",
+        "requires_investigation": true
+      },
+      "evaluation": "STRUCTURED_CORRECT_AGE_WRONG",
+      "explanation": "structured = 13 (correct); AGE = 0 (wrong, truth 13)",
+      "elapsed_ms": 25062.4
+    },
+    {
+      "name": "time_window_pre_2020_empty",
+      "question": "How many cases fall in the pre_2020_empty window?",
+      "expected_outcome": "value",
+      "ground_truth": 0,
+      "ground_truth_route": "SQL",
+      "structured": {
+        "route": "structured",
+        "status": "SUCCESS",
+        "result_shape": "scalar",
+        "refusal_code": null,
+        "refusal_reason": null,
+        "warnings": [
+          "Only 0 record(s) qualify — too few to report a meaningful figure."
+        ],
+        "provenance": {
+          "engine": "deterministic AggregateSpec compiler",
+          "population_definition": "Case within incident_date [-inf .. 2019-12-31]",
+          "grain": "ENTITY",
+          "distinct_key": "case_id",
+          "injected_predicates": [],
+          "filters_applied": [
+            "incident_date in [-inf .. 2019-12-31] (inclusive, via cases.incident_date) -> 0 case(s); 64 outside the window, 9 with no recorded incident_date (authority: postgres, cases.incident_date)"
+          ],
+          "excluded_merged_n": 0,
+          "excluded_superseded_n": 0,
+          "calculation_steps": [
+            "resolved incident_date in [-inf .. 2019-12-31] (inclusive, via cases.incident_date) against cases.incident_date -> 0 case id(s)",
+            "count over Case within incident_date [-inf .. 2019-12-31]"
+          ]
+        },
+        "execution_metadata": {
+          "elapsed_ms": 65.3,
+          "spec_hash": "add3c1255b1fa876",
+          "registry_as_of": "2026-09-15T15:15:11.797886+00:00",
+          "queries": [
+            {
+              "backend": "age",
+              "text": "MATCH (n:Case) WHERE n.case_id IN $p0 RETURN count(DISTINCT n.case_id) AS value",
+              "params": {
+                "p0": []
+              },
+              "rows": 1,
+              "ms": 49.36539998743683
+            }
+          ]
+        },
+        "result": {
+          "value": 0,
+          "interpretation": "count",
+          "grain": "ENTITY",
+          "population": "Case within incident_date [-inf .. 2019-12-31]",
+          "grouping": [],
+          "unit": null
+        },
+        "coverage_verdict": "INSUFFICIENT"
+      },
+      "age": {
+        "route": "age_text2cypher",
+        "status": "REFUSED",
+        "result_shape": "none",
+        "refusal_code": "model_declined",
+        "refusal_reason": "Model declined to answer: The schema does not contain any date or window property on Case nodes, nor a defined 'pre_2020_empty' window, so the question cannot be answered unambiguously.",
+        "warnings": [],
+        "provenance": {
+          "model_reasoning": ""
+        },
+        "execution_metadata": {}
+      },
+      "semantic": {
+        "route": "semantic",
+        "status": "EXECUTION_ERROR",
+        "result_shape": "none",
+        "refusal_code": "retrieval_failed",
+        "refusal_reason": "Semantic retrieval was unavailable: Client error '404 Not Found' for url 'https://discharge-fascism-richness.ngrok-free.dev/embed'\nFor more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/404",
+        "warnings": [],
+        "provenance": {},
+        "execution_metadata": {}
+      },
+      "reconciliation": {
+        "classification": "SINGLE_ROUTE_VALID",
+        "value": 0,
+        "interpretation": "count",
+        "grain": "ENTITY",
+        "agreeing_routes": [
+          "structured"
+        ],
+        "disagreeing_routes": [],
+        "refused_routes": [
+          "age_text2cypher",
+          "semantic"
+        ],
+        "semantic_support": null,
+        "invariant_violations": [],
+        "explanation": "Only the structured route computed a value; no independent computation was available to corroborate it.",
+        "diagnosis": null,
+        "requires_investigation": false
+      },
+      "evaluation": "STRUCTURED_CORRECT_AGE_WRONG",
+      "explanation": "structured = 0 (correct); AGE route did not produce a value (model_declined)",
+      "elapsed_ms": 25193.1
+    },
+    {
+      "name": "time_window_inclusive_min_boundary",
+      "question": "How many cases fall in the inclusive_min_boundary window?",
+      "expected_outcome": "value",
+      "ground_truth": 1,
+      "ground_truth_route": "SQL",
+      "structured": {
+        "route": "structured",
+        "status": "SUCCESS",
+        "result_shape": "scalar",
+        "refusal_code": null,
+        "refusal_reason": null,
+        "warnings": [
+          "Only 1 record(s) qualify — too few to report a meaningful figure."
+        ],
+        "provenance": {
+          "engine": "deterministic AggregateSpec compiler",
+          "population_definition": "Case within incident_date [2024-09-14 .. 2024-09-14]",
+          "grain": "ENTITY",
+          "distinct_key": "case_id",
+          "injected_predicates": [],
+          "filters_applied": [
+            "incident_date in [2024-09-14 .. 2024-09-14] (inclusive, via cases.incident_date) -> 1 case(s); 63 outside the window, 9 with no recorded incident_date (authority: postgres, cases.incident_date)"
+          ],
+          "excluded_merged_n": 0,
+          "excluded_superseded_n": 0,
+          "calculation_steps": [
+            "resolved incident_date in [2024-09-14 .. 2024-09-14] (inclusive, via cases.incident_date) against cases.incident_date -> 1 case id(s)",
+            "count over Case within incident_date [2024-09-14 .. 2024-09-14]"
+          ]
+        },
+        "execution_metadata": {
+          "elapsed_ms": 72.7,
+          "spec_hash": "2e30f4b45903bc3f",
+          "registry_as_of": "2026-09-15T15:15:11.797886+00:00",
+          "queries": [
+            {
+              "backend": "age",
+              "text": "MATCH (n:Case) WHERE n.case_id IN $p0 RETURN count(DISTINCT n.case_id) AS value",
+              "params": {
+                "p0": [
+                  "fir-891-24"
+                ]
+              },
+              "rows": 1,
+              "ms": 56.676400010474026
+            }
+          ]
+        },
+        "result": {
+          "value": 1,
+          "interpretation": "count",
+          "grain": "ENTITY",
+          "population": "Case within incident_date [2024-09-14 .. 2024-09-14]",
+          "grouping": [],
+          "unit": null
+        },
+        "coverage_verdict": "INSUFFICIENT"
+      },
+      "age": {
+        "route": "age_text2cypher",
+        "status": "REFUSED",
+        "result_shape": "none",
+        "refusal_code": "model_declined",
+        "refusal_reason": "Model declined to answer: The schema does not contain an 'inclusive_min_boundary' property on the Case label (or any related label), so the question cannot be answered safely.",
+        "warnings": [],
+        "provenance": {
+          "model_reasoning": ""
+        },
+        "execution_metadata": {}
+      },
+      "semantic": {
+        "route": "semantic",
+        "status": "EXECUTION_ERROR",
+        "result_shape": "none",
+        "refusal_code": "retrieval_failed",
+        "refusal_reason": "Semantic retrieval was unavailable: Client error '404 Not Found' for url 'https://discharge-fascism-richness.ngrok-free.dev/embed'\nFor more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/404",
+        "warnings": [],
+        "provenance": {},
+        "execution_metadata": {}
+      },
+      "reconciliation": {
+        "classification": "SINGLE_ROUTE_VALID",
+        "value": 1,
+        "interpretation": "count",
+        "grain": "ENTITY",
+        "agreeing_routes": [
+          "structured"
+        ],
+        "disagreeing_routes": [],
+        "refused_routes": [
+          "age_text2cypher",
+          "semantic"
+        ],
+        "semantic_support": null,
+        "invariant_violations": [],
+        "explanation": "Only the structured route computed a value; no independent computation was available to corroborate it.",
+        "diagnosis": null,
+        "requires_investigation": false
+      },
+      "evaluation": "STRUCTURED_CORRECT_AGE_WRONG",
+      "explanation": "structured = 1 (correct); AGE route did not produce a value (model_declined)",
+      "elapsed_ms": 21959.9
+    },
+    {
+      "name": "time_window_inclusive_max_boundary",
+      "question": "How many cases fall in the inclusive_max_boundary window?",
+      "expected_outcome": "value",
+      "ground_truth": 1,
+      "ground_truth_route": "SQL",
+      "structured": {
+        "route": "structured",
+        "status": "SUCCESS",
+        "result_shape": "scalar",
+        "refusal_code": null,
+        "refusal_reason": null,
+        "warnings": [
+          "Only 1 record(s) qualify — too few to report a meaningful figure."
+        ],
+        "provenance": {
+          "engine": "deterministic AggregateSpec compiler",
+          "population_definition": "Case within incident_date [2026-08-01 .. 2026-08-01]",
+          "grain": "ENTITY",
+          "distinct_key": "case_id",
+          "injected_predicates": [],
+          "filters_applied": [
+            "incident_date in [2026-08-01 .. 2026-08-01] (inclusive, via cases.incident_date) -> 1 case(s); 63 outside the window, 9 with no recorded incident_date (authority: postgres, cases.incident_date)"
+          ],
+          "excluded_merged_n": 0,
+          "excluded_superseded_n": 0,
+          "calculation_steps": [
+            "resolved incident_date in [2026-08-01 .. 2026-08-01] (inclusive, via cases.incident_date) against cases.incident_date -> 1 case id(s)",
+            "count over Case within incident_date [2026-08-01 .. 2026-08-01]"
+          ]
+        },
+        "execution_metadata": {
+          "elapsed_ms": 64.8,
+          "spec_hash": "f249a6d6b7156cfb",
+          "registry_as_of": "2026-09-15T15:15:11.797886+00:00",
+          "queries": [
+            {
+              "backend": "age",
+              "text": "MATCH (n:Case) WHERE n.case_id IN $p0 RETURN count(DISTINCT n.case_id) AS value",
+              "params": {
+                "p0": [
+                  "fir-620-26"
+                ]
+              },
+              "rows": 1,
+              "ms": 49.64599999948405
+            }
+          ]
+        },
+        "result": {
+          "value": 1,
+          "interpretation": "count",
+          "grain": "ENTITY",
+          "population": "Case within incident_date [2026-08-01 .. 2026-08-01]",
+          "grouping": [],
+          "unit": null
+        },
+        "coverage_verdict": "INSUFFICIENT"
+      },
+      "age": {
+        "route": "age_text2cypher",
+        "status": "REFUSED",
+        "result_shape": "none",
+        "refusal_code": "model_declined",
+        "refusal_reason": "Model declined to answer: The schema does not contain any property or relationship named 'inclusive_max_boundary' (or a comparable date/window field) on the Case label, so the question cannot be answered unambiguously.",
+        "warnings": [],
+        "provenance": {
+          "model_reasoning": ""
+        },
+        "execution_metadata": {}
+      },
+      "semantic": {
+        "route": "semantic",
+        "status": "EXECUTION_ERROR",
+        "result_shape": "none",
+        "refusal_code": "retrieval_failed",
+        "refusal_reason": "Semantic retrieval was unavailable: Client error '404 Not Found' for url 'https://discharge-fascism-richness.ngrok-free.dev/embed'\nFor more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/404",
+        "warnings": [],
+        "provenance": {},
+        "execution_metadata": {}
+      },
+      "reconciliation": {
+        "classification": "SINGLE_ROUTE_VALID",
+        "value": 1,
+        "interpretation": "count",
+        "grain": "ENTITY",
+        "agreeing_routes": [
+          "structured"
+        ],
+        "disagreeing_routes": [],
+        "refused_routes": [
+          "age_text2cypher",
+          "semantic"
+        ],
+        "semantic_support": null,
+        "invariant_violations": [],
+        "explanation": "Only the structured route computed a value; no independent computation was available to corroborate it.",
+        "diagnosis": null,
+        "requires_investigation": false
+      },
+      "evaluation": "STRUCTURED_CORRECT_AGE_WRONG",
+      "explanation": "structured = 1 (correct); AGE route did not produce a value (model_declined)",
+      "elapsed_ms": 20709.9
+    },
+    {
+      "name": "time_window_inverted_range_refused",
+      "question": "How many cases between 2026 and 2024?",
+      "expected_outcome": "refused",
+      "ground_truth": null,
+      "ground_truth_route": null,
+      "structured": {
+        "route": "structured",
+        "status": "REFUSED",
+        "result_shape": "none",
+        "refusal_code": "invalid_time_window",
+        "refusal_reason": "time_window start '2026-01-01' is after end '2024-01-01'; an inverted range matches nothing and is almost certainly a mistake rather than an intent.",
+        "warnings": [],
+        "provenance": {
+          "engine": "deterministic AggregateSpec compiler",
+          "population_definition": "Case within incident_date [2026-01-01 .. 2024-01-01]",
+          "grain": "ENTITY",
+          "distinct_key": "case_id",
+          "injected_predicates": [],
+          "filters_applied": [],
+          "excluded_merged_n": 0,
+          "excluded_superseded_n": 0,
+          "calculation_steps": []
+        },
+        "execution_metadata": {
+          "elapsed_ms": 0.2,
+          "spec_hash": "fb250757357aabe5",
+          "registry_as_of": "2026-09-15T15:15:11.797886+00:00",
+          "queries": []
+        }
+      },
+      "age": {
+        "route": "age_text2cypher",
+        "status": "REFUSED",
+        "result_shape": "none",
+        "refusal_code": "model_declined",
+        "refusal_reason": "Model declined to answer: The schema does not provide a date property on Case nodes or a direct relationship to Date nodes that would allow counting cases between the years 2024 and 2026.",
+        "warnings": [],
+        "provenance": {
+          "model_reasoning": ""
+        },
+        "execution_metadata": {}
+      },
+      "semantic": {
+        "route": "semantic",
+        "status": "EXECUTION_ERROR",
+        "result_shape": "none",
+        "refusal_code": "retrieval_failed",
+        "refusal_reason": "Semantic retrieval was unavailable: Client error '404 Not Found' for url 'https://discharge-fascism-richness.ngrok-free.dev/embed'\nFor more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/404",
+        "warnings": [],
+        "provenance": {},
+        "execution_metadata": {}
+      },
+      "reconciliation": {
+        "classification": "REFUSED",
+        "value": null,
+        "interpretation": null,
+        "grain": null,
+        "agreeing_routes": [],
+        "disagreeing_routes": [],
+        "refused_routes": [
+          "structured",
+          "age_text2cypher",
+          "semantic"
+        ],
+        "semantic_support": null,
+        "invariant_violations": [],
+        "explanation": "No computation route produced a value (structured: invalid_time_window; age_text2cypher: model_declined; semantic: retrieval_failed). The semantic route corroborates interpretation only and cannot supply an aggregate.",
+        "diagnosis": null,
+        "requires_investigation": false
+      },
+      "evaluation": "CORRECT_REFUSAL",
+      "explanation": "structured refused as expected (invalid_time_window)",
+      "elapsed_ms": 17075.5
+    },
+    {
+      "name": "time_window_unsupported_field_refused",
+      "question": "How many persons aged within 2024?",
+      "expected_outcome": "refused",
+      "ground_truth": null,
+      "ground_truth_route": null,
+      "structured": {
+        "route": "structured",
+        "status": "REFUSED",
+        "result_shape": "none",
+        "refusal_code": "unsupported_operation",
+        "refusal_reason": "time_window on 'Person.age' is not implemented: the registry gives its authority as 'graph' and no temporal resolution exists for it. Supported: incident_date. Refused rather than ignored.",
+        "warnings": [],
+        "provenance": {
+          "engine": "deterministic AggregateSpec compiler",
+          "population_definition": "Person within Person.age [2024-01-01 .. +inf]",
+          "grain": "ENTITY",
+          "distinct_key": "entity_id",
+          "injected_predicates": [],
+          "filters_applied": [],
+          "excluded_merged_n": 0,
+          "excluded_superseded_n": 0,
+          "calculation_steps": []
+        },
+        "execution_metadata": {
+          "elapsed_ms": 0.5,
+          "spec_hash": "07d507a0ebfab11a",
+          "registry_as_of": "2026-09-15T15:15:11.797886+00:00",
+          "queries": []
+        }
+      },
+      "age": {
+        "route": "age_text2cypher",
+        "status": "SUCCESS",
+        "result_shape": "scalar",
+        "refusal_code": null,
+        "refusal_reason": null,
+        "warnings": [],
+        "provenance": {
+          "generated_cypher": "MATCH (p:Person)-[:OCCURRED_ON]->(d:Date) WHERE p.merged_into IS NULL AND d.date >= $start_date AND d.date <= $end_date RETURN count(DISTINCT p.entity_id) AS value",
+          "generated_params": {
+            "start_date": "2024-01-01",
+            "end_date": "2024-12-31"
+          },
+          "model_interpretation": "count_distinct",
+          "model_grain": "ENTITY",
+          "model_reasoning": "Counts distinct non‑merged Person nodes linked to a Date node whose date falls within the year 2024.",
+          "guard_violations": [],
+          "expected_columns": [
+            "value"
+          ]
+        },
+        "execution_metadata": {
+          "generation_ms": 2466.5,
+          "execution_ms": 53.7,
+          "row_count": 1
+        },
+        "result": {
+          "value": 13,
+          "interpretation": "count_distinct",
+          "grain": "ENTITY",
+          "population": "generated: MATCH (p:Person)-[:OCCURRED_ON]->(d:Date) WHERE p.merged_into IS NULL AND d.date >= $start_date AND d.date <= $end_date ",
+          "grouping": [],
+          "unit": null
+        }
+      },
+      "semantic": {
+        "route": "semantic",
+        "status": "EXECUTION_ERROR",
+        "result_shape": "none",
+        "refusal_code": "retrieval_failed",
+        "refusal_reason": "Semantic retrieval was unavailable: Client error '404 Not Found' for url 'https://discharge-fascism-richness.ngrok-free.dev/embed'\nFor more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/404",
+        "warnings": [],
+        "provenance": {},
+        "execution_metadata": {}
+      },
+      "reconciliation": {
+        "classification": "SINGLE_ROUTE_VALID",
+        "value": 13,
+        "interpretation": "count_distinct",
+        "grain": "ENTITY",
+        "agreeing_routes": [
+          "age_text2cypher"
+        ],
+        "disagreeing_routes": [],
+        "refused_routes": [
+          "structured",
+          "semantic"
+        ],
+        "semantic_support": null,
+        "invariant_violations": [],
+        "explanation": "Only the age_text2cypher route computed a value; no independent computation was available to corroborate it.",
+        "diagnosis": null,
+        "requires_investigation": false
+      },
+      "evaluation": "CORRECT_REFUSAL",
+      "explanation": "structured refused as expected (unsupported_operation); the AGE route produced 13 for the same question, which the architecture surfaces rather than hides",
+      "elapsed_ms": 17709.5
+    },
+    {
+      "name": "time_window_population_without_case_refused",
+      "question": "How many officers in 2024?",
+      "expected_outcome": "refused",
+      "ground_truth": null,
+      "ground_truth_route": null,
+      "structured": {
+        "route": "structured",
+        "status": "REFUSED",
+        "result_shape": "none",
+        "refusal_code": "compile_failed",
+        "refusal_reason": "a case-id restriction was requested but the population (Officer) does not reach Case, so the restriction cannot be applied",
+        "warnings": [],
+        "provenance": {
+          "engine": "deterministic AggregateSpec compiler",
+          "population_definition": "Officer within incident_date [2024-01-01 .. +inf]",
+          "grain": "ENTITY",
+          "distinct_key": "entity_id",
+          "injected_predicates": [],
+          "filters_applied": [],
+          "excluded_merged_n": 0,
+          "excluded_superseded_n": 0,
+          "calculation_steps": []
+        },
+        "execution_metadata": {
+          "elapsed_ms": 15.4,
+          "spec_hash": "3cf467f5ff3ec2b4",
+          "registry_as_of": "2026-09-15T15:15:11.797886+00:00",
+          "queries": []
+        }
+      },
+      "age": {
+        "route": "age_text2cypher",
+        "status": "EXECUTION_ERROR",
+        "result_shape": "none",
+        "refusal_code": "execution_failed",
+        "refusal_reason": "Generated query failed at execution: function ag_catalog.age_todate(agtype) does not exist\nHINT:  No function matches the given name and argument types. You might need to add explicit type casts.",
+        "warnings": [],
+        "provenance": {
+          "generated_cypher": "MATCH (o:Officer)-[:OCCURRED_ON]->(d:Date) WHERE d.date >= toDate($start_date) AND d.date < toDate($end_date) RETURN count(DISTINCT o.entity_id) AS value",
+          "generated_params": {
+            "start_date": "2024-01-01",
+            "end_date": "2025-01-01"
+          },
+          "model_interpretation": "count",
+          "model_grain": "ENTITY",
+          "model_reasoning": "Count distinct Officer entities that have an OCCURRED_ON relationship to a Date node within the year 2024.",
+          "guard_violations": [],
+          "expected_columns": [
+            "value"
+          ]
+        },
+        "execution_metadata": {}
+      },
+      "semantic": {
+        "route": "semantic",
+        "status": "EXECUTION_ERROR",
+        "result_shape": "none",
+        "refusal_code": "retrieval_failed",
+        "refusal_reason": "Semantic retrieval was unavailable: Client error '404 Not Found' for url 'https://discharge-fascism-richness.ngrok-free.dev/embed'\nFor more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/404",
+        "warnings": [],
+        "provenance": {},
+        "execution_metadata": {}
+      },
+      "reconciliation": {
+        "classification": "REFUSED",
+        "value": null,
+        "interpretation": null,
+        "grain": null,
+        "agreeing_routes": [],
+        "disagreeing_routes": [],
+        "refused_routes": [
+          "structured",
+          "age_text2cypher",
+          "semantic"
+        ],
+        "semantic_support": null,
+        "invariant_violations": [],
+        "explanation": "No computation route produced a value (structured: compile_failed; age_text2cypher: execution_failed; semantic: retrieval_failed). The semantic route corroborates interpretation only and cannot supply an aggregate.",
+        "diagnosis": null,
+        "requires_investigation": false
+      },
+      "evaluation": "CORRECT_REFUSAL",
+      "explanation": "structured refused as expected (compile_failed)",
+      "elapsed_ms": 18149.0
+    },
+    {
+      "name": "comparison_refused_not_emitted",
+      "question": "Compare 2024 with 2026.",
+      "expected_outcome": "refused",
+      "ground_truth": null,
+      "ground_truth_route": null,
+      "structured": {
+        "route": "structured",
+        "status": "REFUSED",
+        "result_shape": "none",
+        "refusal_code": "unsupported_operation",
+        "refusal_reason": "compare: bucketed comparison is declared in AggregateSpec but not emitted by the compiler; a spec carrying it would silently return the uncompared figure. Refused rather than ignored.",
+        "warnings": [],
+        "provenance": {
+          "engine": "deterministic AggregateSpec compiler",
+          "population_definition": "Case",
+          "grain": "ENTITY",
+          "distinct_key": "case_id",
+          "injected_predicates": [],
+          "filters_applied": [],
+          "excluded_merged_n": 0,
+          "excluded_superseded_n": 0,
+          "calculation_steps": []
+        },
+        "execution_metadata": {
+          "elapsed_ms": 0.4,
+          "spec_hash": "370481e11a354278",
+          "registry_as_of": "2026-09-15T15:15:11.797886+00:00",
+          "queries": []
+        }
+      },
+      "age": {
+        "route": "age_text2cypher",
+        "status": "REFUSED",
+        "result_shape": "none",
+        "refusal_code": "model_declined",
+        "refusal_reason": "Model declined to answer: The request is ambiguous; it does not specify which metric or entity should be compared between the years 2024 and 2026, making it impossible to construct an unambiguous, safe query.",
+        "warnings": [],
+        "provenance": {
+          "model_reasoning": ""
+        },
+        "execution_metadata": {}
+      },
+      "semantic": {
+        "route": "semantic",
+        "status": "EXECUTION_ERROR",
+        "result_shape": "none",
+        "refusal_code": "retrieval_failed",
+        "refusal_reason": "Semantic retrieval was unavailable: Client error '404 Not Found' for url 'https://discharge-fascism-richness.ngrok-free.dev/embed'\nFor more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/404",
+        "warnings": [],
+        "provenance": {},
+        "execution_metadata": {}
+      },
+      "reconciliation": {
+        "classification": "REFUSED",
+        "value": null,
+        "interpretation": null,
+        "grain": null,
+        "agreeing_routes": [],
+        "disagreeing_routes": [],
+        "refused_routes": [
+          "structured",
+          "age_text2cypher",
+          "semantic"
+        ],
+        "semantic_support": null,
+        "invariant_violations": [],
+        "explanation": "No computation route produced a value (structured: unsupported_operation; age_text2cypher: model_declined; semantic: retrieval_failed). The semantic route corroborates interpretation only and cannot supply an aggregate.",
+        "diagnosis": null,
+        "requires_investigation": false
+      },
+      "evaluation": "CORRECT_REFUSAL",
+      "explanation": "structured refused as expected (unsupported_operation)",
+      "elapsed_ms": 25117.0
+    },
+    {
+      "name": "fanout_case_person_no_key_refused",
+      "question": "How many cases involve a person?",
+      "expected_outcome": "refused",
+      "ground_truth": null,
+      "ground_truth_route": null,
+      "structured": {
+        "route": "structured",
+        "status": "REFUSED",
+        "result_shape": "none",
+        "refusal_code": "missing_distinct_key",
+        "refusal_reason": "ENTITY grain requires distinct_key: what identifies one Case? Without it a fanning traversal would count links, not things.; Traversal Case-[BELONGS_TO_CASE]->Person (direction=in) multiplies rows: up to 230 per Case. An ENTITY-grain count across it without a distinct key would count relationships, not entities.",
+        "warnings": [],
+        "provenance": {
+          "engine": "deterministic AggregateSpec compiler",
+          "population_definition": "Case <-BELONGS_TO_CASEPerson",
+          "grain": "ENTITY",
+          "distinct_key": null,
+          "injected_predicates": [],
+          "filters_applied": [],
+          "excluded_merged_n": 0,
+          "excluded_superseded_n": 0,
+          "calculation_steps": []
+        },
+        "execution_metadata": {
+          "elapsed_ms": 0.5,
+          "spec_hash": "a1167a8ecbe0950e",
+          "registry_as_of": "2026-09-15T15:15:11.797886+00:00",
+          "queries": []
+        }
+      },
+      "age": {
+        "route": "age_text2cypher",
+        "status": "SUCCESS",
+        "result_shape": "scalar",
+        "refusal_code": null,
+        "refusal_reason": null,
+        "warnings": [],
+        "provenance": {
+          "generated_cypher": "MATCH (p:Person)-[r:BELONGS_TO_CASE]->(c:Case) WHERE p.merged_into IS NULL AND r.superseded_by IS NULL RETURN count(DISTINCT c.case_id) AS value",
+          "generated_params": {},
+          "model_interpretation": "count",
+          "model_grain": "ENTITY",
+          "model_reasoning": "Count distinct cases that have at least one non‑merged person linked via a current (non‑superseded) BELONGS_TO_CASE relationship.",
+          "guard_violations": [],
+          "expected_columns": [
+            "value"
+          ]
+        },
+        "execution_metadata": {
+          "generation_ms": 7101.2,
+          "execution_ms": 72.6,
+          "row_count": 1
+        },
+        "result": {
+          "value": 73,
+          "interpretation": "count",
+          "grain": "ENTITY",
+          "population": "generated: MATCH (p:Person)-[r:BELONGS_TO_CASE]->(c:Case) WHERE p.merged_into IS NULL AND r.superseded_by IS NULL RETURN count(DIST",
+          "grouping": [],
+          "unit": null
+        }
+      },
+      "semantic": {
+        "route": "semantic",
+        "status": "EXECUTION_ERROR",
+        "result_shape": "none",
+        "refusal_code": "retrieval_failed",
+        "refusal_reason": "Semantic retrieval was unavailable: Client error '404 Not Found' for url 'https://discharge-fascism-richness.ngrok-free.dev/embed'\nFor more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/404",
+        "warnings": [],
+        "provenance": {},
+        "execution_metadata": {}
+      },
+      "reconciliation": {
+        "classification": "SINGLE_ROUTE_VALID",
+        "value": 73,
+        "interpretation": "count",
+        "grain": "ENTITY",
+        "agreeing_routes": [
+          "age_text2cypher"
+        ],
+        "disagreeing_routes": [],
+        "refused_routes": [
+          "structured",
+          "semantic"
+        ],
+        "semantic_support": null,
+        "invariant_violations": [],
+        "explanation": "Only the age_text2cypher route computed a value; no independent computation was available to corroborate it.",
+        "diagnosis": null,
+        "requires_investigation": false
+      },
+      "evaluation": "CORRECT_REFUSAL",
+      "explanation": "structured refused as expected (missing_distinct_key); the AGE route produced 73 for the same question, which the architecture surfaces rather than hides",
+      "elapsed_ms": 22687.8
+    },
+    {
+      "name": "fanout_case_address_no_key_refused",
+      "question": "How many cases have an address?",
+      "expected_outcome": "refused",
+      "ground_truth": null,
+      "ground_truth_route": null,
+      "structured": {
+        "route": "structured",
+        "status": "REFUSED",
+        "result_shape": "none",
+        "refusal_code": "missing_distinct_key",
+        "refusal_reason": "ENTITY grain requires distinct_key: what identifies one Case? Without it a fanning traversal would count links, not things.; Traversal Case-[BELONGS_TO_CASE]->Address (direction=in) multiplies rows: up to 2100 per Case. An ENTITY-grain count across it without a distinct key would count relationships, not entities.",
+        "warnings": [],
+        "provenance": {
+          "engine": "deterministic AggregateSpec compiler",
+          "population_definition": "Case <-BELONGS_TO_CASEAddress",
+          "grain": "ENTITY",
+          "distinct_key": null,
+          "injected_predicates": [],
+          "filters_applied": [],
+          "excluded_merged_n": 0,
+          "excluded_superseded_n": 0,
+          "calculation_steps": []
+        },
+        "execution_metadata": {
+          "elapsed_ms": 0.3,
+          "spec_hash": "f12ddbeacda792d6",
+          "registry_as_of": "2026-09-15T15:15:11.797886+00:00",
+          "queries": []
+        }
+      },
+      "age": {
+        "route": "age_text2cypher",
+        "status": "REFUSED",
+        "result_shape": "none",
+        "refusal_code": "guard_semantic",
+        "refusal_reason": "Generated query refused: [SEMANTIC] superseded_not_excluded: Query traverses BELONGS_TO_CASE, which carries 222 superseded edge version(s), without excluding `superseded_by IS NULL`.",
+        "warnings": [],
+        "provenance": {
+          "generated_cypher": "MATCH (a:Address)-[:BELONGS_TO_CASE]->(c:Case) RETURN count(DISTINCT c.case_id) AS value",
+          "generated_params": {},
+          "model_interpretation": "count",
+          "model_grain": "ENTITY",
+          "model_reasoning": "Counts distinct Case nodes that have at least one incoming BELONGS_TO_CASE relationship from an Address.",
+          "guard_violations": [
+            "superseded_not_excluded"
+          ]
+        },
+        "execution_metadata": {}
+      },
+      "semantic": {
+        "route": "semantic",
+        "status": "EXECUTION_ERROR",
+        "result_shape": "none",
+        "refusal_code": "retrieval_failed",
+        "refusal_reason": "Semantic retrieval was unavailable: Client error '404 Not Found' for url 'https://discharge-fascism-richness.ngrok-free.dev/embed'\nFor more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/404",
+        "warnings": [],
+        "provenance": {},
+        "execution_metadata": {}
+      },
+      "reconciliation": {
+        "classification": "REFUSED",
+        "value": null,
+        "interpretation": null,
+        "grain": null,
+        "agreeing_routes": [],
+        "disagreeing_routes": [],
+        "refused_routes": [
+          "structured",
+          "age_text2cypher",
+          "semantic"
+        ],
+        "semantic_support": null,
+        "invariant_violations": [],
+        "explanation": "No computation route produced a value (structured: missing_distinct_key; age_text2cypher: guard_semantic; semantic: retrieval_failed). The semantic route corroborates interpretation only and cannot supply an aggregate.",
+        "diagnosis": null,
+        "requires_investigation": false
+      },
+      "evaluation": "CORRECT_REFUSAL",
+      "explanation": "structured refused as expected (missing_distinct_key)",
+      "elapsed_ms": 26243.6
+    },
+    {
+      "name": "avg_over_fanning_population_refused",
+      "question": "What is the average age of persons linked to cases?",
+      "expected_outcome": "refused",
+      "ground_truth": null,
+      "ground_truth_route": null,
+      "structured": {
+        "route": "structured",
+        "status": "REFUSED",
+        "result_shape": "none",
+        "refusal_code": "compile_failed",
+        "refusal_reason": "avg over a population containing a fanning traversal would weight each value by its edge count; narrow the population or aggregate at RELATIONSHIP grain explicitly",
+        "warnings": [],
+        "provenance": {
+          "engine": "deterministic AggregateSpec compiler",
+          "population_definition": "Person ->BELONGS_TO_CASECase",
+          "grain": "ENTITY",
+          "distinct_key": "entity_id",
+          "injected_predicates": [],
+          "filters_applied": [],
+          "excluded_merged_n": 0,
+          "excluded_superseded_n": 0,
+          "calculation_steps": []
+        },
+        "execution_metadata": {
+          "elapsed_ms": 0.4,
+          "spec_hash": "19a689e82da53fca",
+          "registry_as_of": "2026-09-15T15:15:11.797886+00:00",
+          "queries": []
+        }
+      },
+      "age": {
+        "route": "age_text2cypher",
+        "status": "REFUSED",
+        "result_shape": "none",
+        "refusal_code": "model_declined",
+        "refusal_reason": "Model declined to answer: The schema does not contain any property representing a person's age or birth date, so the average age of persons linked to cases cannot be computed safely.",
+        "warnings": [],
+        "provenance": {
+          "model_reasoning": ""
+        },
+        "execution_metadata": {}
+      },
+      "semantic": {
+        "route": "semantic",
+        "status": "EXECUTION_ERROR",
+        "result_shape": "none",
+        "refusal_code": "retrieval_failed",
+        "refusal_reason": "Semantic retrieval was unavailable: Client error '404 Not Found' for url 'https://discharge-fascism-richness.ngrok-free.dev/embed'\nFor more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/404",
+        "warnings": [],
+        "provenance": {},
+        "execution_metadata": {}
+      },
+      "reconciliation": {
+        "classification": "REFUSED",
+        "value": null,
+        "interpretation": null,
+        "grain": null,
+        "agreeing_routes": [],
+        "disagreeing_routes": [],
+        "refused_routes": [
+          "structured",
+          "age_text2cypher",
+          "semantic"
+        ],
+        "semantic_support": null,
+        "invariant_violations": [],
+        "explanation": "No computation route produced a value (structured: compile_failed; age_text2cypher: model_declined; semantic: retrieval_failed). The semantic route corroborates interpretation only and cannot supply an aggregate.",
+        "diagnosis": null,
+        "requires_investigation": false
+      },
+      "evaluation": "CORRECT_REFUSAL",
+      "explanation": "structured refused as expected (compile_failed)",
+      "elapsed_ms": 21414.4
+    },
+    {
+      "name": "unknown_entity_refused",
+      "question": "How many suspects are there?",
+      "expected_outcome": "refused",
+      "ground_truth": null,
+      "ground_truth_route": null,
+      "structured": {
+        "route": "structured",
+        "status": "REFUSED",
+        "result_shape": "none",
+        "refusal_code": "unknown_entity",
+        "refusal_reason": "population: no entity type 'Suspect' exists in the data model. Known: Address, Case, Date, District, Document, Incident, Officer, Person, PhoneNumber, PoliceStation, StructuredRecord, Vehicle, Weapon.",
+        "warnings": [],
+        "provenance": {
+          "engine": "deterministic AggregateSpec compiler",
+          "population_definition": "Suspect",
+          "grain": "ENTITY",
+          "distinct_key": "entity_id",
+          "injected_predicates": [],
+          "filters_applied": [],
+          "excluded_merged_n": 0,
+          "excluded_superseded_n": 0,
+          "calculation_steps": []
+        },
+        "execution_metadata": {
+          "elapsed_ms": 0.3,
+          "spec_hash": "20b22e433823ee1a",
+          "registry_as_of": "2026-09-15T15:15:11.797886+00:00",
+          "queries": []
+        }
+      },
+      "age": {
+        "route": "age_text2cypher",
+        "status": "SUCCESS",
+        "result_shape": "scalar",
+        "refusal_code": null,
+        "refusal_reason": null,
+        "warnings": [],
+        "provenance": {
+          "generated_cypher": "MATCH (p:Person) WHERE p.merged_into IS NULL RETURN count(DISTINCT p.entity_id) AS value",
+          "generated_params": {},
+          "model_interpretation": "count_distinct",
+          "model_grain": "ENTITY",
+          "model_reasoning": "Counts distinct Person nodes that are not merge tombstones, representing individual suspects.",
+          "guard_violations": [],
+          "expected_columns": [
+            "value"
+          ]
+        },
+        "execution_metadata": {
+          "generation_ms": 7516.9,
+          "execution_ms": 63.8,
+          "row_count": 1
+        },
+        "result": {
+          "value": 208,
+          "interpretation": "count_distinct",
+          "grain": "ENTITY",
+          "population": "generated: MATCH (p:Person) WHERE p.merged_into IS NULL RETURN count(DISTINCT p.entity_id) AS value",
+          "grouping": [],
+          "unit": null
+        }
+      },
+      "semantic": {
+        "route": "semantic",
+        "status": "EXECUTION_ERROR",
+        "result_shape": "none",
+        "refusal_code": "retrieval_failed",
+        "refusal_reason": "Semantic retrieval was unavailable: Client error '404 Not Found' for url 'https://discharge-fascism-richness.ngrok-free.dev/embed'\nFor more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/404",
+        "warnings": [],
+        "provenance": {},
+        "execution_metadata": {}
+      },
+      "reconciliation": {
+        "classification": "SINGLE_ROUTE_VALID",
+        "value": 208,
+        "interpretation": "count_distinct",
+        "grain": "ENTITY",
+        "agreeing_routes": [
+          "age_text2cypher"
+        ],
+        "disagreeing_routes": [],
+        "refused_routes": [
+          "structured",
+          "semantic"
+        ],
+        "semantic_support": null,
+        "invariant_violations": [],
+        "explanation": "Only the age_text2cypher route computed a value; no independent computation was available to corroborate it.",
+        "diagnosis": null,
+        "requires_investigation": false
+      },
+      "evaluation": "CORRECT_REFUSAL",
+      "explanation": "structured refused as expected (unknown_entity); the AGE route produced 208 for the same question, which the architecture surfaces rather than hides",
+      "elapsed_ms": 23270.1
+    },
+    {
+      "name": "unknown_relationship_refused",
+      "question": "How many cases were prosecuted by an officer?",
+      "expected_outcome": "refused",
+      "ground_truth": null,
+      "ground_truth_route": null,
+      "structured": {
+        "route": "structured",
+        "status": "REFUSED",
+        "result_shape": "none",
+        "refusal_code": "unknown_relationship",
+        "refusal_reason": "population: no PROSECUTED_BY relationship observed between Case and Officer (direction=out).",
+        "warnings": [],
+        "provenance": {
+          "engine": "deterministic AggregateSpec compiler",
+          "population_definition": "Case ->PROSECUTED_BYOfficer",
+          "grain": "ENTITY",
+          "distinct_key": "case_id",
+          "injected_predicates": [],
+          "filters_applied": [],
+          "excluded_merged_n": 0,
+          "excluded_superseded_n": 0,
+          "calculation_steps": []
+        },
+        "execution_metadata": {
+          "elapsed_ms": 0.4,
+          "spec_hash": "fed9bb03d2717c20",
+          "registry_as_of": "2026-09-15T15:15:11.797886+00:00",
+          "queries": []
+        }
+      },
+      "age": {
+        "route": "age_text2cypher",
+        "status": "SUCCESS",
+        "result_shape": "scalar",
+        "refusal_code": null,
+        "refusal_reason": null,
+        "warnings": [],
+        "provenance": {
+          "generated_cypher": "MATCH (o:Officer)-[r:ASSIGNED_TO]->(c:Case) WHERE r.superseded_by IS NULL RETURN count(DISTINCT c.case_id) AS value",
+          "generated_params": {},
+          "model_interpretation": "count",
+          "model_grain": "ENTITY",
+          "model_reasoning": "Count distinct cases that have a non‑superseded ASSIGNED_TO relationship from any officer.",
+          "guard_violations": [],
+          "expected_columns": [
+            "value"
+          ]
+        },
+        "execution_metadata": {
+          "generation_ms": 5954.1,
+          "execution_ms": 61.6,
+          "row_count": 1
+        },
+        "result": {
+          "value": 73,
+          "interpretation": "count",
+          "grain": "ENTITY",
+          "population": "generated: MATCH (o:Officer)-[r:ASSIGNED_TO]->(c:Case) WHERE r.superseded_by IS NULL RETURN count(DISTINCT c.case_id) AS value",
+          "grouping": [],
+          "unit": null
+        }
+      },
+      "semantic": {
+        "route": "semantic",
+        "status": "EXECUTION_ERROR",
+        "result_shape": "none",
+        "refusal_code": "retrieval_failed",
+        "refusal_reason": "Semantic retrieval was unavailable: Client error '404 Not Found' for url 'https://discharge-fascism-richness.ngrok-free.dev/embed'\nFor more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/404",
+        "warnings": [],
+        "provenance": {},
+        "execution_metadata": {}
+      },
+      "reconciliation": {
+        "classification": "SINGLE_ROUTE_VALID",
+        "value": 73,
+        "interpretation": "count",
+        "grain": "ENTITY",
+        "agreeing_routes": [
+          "age_text2cypher"
+        ],
+        "disagreeing_routes": [],
+        "refused_routes": [
+          "structured",
+          "semantic"
+        ],
+        "semantic_support": null,
+        "invariant_violations": [],
+        "explanation": "Only the age_text2cypher route computed a value; no independent computation was available to corroborate it.",
+        "diagnosis": null,
+        "requires_investigation": false
+      },
+      "evaluation": "CORRECT_REFUSAL",
+      "explanation": "structured refused as expected (unknown_relationship); the AGE route produced 73 for the same question, which the architecture surfaces rather than hides",
+      "elapsed_ms": 21644.3
+    },
+    {
+      "name": "entity_grain_without_usable_key_refused",
+      "question": "How many distinct addresses are there?",
+      "expected_outcome": "refused",
+      "ground_truth": null,
+      "ground_truth_route": null,
+      "structured": {
+        "route": "structured",
+        "status": "REFUSED",
+        "result_shape": "none",
+        "refusal_code": "no_distinct_key",
+        "refusal_reason": "Address has no property present on every node and unique across them, so it cannot be counted at ENTITY grain.",
+        "warnings": [],
+        "provenance": {
+          "engine": "deterministic AggregateSpec compiler",
+          "population_definition": "Address",
+          "grain": "ENTITY",
+          "distinct_key": "entity_id",
+          "injected_predicates": [],
+          "filters_applied": [],
+          "excluded_merged_n": 0,
+          "excluded_superseded_n": 0,
+          "calculation_steps": []
+        },
+        "execution_metadata": {
+          "elapsed_ms": 0.5,
+          "spec_hash": "471e8a469cac0f53",
+          "registry_as_of": "2026-09-15T15:15:11.797886+00:00",
+          "queries": []
+        }
+      },
+      "age": {
+        "route": "age_text2cypher",
+        "status": "SUCCESS",
+        "result_shape": "scalar",
+        "refusal_code": null,
+        "refusal_reason": null,
+        "warnings": [],
+        "provenance": {
+          "generated_cypher": "MATCH (a:Address) RETURN count(DISTINCT a) AS value",
+          "generated_params": {},
+          "model_interpretation": "count",
+          "model_grain": "ENTITY",
+          "model_reasoning": "Counting distinct Address nodes gives the total number of unique addresses in the graph.",
+          "guard_violations": [],
+          "expected_columns": [
+            "value"
+          ]
+        },
+        "execution_metadata": {
+          "generation_ms": 2014.6,
+          "execution_ms": 248.2,
+          "row_count": 1
+        },
+        "result": {
+          "value": 2171,
+          "interpretation": "count",
+          "grain": "ENTITY",
+          "population": "generated: MATCH (a:Address) RETURN count(DISTINCT a) AS value",
+          "grouping": [],
+          "unit": null
+        }
+      },
+      "semantic": {
+        "route": "semantic",
+        "status": "EXECUTION_ERROR",
+        "result_shape": "none",
+        "refusal_code": "retrieval_failed",
+        "refusal_reason": "Semantic retrieval was unavailable: Client error '404 Not Found' for url 'https://discharge-fascism-richness.ngrok-free.dev/embed'\nFor more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/404",
+        "warnings": [],
+        "provenance": {},
+        "execution_metadata": {}
+      },
+      "reconciliation": {
+        "classification": "SINGLE_ROUTE_VALID",
+        "value": 2171,
+        "interpretation": "count",
+        "grain": "ENTITY",
+        "agreeing_routes": [
+          "age_text2cypher"
+        ],
+        "disagreeing_routes": [],
+        "refused_routes": [
+          "structured",
+          "semantic"
+        ],
+        "semantic_support": null,
+        "invariant_violations": [],
+        "explanation": "Only the age_text2cypher route computed a value; no independent computation was available to corroborate it.",
+        "diagnosis": null,
+        "requires_investigation": false
+      },
+      "evaluation": "CORRECT_REFUSAL",
+      "explanation": "structured refused as expected (no_distinct_key); the AGE route produced 2171 for the same question, which the architecture surfaces rather than hides",
+      "elapsed_ms": 17850.3
+    },
+    {
+      "name": "non_supervisor_cross_case_refused",
+      "question": "How many cases are registered?",
+      "expected_outcome": "refused",
+      "ground_truth": null,
+      "ground_truth_route": null,
+      "structured": {
+        "route": "structured",
+        "status": "REFUSED",
+        "result_shape": "none",
+        "refusal_code": "scope_denied",
+        "refusal_reason": "Cross-case aggregates require supervisor role or higher; caller role is 'investigator'.",
+        "warnings": [],
+        "provenance": {
+          "engine": "deterministic AggregateSpec compiler",
+          "population_definition": "Case",
+          "grain": "ENTITY",
+          "distinct_key": "case_id",
+          "injected_predicates": [],
+          "filters_applied": [],
+          "excluded_merged_n": 0,
+          "excluded_superseded_n": 0,
+          "calculation_steps": []
+        },
+        "execution_metadata": {
+          "elapsed_ms": 0.4,
+          "spec_hash": "46b205187d298bf7",
+          "registry_as_of": "2026-09-15T15:15:11.797886+00:00",
+          "queries": []
+        }
+      },
+      "age": {
+        "route": "age_text2cypher",
+        "status": "REFUSED",
+        "result_shape": "none",
+        "refusal_code": "scope_denied",
+        "refusal_reason": "Cross-case aggregates require supervisor role or higher; caller role is 'investigator'.",
+        "warnings": [],
+        "provenance": {},
+        "execution_metadata": {}
+      },
+      "semantic": {
+        "route": "semantic",
+        "status": "EXECUTION_ERROR",
+        "result_shape": "none",
+        "refusal_code": "retrieval_failed",
+        "refusal_reason": "Semantic retrieval was unavailable: Client error '404 Not Found' for url 'https://discharge-fascism-richness.ngrok-free.dev/embed'\nFor more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/404",
+        "warnings": [],
+        "provenance": {},
+        "execution_metadata": {}
+      },
+      "reconciliation": {
+        "classification": "REFUSED",
+        "value": null,
+        "interpretation": null,
+        "grain": null,
+        "agreeing_routes": [],
+        "disagreeing_routes": [],
+        "refused_routes": [
+          "structured",
+          "age_text2cypher",
+          "semantic"
+        ],
+        "semantic_support": null,
+        "invariant_violations": [],
+        "explanation": "No computation route produced a value (structured: scope_denied; age_text2cypher: scope_denied; semantic: retrieval_failed). The semantic route corroborates interpretation only and cannot supply an aggregate.",
+        "diagnosis": null,
+        "requires_investigation": false
+      },
+      "evaluation": "CORRECT_REFUSAL",
+      "explanation": "structured refused as expected (scope_denied)",
+      "elapsed_ms": 15731.7
+    },
+    {
+      "name": "unauthenticated_scope_refused",
+      "question": "How many cases are registered?",
+      "expected_outcome": "refused",
+      "ground_truth": null,
+      "ground_truth_route": null,
+      "structured": {
+        "route": "structured",
+        "status": "REFUSED",
+        "result_shape": "none",
+        "refusal_code": "scope_not_authenticated",
+        "refusal_reason": "Scope carries no caller role; scope must be supplied by the authenticated caller context, not derived from the question.",
+        "warnings": [],
+        "provenance": {
+          "engine": "deterministic AggregateSpec compiler",
+          "population_definition": "Case",
+          "grain": "ENTITY",
+          "distinct_key": "case_id",
+          "injected_predicates": [],
+          "filters_applied": [],
+          "excluded_merged_n": 0,
+          "excluded_superseded_n": 0,
+          "calculation_steps": []
+        },
+        "execution_metadata": {
+          "elapsed_ms": 0.3,
+          "spec_hash": "46b205187d298bf7",
+          "registry_as_of": "2026-09-15T15:15:11.797886+00:00",
+          "queries": []
+        }
+      },
+      "age": {
+        "route": "age_text2cypher",
+        "status": "REFUSED",
+        "result_shape": "none",
+        "refusal_code": "scope_denied",
+        "refusal_reason": "Cross-case aggregates require supervisor role or higher; caller role is None.",
+        "warnings": [],
+        "provenance": {},
+        "execution_metadata": {}
+      },
+      "semantic": {
+        "route": "semantic",
+        "status": "EXECUTION_ERROR",
+        "result_shape": "none",
+        "refusal_code": "retrieval_failed",
+        "refusal_reason": "Semantic retrieval was unavailable: Client error '404 Not Found' for url 'https://discharge-fascism-richness.ngrok-free.dev/embed'\nFor more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/404",
+        "warnings": [],
+        "provenance": {},
+        "execution_metadata": {}
+      },
+      "reconciliation": {
+        "classification": "REFUSED",
+        "value": null,
+        "interpretation": null,
+        "grain": null,
+        "agreeing_routes": [],
+        "disagreeing_routes": [],
+        "refused_routes": [
+          "structured",
+          "age_text2cypher",
+          "semantic"
+        ],
+        "semantic_support": null,
+        "invariant_violations": [],
+        "explanation": "No computation route produced a value (structured: scope_not_authenticated; age_text2cypher: scope_denied; semantic: retrieval_failed). The semantic route corroborates interpretation only and cannot supply an aggregate.",
+        "diagnosis": null,
+        "requires_investigation": false
+      },
+      "evaluation": "CORRECT_REFUSAL",
+      "explanation": "structured refused as expected (scope_not_authenticated)",
+      "elapsed_ms": 15657.6
+    }
+  ],
+  "evaluation_summary": {
+    "STRUCTURED_AND_AGE_AGREE": 3,
+    "STRUCTURED_CORRECT_AGE_WRONG": 21,
+    "CORRECT_REFUSAL": 17,
+    "INCORRECT_REFUSAL": 1
+  },
+  "reconciliation_summary": {
+    "AGREEMENT": 3,
+    "SINGLE_ROUTE_VALID": 22,
+    "REFUSED": 13,
+    "SEMANTICALLY_DIFFERENT": 1,
+    "CONFLICT": 3
+  }
+}

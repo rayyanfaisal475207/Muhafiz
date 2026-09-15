@@ -76,8 +76,24 @@ def classify_against_truth(case, structured, age, reconciliation) -> tuple[str, 
     """
     truth = case.truth.value if case.truth else None
 
-    s_val = structured.numeric.value if (structured and structured.numeric) else None
-    a_val = age.numeric.value if (age and age.numeric) else None
+    # Grouped results carry no NumericResult — their comparable quantity is
+    # the number of groups, which is what the corpus records as ground truth
+    # for them (19 stations). Reading only `.numeric` classified a perfectly
+    # correct 19-group breakdown as an INCORRECT_REFUSAL, because the value
+    # was None and the case fell through to the catch-all. That was a
+    # harness-classifier defect, not a route defect: the structured route
+    # returned SUCCESS.
+    def _comparable(route_result):
+        if route_result is None or not route_result.ok:
+            return None
+        if route_result.numeric is not None:
+            return route_result.numeric.value
+        if route_result.result_shape == "grouped" and isinstance(route_result.result, list):
+            return len(route_result.result)
+        return None
+
+    s_val = _comparable(structured)
+    a_val = _comparable(age)
     s_ok = structured is not None and structured.ok
     a_ok = age is not None and age.ok
 

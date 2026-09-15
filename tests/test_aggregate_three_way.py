@@ -412,6 +412,29 @@ class TestReconciliation:
         assert r.value is None
         assert code in [v.code for v in r.invariant_violations]
 
+    def test_grouped_results_are_comparable_by_group_count(self):
+        """Pins a harness-classifier defect found by the 42-case sweep.
+
+        A grouped result carries no `NumericResult`, so a classifier
+        reading only `.numeric` saw `None` and graded a perfectly correct
+        19-group station breakdown as INCORRECT_REFUSAL — while the
+        structured route had returned SUCCESS. The defect was in the
+        evaluation harness, not the route, and grading a correct answer as
+        a wrong one is the more dangerous direction of error: it would have
+        sent someone hunting a bug that did not exist.
+
+        The comparable quantity for a grouped result is the number of
+        groups, which is what the corpus records as its ground truth.
+        """
+        grouped = RouteResult(
+            route=ROUTE_STRUCTURED, status=routes.SUCCESS,
+            result_shape="grouped",
+            result=[{"key": f"station-{i}", "count": 4} for i in range(19)],
+        )
+        assert grouped.ok
+        assert grouped.numeric is None          # the trap
+        assert len(grouped.result) == 19        # the comparable quantity
+
     def test_float_tolerance_does_not_mask_real_differences(self):
         r = reconcile.reconcile(
             _num(ROUTE_STRUCTURED, 5.47945205479452, interp="percentage"),
