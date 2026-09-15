@@ -312,13 +312,99 @@ def classify_cardinality(
 #: Labels whose distinct key is not `entity_id`. Derived by inspecting the
 #: live graph (see tests); recorded rather than guessed because using the
 #: wrong key is the `{'k': None, 'n': 73}` class of failure.
+#:
+#: Each entry below was verified against live data — present on 100% of the
+#: label's nodes AND fully distinct (StructuredRecord.record_id 713/713
+#: distinct=713; District.district_id 9/9 distinct=9). `entity_id` is
+#: absent entirely on StructuredRecord and District, which is why the
+#: default cannot simply be applied everywhere.
 _KNOWN_DISTINCT_KEYS: dict[str, str] = {
     "Case": "case_id",
     "Document": "doc_id",
     "Date": "date",
     "PoliceStation": "station_id",
+    "StructuredRecord": "record_id",
+    "District": "district_id",
 }
 _DEFAULT_DISTINCT_KEY = "entity_id"
+
+#: Fallback order when a label's mapped key is absent from the live data.
+#: Tried in order; the first property present on EVERY node of the label
+#: and fully distinct wins. This exists so a label added by a future
+#: ingestion gets a usable key without editing this file — the registry
+#: tracks the schema rather than declaring it. A label where none of these
+#: qualifies keeps `distinct_key=None`, and the validator then refuses
+#: ENTITY grain for it rather than DISTINCT-ing on something unsuitable.
+_DISTINCT_KEY_CANDIDATES: tuple[str, ...] = (
+    "entity_id", "record_id", "case_id", "doc_id", "station_id",
+    "district_id", "date",
+)
+
+
+async def _resolve_distinct_key(
+    label: str, counts: dict[str, int], total: int
+) -> Optional[str]:
+    """The property ENTITY-grain counts DISTINCT on, or None.
+
+    A key is only accepted when it is present on EVERY node of the label
+    AND fully distinct across them. Both halves matter and neither is
+    assumable:
+
+      - Presence: `entity_id` does not exist at all on StructuredRecord or
+        District (0 of 713 / 0 of 9). DISTINCT-ing on it would collapse
+        every node to a single NULL bucket — the `{'k': None, 'n': 73}`
+        failure, in count form.
+      - Distinctness: a property can be universal and still not identify a
+        node (`record_type` is present 713/713 but has only 9 distinct
+        values). Counting distinct record_types is not counting records.
+
+    So the mapped key is checked first, then the candidate list, and a
+    label where nothing qualifies keeps None. That is a deliberate refusal,
+    not a gap: the validator rejects ENTITY grain for such a label, which
+    is strictly safer than silently counting the wrong thing.
+
+    LIVE EXAMPLE OF THE REFUSAL BEING CORRECT — Address, 2,171 nodes:
+    `entity_id` is present on 2,100 of them and fully distinct across those
+    2,100, but 71 nodes do not carry it at all (the label has heterogeneous
+    shapes, the same way Person spans 22 distinct property sets). Accepting
+    it on a 96.7%-present basis would silently fold those 71 into one NULL
+    bucket, so "how many distinct addresses" would answer 2,101 — a number
+    that looks right and is not. The strict rule refuses ENTITY grain for
+    Address until either the ingestion backfills the key or a caller asks
+    at a grain that does not need one.
+    """
+    ordered: list[str] = []
+    mapped = _KNOWN_DISTINCT_KEYS.get(label)
+    if mapped:
+        ordered.append(mapped)
+    for cand in (_DEFAULT_DISTINCT_KEY,) + _DISTINCT_KEY_CANDIDATES:
+        if cand not in ordered:
+            ordered.append(cand)
+
+    from src.graph import age_client
+
+    for cand in ordered:
+        if counts.get(cand, 0) != total:
+            continue  # not present on every node
+        try:
+            rows = await age_client.execute_cypher(
+                f"MATCH (n:{label}) RETURN count(DISTINCT n.{cand}) AS d",
+                columns=["d"],
+            )
+        except Exception as exc:  # noqa: BLE001 - a bad candidate is not fatal
+            logger.warning(
+                "registry: distinct-key probe failed for %s.%s: %s", label, cand, exc
+            )
+            continue
+        if rows and int((rows[0] or {}).get("d") or 0) == total:
+            return cand
+
+    logger.warning(
+        "registry: no distinct key for label %r (%d nodes) — ENTITY grain "
+        "will be refused for it.",
+        label, total,
+    )
+    return None
 
 
 async def _measure_entity(label: str) -> Optional[EntityInfo]:
@@ -350,11 +436,7 @@ async def _measure_entity(label: str) -> Optional[EntityInfo]:
     }
 
     tombstoned = counts.get(TOMBSTONE_PROPERTY, 0)
-    key = _KNOWN_DISTINCT_KEYS.get(label, _DEFAULT_DISTINCT_KEY)
-    # Only claim a distinct key the label actually carries. A label whose
-    # key is absent gets None, and the validator then refuses ENTITY grain
-    # for it rather than DISTINCT-ing on a property that does not exist.
-    distinct_key = key if key in counts else None
+    distinct_key = await _resolve_distinct_key(label, counts, total)
 
     return EntityInfo(
         label=label,
