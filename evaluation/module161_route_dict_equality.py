@@ -26,6 +26,25 @@ sys.path.insert(0, str(ROOT / "evaluation"))
 import module145_route_dict_equality as m145  # noqa: E402
 
 m145.OUT_DIR = ROOT / "docs" / "gold-qa-wave2-results" / "module161_live"
+_RENAME = {"module145_route_dict_before.json": "module161_route_dict_before.json",
+           "module145_route_dict_after.json": "module161_route_dict_after.json"}
+
+
+def _to_m161_names() -> None:
+    for old, new in _RENAME.items():
+        src = m145.OUT_DIR / old
+        if src.exists():
+            dst = m145.OUT_DIR / new
+            if dst.exists():
+                dst.unlink()
+            src.rename(dst)
+
+
+def _to_m145_names() -> None:
+    for old, new in _RENAME.items():
+        src = m145.OUT_DIR / new
+        if src.exists():
+            src.rename(m145.OUT_DIR / old)
 
 if __name__ == "__main__":
     try:
@@ -37,7 +56,11 @@ if __name__ == "__main__":
     ap.add_argument("--capture", choices=["before", "after"])
     ap.add_argument("--compare", action="store_true")
     a = ap.parse_args()
-    if a.capture:
-        asyncio.run(m145.capture(a.capture))
-    if a.compare:
-        m145.compare()
+    _to_m145_names()
+    try:
+        if a.capture:
+            asyncio.run(m145.capture(a.capture))
+        if a.compare:
+            m145.compare()
+    finally:
+        _to_m161_names()

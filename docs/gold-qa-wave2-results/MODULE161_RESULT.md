@@ -29,16 +29,22 @@
    before/after (32/32); the gold equality control with the semantic layer
    force-armed moves 0/32; CR2 still dispatches to `graph_recurrence_person`.
 4. **Reaching it through the description alone is where the honest miss
-   is.** There is no phrase list for this kind, by design
-   (`_SEMANTIC_ONLY_AGGREGATE_KINDS`). Against the first description —
+   is — and the candidate that fixes it fits the test case, so it is not
+   shipped.** There is no phrase list for this kind, by design
+   (`_SEMANTIC_ONLY_AGGREGATE_KINDS`). Against the shipped description —
    written from what the aggregate computes — the cross-encoder ranks the
-   new kind **first** for Q2, L2 and P1 (they all moved off wrong
-   neighbours), at **0.034 / 0.018 / 0.224**: below the 0.40 threshold. P2
-   scores **0.996** but never reaches the layer, because "accused" lands it
-   on the bare-noun `graph_recurrence_person` tier first (filed, §8). The
-   24 hazards score ≤ **0.008** against the new description (zero hazard
-   cost). §6 records a pre-declared candidate set and selection rule for the
-   description, and §4/§6 record what shipped and what it reaches live.
+   new kind **first** for Q2, L2 and P1 at **0.034 / 0.018 / 0.224**: below
+   0.40, so **live Q2 still routes XGRAPH and refuses, 3 of 3, before and
+   after** (§4). The pre-declared candidate measurement (§6.3) shows why:
+   the only rewordings that clear 0.40 for Q2 are the ones that say
+   "citizen service" (0.95–0.99) or "under investigation" (0.47), and the
+   paraphrase that says neither drops or stays under 0.40 on every one of
+   them — the gain is wording overlap with the question, not a better
+   description. Per the brief, that is writing to the test case; the
+   faithful description stays. With the "under investigation" candidate
+   armed **in process only**, Q2 reaches the aggregate 3/3 and answers with
+   the real record in ~10 s — so the whole path is proven live (§4), and
+   what is missing is a scorer that reads intent, filed as 175.
 
 ---
 
@@ -237,46 +243,87 @@ resolves to its kind string.
 
 ## 4. Live verification
 
-**Blocked by the model server, reported as blocked.** The tunnel
-`https://undrafted-remodeler-gravel.ngrok-free.dev` answered `/health` 200
-at the start of this module and served the full 261-item after-probe
-(§6.2, §7 — 261 `/rerank` calls, mean 1.70 s, max 3.27 s, with three
-disconnect/resume cycles), then went to ngrok's own 404 page at ~23:15 PKT
-on 2026-09-14 and stayed there for the remaining 85+ minutes of this module
-(polled every 5–45 s until 00:38 on 2026-09-15). Every `.env` in every
-worktree still names the same URL; only the user's machine can bring it
-back (memory: the URL rotates on the local server's restart). Nothing in
-this branch depends on it at unit-test time.
+**No backend was started.** Runs are in process through Module 92's runner
+(`evaluation/module161_inprocess_run.py` → Module 145's runner → Module 92's
+`run_one()`), i.e. `route_query()` then `run_cutover_query()` through the
+Supervisor — the same two stages `main.py::chat_endpoint()` uses — against
+the live graph, vector store and model server. Module 158 was running its
+live step concurrently on the same strictly-serial model server; the
+latencies below carry that load. **"Before" is pristine `origin/main` @
+`b782446` in a detached checkout; "after" is this branch.** The model that
+answered is recorded per run from `src.llm.client`'s own `Falling back to …`
+lines: **all 14 runs answered on the local model; 0 fell back to Groq.**
+Raw: `module161_live/module161_inprocess_{before,after,after_investigator,after_d2_armed}.json`.
 
-**What IS live-verified, without the model server** (the graph and the
-gateway are Docker, both up):
+### 4.1 Q2 ×3, before and after — shipped description
 
-- The aggregate against the live `evidence_graph`, in process
-  (`xagg._applicant_accused_overlap()` → `render_applicant_accused_overlap()`),
-  reproducing §1's independently-measured figures to the digit. `XAGG` line
-  verbatim in §2; rendered answer:
+| arm | route → outcome, s | `SEMANTIC-DISPATCH` line (verbatim, ×3 identical) | model |
+|---|---|---|---|
+| before | XGRAPH → Cross-Case Linkage `status=empty`, refusal ×3 (36.5 / 37.9 / 45.5 s) | `no-fire: best=graph_recurrence_person(0.010) runner_up=criminal_record_local_match_gap(0.001) threshold=0.40` | local ×3 |
+| after | XGRAPH → Cross-Case Linkage `status=empty`, refusal ×3 (47.3 / 41.6 / 42.2 s) — **unchanged** | `no-fire: best=applicant_accused_overlap(0.034) runner_up=graph_recurrence_person(0.010) threshold=0.40` | local ×3 |
 
-  ```
-  Yes — exactly one person who used a police service is also recorded as an accused in an FIR we registered, matched on CNIC:
-    - سرفراز احمد (CNIC 00000-1000055-1) — accused in fir-620-26; used: Khidmat Markaz application for driving license submitted 2021-04-10 (completed) [pkm_application:pkm-app-c14-01].
+The refusal text, both arms: *"No cross-case connections or patterns were
+found for this query … nearest cluster found was distance 0.170 against a
+relevance cutoff of 0.145 …"* — Module 145's L2 outcome, byte-for-byte in
+substance. **The description is now the nearest capability (it replaced
+`graph_recurrence_person` as `best`), and Q2 still does not reach it.** No
+`XAGG` line fires on the shipped path.
 
-  Basis: 18 citizen-service records covering 14 distinct people, compared against 94 accused entries across our FIRs (92 distinct accused). Matched on CNIC, not on name.
-  A match on name alone would have added 14 more 'match(es)' on 9 citizen(s) whose given name is shared by an accused on a different CNIC; those are not the same people and are not counted.
-  ```
+### 4.2 The paraphrases, after ×1
 
-- The all-32 `run_aggregate()` control on both trees (§5.2, §7).
-- The cross-encoder's decision on Q2 against the shipped table
-  (`module161_probe_after.json`, scored live before the outage):
-  `best=applicant_accused_overlap(0.034) runner_up=graph_recurrence_person(0.010)` — **below 0.40, so live Q2 would still fall through to the LLM classifier and refuse at XGRAPH/XNETWORK exactly as Module 145 recorded (§6.2)**. That is what the missing 3×3 would have shown, and it is stated here rather than implied.
+| id | route → outcome, s | semantic-dispatch line |
+|---|---|---|
+| L2 | XGRAPH → refusal (43.3 s) | `no-fire: best=applicant_accused_overlap(0.018)` |
+| P1 | XGRAPH → refusal (31.9 s) | `no-fire: best=applicant_accused_overlap(0.224) runner_up=cms_fir_linkage(0.006)` |
+| P2 | XGRAPH → **"Yes (with some uncertainty) — the same entity recurs across 6 case(s) …"** (55.7 s) | *(never scored — phrase tier `graph_recurrence_person`)* |
+| P3 (Roman-Urdu) | XGRAPH → **same "Yes … 6 case(s)" answer** (30.0 s) | *(never scored — "mulzim")* |
 
-**What remains, with the exact commands** (`evaluation/module161_inprocess_run.py`, `evaluation/module161_route_dict_equality.py`; both reuse Module 145's runners and record the answering model from `src.llm.client`'s `Falling back to` lines):
+P2 and P3 are worse than a refusal: a question about *service applicants
+who are accused* is answered "Yes" from an unrelated person-recurrence
+traversal (fir-202-26, fir-214-26, …), with a co-accused cluster summary
+attached. Filed as part of 174.
 
-```
-# before, in a pristine origin/main checkout:   PYTHONPATH=. python -X utf8 evaluation/module161_inprocess_run.py --tag before --runs 3 --ids Q2
-# after, this branch:                            PYTHONPATH=. python -X utf8 evaluation/module161_inprocess_run.py --tag after  --runs 3 --ids Q2,L2,P1,P2,P3
-# access boundary, live:  MODULE92_USER_ROLE=investigator PYTHONPATH=. python -X utf8 evaluation/module161_inprocess_run.py --tag after_investigator --runs 1 --ids Q2
-# routes, nine fields:    PYTHONPATH=. python -X utf8 evaluation/module161_route_dict_equality.py --capture before|after ; --compare
-```
+### 4.3 The access boundary, live
+
+- **End to end, investigator role** (`MODULE92_USER_ROLE=investigator`,
+  `module161_inprocess_after_investigator.json`): Q2 routes XGRAPH →
+  Cross-Case Linkage `status=denied` (29.2 s, local); answer: *"This
+  question requires searching across multiple cases, which needs a
+  supervisor-level role or higher. Your account doesn't have that access…"*.
+  That is the harness's cross-case gate on the route Q2 actually takes.
+- **The aggregate's own gate, live** (`evaluation/module161_gate_live.py`,
+  `module161_gate_live.json`): real gateway (the audit row is written),
+  real graph, real `run_aggregate()`; only the dispatch decision is planted
+  (Q2 scores 0.034, so nothing else gets it there). Every
+  `age_client.execute_cypher` call counted:
+
+  | role | outcome | Cypher reads |
+  |---|---|---|
+  | investigator | `PermissionError: Cross-case aggregate queries require supervisor role or higher.` — log `Unauthorized cross-case aggregate query attempted by investigator (user_id: 81f347d0-…)` | **0** |
+  | supervisor | `kind=applicant_accused_overlap`, `matched_count=1` | 4 |
+
+### 4.4 Measurement arm — candidate D2 armed in process, NOT shipped
+
+`evaluation/module161_inprocess_run_d2.py` patches
+`CAPABILITY_DESCRIPTIONS["applicant_accused_overlap"]` to candidate D2
+(§6.3) for the life of one process and runs Q2 ×3. Nothing on disk changes.
+It exists to prove the whole path live once, since the shipped description
+never gets there:
+
+| run | route → outcome, s | lines | model |
+|---|---|---|---|
+| 1 / 2 / 3 | **XAGG → `applicant_accused_overlap`** (11.0 / 10.1 / 9.8 s) | `SEMANTIC-DISPATCH applicant_accused_overlap: score=0.473 runner_up=graph_recurrence_person(0.010) threshold=0.40` ×3; `XAGG applicant_accused_overlap: 18 citizen-service record(s) over 14 distinct citizen(s) (0 record(s) without CNIC) vs 94 accused entr(ies) over 92 distinct accused (0 without CNIC); CNIC join matched 1 [سرفراز احمد:00000-1000055-1:fir-620-26]; a name join would have added 14 false match(es) on 9 citizen(s)` ×3 | local ×3 |
+
+Answer (run 1, verifier-passed paraphrase of the renderer's text): *"Yes,
+exactly one person who used a police citizen service is also recorded as
+an accused in an FIR: **سرفراز احمد** (CNIC: 00000-1000055-1) — accused in
+**fir-620-26**; used the **Khidmat Markaz** application for a driving
+license … on **2021-04-10** (completed) [pkm_application:pkm-app-c14-01].
+This match was confirmed via CNIC, not name. Basis: 18 citizen-service
+records (14 distinct people) compared against 94 accused entries (92
+distinct accused) … name-only matches (14 additional potential overlaps)
+are excluded as they involve different CNICs."* — 10 s instead of 40 s, the
+one real record, and the name-join caveat survives the paraphrase.
 
 ---
 
@@ -341,7 +388,7 @@ Module 145 §6 finding ("bi-encoder measures topic") seen from the other
 side — the cross-encoder measures *wording*, and a semantic-only kind has
 no other way in. Filed as 175 (§8).
 
-### 6.3 The description shipped, and the candidates not yet measured
+### 6.3 The description shipped, and the pre-declared candidates — measured
 
 Shipped (D0): *"whether any member of the public who applied for a police
 service or filed a complaint with the police, for example at a Khidmat
@@ -349,22 +396,37 @@ Markaz or through the complaint system, is also named as an accused or
 suspect in an FIR, matched by CNIC"* — the two record types and the edge
 role, in the words the projection code uses.
 
-`evaluation/module161_description_candidates.py` declares three more
-faithful phrasings (D1–D3: the silo named as "citizen service" —
-`prompts/router.txt`'s own term for the Khidmat Markaz class of
-procedures; the roster named as "accused under investigation" — the phrase
-the table's `graph_recurrence_person` entry already uses) **and the
-selection rule, written before any of them was scored**: maximise the
-minimum over {Q2, L2, P1}, subject to every hazard and every generic-tier
-gold question < 0.35; shorter wins ties; a candidate that still misses
-0.40 is shipped anyway and reported as a miss. The script ran against the
-tunnel and got ngrok's 404 on its first call (six retries); it has **not**
-produced a measurement. D0 stays shipped because it is the only measured
-one. Whoever picks this up runs the script once the tunnel is back, and if
-the rule picks a different candidate, re-runs `module161_semantic_probe.py
---tag after` (the cache is keyed by table hash) and re-checks §5.2/§7.
+`evaluation/module161_description_candidates.py` declared three more
+phrasings **and the selection rule before any was scored** (maximise the
+minimum over {Q2, L2, P1}; every hazard and generic-tier gold question
+< 0.35; shorter wins ties). The candidates vary only in which domain name
+is used for each side of the join: the silo as "citizen service"
+(`prompts/router.txt`'s term) in D1/D3; the roster as "accused under
+investigation" (the phrase `graph_recurrence_person`'s entry already uses)
+in D2/D3. Measured (`module161_description_candidates.json`, one `/rerank`
+call per query over all four):
 
----
+| | D0 (shipped) | D1 "citizen service" | D2 "under investigation" | D3 both |
+|---|---|---|---|---|
+| Q2 | 0.034 | **0.953** | **0.473** | **0.993** |
+| L2 | 0.018 | **0.972** | **0.636** | **0.997** |
+| P1 (names neither) | 0.224 | 0.080 | 0.325 | 0.054 |
+| P2 (never reaches) | 0.996 | 0.985 | 0.885 | 0.991 |
+| P3 (Roman-Urdu) | 0.001 | 0.000 | 0.001 | 0.000 |
+| max over 24 hazards + 7 gold | 0.008 | 0.007 | 0.009 | 0.005 |
+| min over {Q2, L2, P1} | 0.018 | 0.080 | **0.325** | 0.054 |
+
+The rule picks **D2** — and D2 is not shipped, for the reason the brief
+names. Read the columns: the two descriptions that say "citizen service"
+take Q2/L2 from ~0.02 to ~0.97 and *drop* P1 to 0.05–0.08; the one that
+says "under investigation" lifts Q2/L2 to 0.47/0.64 and P1 only to 0.325,
+still under threshold. Every candidate that clears 0.40 for Q2 does so on
+the words it shares with Q2, and the paraphrase that shares none of them
+clears on nothing. That is fitting the test case, not describing the
+aggregate better, so the faithful D0 stays as the default and the D2 result
+is reported here and exercised once as a measurement arm (§4.4). The
+underlying limit — the cross-encoder scores wording, and a
+semantic-only kind has no other way in — is 175.
 
 ## 7. Regression — all 32 gold questions
 
@@ -379,14 +441,20 @@ the rule picks a different candidate, re-runs `module161_semantic_probe.py
   items changed *best description* to the new kind — all at ≤ 0.034 except
   the three targets above and P2 — i.e. the new sentence is a better
   nearest-neighbour for near-zero noise, which is the harmless direction.
-- **Routes (nine load-bearing fields, 32/32)**: **not captured** —
-  `module161_route_dict_equality.py` needs the local classifier for the
-  four LLM-decided questions (A1, CR3, G1, G6) and the tunnel was down
-  (§4). The structural argument Module 145 §7 made still holds unchanged
-  for this branch: the phrase chain is byte-identical, the semantic layer
-  fires on 0 of 32 with the enlarged table (§5.2), and the only new code on
-  the routing path is one description the layer never fires on for a gold
-  question. It is an argument, not a capture, and is labelled as such.
+- **Routes, all nine load-bearing fields, before and after**
+  (`module161_route_dict_equality.py`; before on the pristine `b782446`
+  checkout, after on this branch; the four LLM-decided questions A1, CR3,
+  G1, G6 called live on the local model, 10–17 s each):
+
+  ```
+    route / case_scope / target_entity / output_format / target_year /
+    station / district / secondary_methods / aggregate_kind   moves on 0/32
+  ALL LOAD-BEARING FIELDS EQUAL on all 32
+  ```
+
+  Only `reason` on A1 differs — free text the model writes fresh each call,
+  advisory as Module 92 classified it. Raw:
+  `module161_live/module161_route_dict_{before,after}.json`.
 
 ---
 
@@ -404,9 +472,13 @@ never reaches it: "accused" lands it on `graph_recurrence_person` via
 from `_GENERIC_AGGREGATE_KINDS`. Roman-Urdu "mulzim" does the same to P3.
 Module 145 itself calls that tier "we recognised a noun, not the question",
 yet it is treated as resolved for the purposes of the semantic fallback.
-Extending the layer to `_ENTITY_RECURRENCE_AGGREGATE_KINDS` has its own
-hazard set — S3, CR2 and KB9 resolve on that tier and must not move — so it
-is a measured change, not a one-liner.
+Live, that tier does not refuse: P2 and P3 are answered **"Yes … the
+same entity recurs across 6 case(s)"** from an unrelated person-recurrence
+traversal (§4.2) — a confident wrong answer to a question about who is
+under criminal investigation, worse than Q2's refusal. Extending the layer
+to `_ENTITY_RECURRENCE_AGGREGATE_KINDS` has its own hazard set — S3, CR2
+and KB9 resolve on that tier and must not move — so it is a measured
+change, not a one-liner.
 
 **175 — A semantic-only kind is reachable only from its description's own
 wording.** Q2 0.034, L2 0.018, P1 0.224 against a faithful description that
@@ -415,8 +487,9 @@ description's nouns. The cross-encoder rewards lexical overlap, so "written
 from what the aggregate computes, not from the question" and "clears 0.40"
 pull against each other for any capability whose users describe it in
 words the code does not use ("citizen services", "under investigation").
-`module161_description_candidates.py` is the pre-declared experiment; it is
-unmeasured (§6.3). A query-side rewrite (the LLM normalising the question
+`module161_description_candidates.py` is the pre-declared experiment, now
+measured (§6.3): every candidate that clears 0.40 for Q2 does so on shared
+wording and loses the paraphrase that shares none. A query-side rewrite (the LLM normalising the question
 into the table's vocabulary before scoring) is the alternative to
 description-side wording, and has the Roman-Urdu problem (157) as a free
 second target.
@@ -436,8 +509,8 @@ corroboration gate, which the projection's own comments already refuse.
 layer (and dead embeddings) is invisible to the startup checklist.**
 `src/main.py::health_check()` probes Chroma and Postgres; `RERANKER_URL`,
 `EMBEDDINGS_URL` and `LOCAL_LLM_URL` are not probed. Observed this module:
-`/rerank` returning ngrok's HTML 404 for 85+ minutes while the backend
-would have reported `status: ok`; `semantic_dispatch.prepare()` degrades
+`/rerank` returning ngrok's HTML 404 for ~100 minutes on 2026-09-14/15
+while the backend would have reported `status: ok`; `semantic_dispatch.prepare()` degrades
 silently in 60 s cooldown windows (by design) and every RAG embed call
 hard-fails (no fallback). One probe of `MODEL_SERVER_BASE_URL/health`,
 reported as a separate field, would make the third infra piece visible.

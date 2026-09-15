@@ -1,0 +1,27 @@
+{
+ "Q2::run1": {
+  "answer": "This question requires searching across multiple cases, which needs a supervisor-level role or higher. Your account doesn't have that access, so I can't run it. You can still ask about any case you're assigned to — select it from the case list and ask again.",
+  "confidence": "medium",
+  "elapsed_s": 29.2,
+  "expected_kind": "applicant_accused_overlap",
+  "model": "local",
+  "question": "Is there anyone who used one of our citizen services who also turns out to be under investigation for a crime?",
+  "reason": "Cross-case check for overlap between citizen service users and criminal investigations — no specific entity named, but explicitly asks whether any such connection exists across cases",
+  "route": "XGRAPH",
+  "route_error": null,
+  "secondary_methods": [],
+  "semantic_dispatch_enabled": true,
+  "semantic_dispatch_lines": [
+   "src.pipeline.semantic_dispatch: SEMANTIC-DISPATCH no-fire: best=applicant_accused_overlap(0.034) runner_up=graph_recurrence_person(0.010) threshold=0.40 2.19s | Is there anyone who used one of our citizen services who also turns out to be under investigation for a crime?"
+  ],
+  "status": "error",
+  "steps": [
+   "supervisor/active: Routing through the agent harness...",
+   "supervisor:dispatch/active: Classified query as route='XGRAPH' -> sub-agent='Cross-Case Linkage'",
+   "supervisor:dispatch/done: Cross-Case Linkage completed with status=denied",
+   "supervisor/done: Harness routing complete"
+  ],
+  "used_cutover": true,
+  "xagg_lines": []
+ }
+}
