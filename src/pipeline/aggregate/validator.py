@@ -421,14 +421,21 @@ def _validate_grain(
         current = spec.population.entity
         for hop in spec.population.traversals:
             info = _lookup_traversal(snapshot, current, hop)
-            if info is not None and info.is_fanning:
+            # Directional: the same relationship can be safe one way and
+            # catastrophic the other. Address-[:BELONGS_TO_CASE]->Case has
+            # a forward fanout of 1 and a reverse fanout of 2,100, so
+            # reading the forward `cardinality` here would wave through the
+            # single worst inflation in this database.
+            if info is not None and info.fans_in_direction(hop.direction):
                 issues.append(
                     _issue(
                         "fanout_without_distinct",
-                        f"Traversal {current}-[{hop.rel}]->{hop.target} is "
-                        f"{info.cardinality} (max fanout {info.max_fanout}); an "
-                        f"{spec.grain}-grain count across it without a distinct "
-                        f"key would count relationships, not entities.",
+                        f"Traversal {current}-[{hop.rel}]->{hop.target} "
+                        f"(direction={hop.direction}) multiplies rows: up to "
+                        f"{info.max_fanout_in_direction(hop.direction)} per "
+                        f"{current}. An {spec.grain}-grain count across it "
+                        f"without a distinct key would count relationships, "
+                        f"not entities.",
                         hop.rel,
                     )
                 )

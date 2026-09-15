@@ -329,11 +329,13 @@ def _compile_population(
                 + pattern
             )
 
-        if info is not None and info.is_fanning:
+        if info is not None and info.fans_in_direction(hop.direction):
             notes.append(
-                f"traversal {current_label}-[{hop.rel}]->{hop.target} is "
-                f"{info.cardinality} (max fanout {info.max_fanout}); "
-                f"DISTINCT is required for identity-grain counts"
+                f"traversal {current_label}-[{hop.rel}]->{hop.target} "
+                f"(direction={hop.direction}) multiplies rows, up to "
+                f"{info.max_fanout_in_direction(hop.direction)} per "
+                f"{current_label}; DISTINCT is required for identity-grain "
+                f"counts"
             )
 
         sup = _supersession_predicate(info, edge_alias)
@@ -426,6 +428,7 @@ def _counted_expression(
 
 
 def _population_fans(snapshot: reg.RegistrySnapshot, pop: PopulationNode) -> bool:
+    """Whether any hop multiplies rows IN THE DIRECTION IT IS TRAVELLED."""
     current = pop.entity
     for hop in pop.traversals:
         info = (
@@ -433,7 +436,7 @@ def _population_fans(snapshot: reg.RegistrySnapshot, pop: PopulationNode) -> boo
             if hop.direction == "out"
             else snapshot.relationship(hop.target, hop.rel, current)
         )
-        if info is not None and info.is_fanning:
+        if info is not None and info.fans_in_direction(hop.direction):
             return True
         current = hop.target
     return False

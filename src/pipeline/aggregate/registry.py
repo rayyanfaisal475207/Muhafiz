@@ -184,6 +184,10 @@ class RelationshipInfo:
     distinct_targets_n: int
     max_fanout: int
     cardinality: str
+    #: Worst-case rows per target node when traversed in reverse. Measured
+    #: separately because it is NOT derivable from `max_fanout`: Address ->
+    #: Case has a forward fanout of 1 and a reverse fanout of 2,100.
+    max_reverse_fanout: int = 0
     is_versioned: bool = False
     superseded_n: int = 0
 
@@ -191,6 +195,38 @@ class RelationshipInfo:
     def is_fanning(self) -> bool:
         """True when travelling source -> target can multiply rows."""
         return self.cardinality in FANNING_CARDINALITIES
+
+    def fans_in_direction(self, direction: str) -> bool:
+        """Whether travelling this edge in `direction` multiplies rows.
+
+        CARDINALITY IS DIRECTIONAL, and conflating the two directions is a
+        wrong-number path in its own right. Measured live on
+        Address-[:BELONGS_TO_CASE]->Case: 2,100 edges, 2,100 distinct
+        addresses, but only ONE distinct case. So:
+
+          forward  (Address -> Case): each address reaches one case. No fan.
+          backward (Case -> Address): that one case reaches 2,100 addresses.
+                                      Max fanout 2,100.
+
+        A single `cardinality` field describes the forward direction only,
+        and reading it for a backward traversal would report "MANY_TO_ONE,
+        safe" for the single worst inflation in this database. `direction`
+        here is the direction of TRAVEL, matching `Traversal.direction`:
+        "out" follows the edge as stored, "in" traverses it in reverse.
+        """
+        if direction == "out":
+            # Travelling source -> target: fans when one source reaches
+            # several targets.
+            return self.edge_n > self.distinct_sources_n
+        # Travelling target -> source: fans when one target is reached by
+        # several sources.
+        return self.edge_n > self.distinct_targets_n
+
+    def max_fanout_in_direction(self, direction: str) -> int:
+        """Worst-case rows produced per starting node, in `direction`."""
+        if direction == "out":
+            return self.max_fanout
+        return self.max_reverse_fanout
 
 
 @dataclasses.dataclass(frozen=True)
@@ -490,6 +526,16 @@ async def _measure_relationships() -> dict[tuple[str, str, str], RelationshipInf
         )
         max_fanout = int((fan[0] or {}).get("mx") or 0) if fan else 0
 
+        # Reverse fanout, measured independently — see
+        # `RelationshipInfo.fans_in_direction()` for why it cannot be
+        # inferred from the forward figure.
+        rfan = await age_client.execute_cypher(
+            f"MATCH (a:{src})-[r:{rel}]->(b:{dst}) "
+            f"WITH b.{dst_key} AS k, count(r) AS c RETURN max(c) AS mx",
+            columns=["mx"],
+        )
+        max_reverse_fanout = int((rfan[0] or {}).get("mx") or 0) if rfan else 0
+
         sup = await age_client.execute_cypher(
             f"MATCH (a:{src})-[r:{rel}]->(b:{dst}) "
             f"WHERE r.{SUPERSEDED_PROPERTY} IS NOT NULL RETURN count(r) AS n",
@@ -505,6 +551,7 @@ async def _measure_relationships() -> dict[tuple[str, str, str], RelationshipInf
             distinct_sources_n=s_n,
             distinct_targets_n=t_n,
             max_fanout=max_fanout,
+            max_reverse_fanout=max_reverse_fanout,
             cardinality=classify_cardinality(edge_n, s_n, t_n),
             # Versioned iff the convention is actually observed on this
             # triple. Claiming otherwise would make the compiler emit a
