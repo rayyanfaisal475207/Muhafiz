@@ -1,0 +1,234 @@
+[
+ {
+  "id": "M116-CR3-en",
+  "run": 1,
+  "text": "We had two people cheated through internet banking — did the force deal with both of their complaints in the same way on paper?",
+  "elapsed_s": 121.5,
+  "fallbacks": 0,
+  "model": "local",
+  "subagent_select": [
+   "Meta-Analysis via trigger | We had two people cheated through internet banking — did the force deal with both of their complaints in the same way on"
+  ],
+  "semantic_select": [],
+  "log_lines": [
+   "2026-09-15 17:37:07,269 [INFO] src.pipeline.harness.supervisor: SUBAGENT-SELECT Meta-Analysis via trigger | We had two people cheated through internet banking — did the force deal with both of their complaints in the same way on",
+   "2026-09-15 17:37:07,269 [INFO] src.pipeline.harness.agents.meta_analysis: Meta-Analysis: deterministic decomposition plan 'record_consistency' matched.",
+   "2026-09-15 17:37:07,363 [INFO] src.pipeline.xagg: XAGG filtered_fir_listing: filters=['statute: PECA 2016', 'station: \\u0633\\u0627\\u0626\\u0628\\u0631 \\u06a9\\u0631\\u0627\\u0626\\u0645 \\u0633\\u0631\\u06a9\\u0644\\u060c \\u0627\\u0633\\u0644\\u0627\\u0645 \\u0622\\u0628\\u0627\\u062f, \\u0633\\u0627\\u0626\\u0628\\u0631 \\u06a9\\u0631\\u0627\\u0626\\u0645 \\u0633\\u0631\\u06a9\\u0644\\u060c \\u0631\\u0627\\u0648\\u0644\\u067e\\u0646\\u0688\\u06cc'] -> 2 FIR(s) ['64/26', '65/26']",
+   "2026-09-15 17:37:08,297 [INFO] src.pipeline.xagg: XAGG graph_recurrence: entity_type=Person, 4 recurring node(s); 4 with a date-ordered timeline, 2 with a criminal-record outcome; فیصل=2[2024-09-25..2026-03-06], طارق=2[2024-09-25..2026-03-06], شہزیب عرف شابی=2[2024-09-14..2026-03-03], عاصم رشید=2[2026-03-19..2026-03-23]",
+   "2026-09-15 17:37:18,732 [INFO] src.pipeline.xagg: XAGG cms_fir_linkage: 4 CMS complaint(s), 4 linked to a case, 0 unlinked"
+  ],
+  "actual_answer": "The two cases (FIR 64/26 and FIR 65/26) were **not handled identically**.  \n\n- **FIR 64/26** has a matching walk-in complaint recorded in the CMS system (case tag: **CMS-ISB-2026-0341**) [Document 3].  \n- **FIR 65/26** does **not** appear in the walk-in complaint linkage list [Document 3], meaning no corresponding CMS complaint is recorded for this FIR.  \n\nThus, while **FIR 64/26** is linked to a documented walk-in complaint, **FIR 65/26** lacks such a record, indicating a difference in how the complaints were processed on paper.",
+  "route": "XNETWORK",
+  "sub_agent": "Meta-Analysis",
+  "subquery_routes": [
+   "XAGG",
+   "XAGG",
+   "XAGG"
+  ],
+  "status": "done",
+  "cutover_classification_failed": false,
+  "error": null
+ },
+ {
+  "id": "M116-CR3-ur",
+  "run": 1,
+  "text": "آن لائن بینکنگ فراڈ کے دو متاثرین کے معاملات کیا کاغذی کارروائی میں یکساں طور پر نمٹائے گئے؟",
+  "elapsed_s": 223.2,
+  "fallbacks": 0,
+  "model": "local",
+  "subagent_select": [
+   "Meta-Analysis via semantic=record_consistency(0.985) runner_up=xagg:fir_register_completeness(0.000) | آن لائن بینکنگ فراڈ کے دو متاثرین کے معاملات کیا کاغذی کارروائی میں یکساں طور پر نمٹائے گئے؟"
+  ],
+  "semantic_select": [
+   "record_consistency: score=0.985 runner_up=xagg:fir_register_completeness(0.000) threshold=0.40 1.49s | آن لائن بینکنگ فراڈ کے دو متاثرین کے معاملات کیا کاغذی کارروائی میں یکساں طور پر نمٹائے گئے؟"
+  ],
+  "log_lines": [
+   "2026-09-15 17:38:45,944 [INFO] src.pipeline.semantic_dispatch: SEMANTIC-DISPATCH no-fire: best=fir_register_completeness(0.000) runner_up=dv_report_fir_match(0.000) threshold=0.40 1.49s | آن لائن بینکنگ فراڈ کے دو متاثرین کے معاملات کیا کاغذی کارروائی میں یکساں طور پر نمٹائے گئے؟",
+   "2026-09-15 17:39:08,034 [INFO] src.pipeline.semantic_dispatch: SEMANTIC-SELECT record_consistency: score=0.985 runner_up=xagg:fir_register_completeness(0.000) threshold=0.40 1.49s | آن لائن بینکنگ فراڈ کے دو متاثرین کے معاملات کیا کاغذی کارروائی میں یکساں طور پر نمٹائے گئے؟",
+   "2026-09-15 17:39:08,035 [INFO] src.pipeline.harness.supervisor: SUBAGENT-SELECT Meta-Analysis via semantic=record_consistency(0.985) runner_up=xagg:fir_register_completeness(0.000) | آن لائن بینکنگ فراڈ کے دو متاثرین کے معاملات کیا کاغذی کارروائی میں یکساں طور پر نمٹائے گئے؟",
+   "2026-09-15 17:39:40,222 [INFO] src.pipeline.semantic_dispatch: SEMANTIC-DISPATCH no-fire: best=fir_register_completeness(0.002) runner_up=xgraph_named_entity_network(0.002) threshold=0.40 1.66s | کیا آن لائن بینکنگ فراڈ کے دونوں متاثرین کے معاملات کے لیے FIR نمبر درج ہیں؟",
+   "2026-09-15 17:39:40,575 [INFO] src.pipeline.semantic_dispatch: SEMANTIC-DISPATCH no-fire: best=fir_register_completeness(0.096) runner_up=legal_norm_lookup(0.003) threshold=0.40 1.68s | ہر FIR کے لیے کاغذی کارروائی کے مراحل کیا ہیں؟"
+  ],
+  "actual_answer": "Based on the provided information, the FIRs for both victims of online banking fraud were registered on the same date (2026-03-28) and cite identical legal sections (14 PECA 2016, 21 PECA 2016, 419 PPC, 420 PPC) [Document 1]. However, the documents do not specify whether subsequent paper proceedings—such as investigation steps, evidence collection, or case follow-ups—were uniformly handled for both cases. The uniformity of procedural steps beyond FIR registration cannot be confirmed from the given data.\n\n_A cited claim ([Document 1]) could not be confirmed against its source: Claim cites figure(s)/identifier(s) not found in its source text: 2026, 28, 3._\n_Could not answer sub-question (timed out): ہر FIR کے لیے کاغذی کارروائی کے مراحل کیا ہیں؟_",
+  "route": "XNETWORK",
+  "sub_agent": "Meta-Analysis",
+  "subquery_routes": [
+   "RAG",
+   "RAG"
+  ],
+  "status": "done",
+  "cutover_classification_failed": false,
+  "error": null
+ },
+ {
+  "id": "M116-G1-en",
+  "run": 1,
+  "text": "Put your crime-analyst hat on and tell me what in the pile of cases we have right now looks off or deserves a closer eye.",
+  "elapsed_s": 175.9,
+  "fallbacks": 1,
+  "model": "cloud-fallback",
+  "subagent_select": [
+   "Meta-Analysis via semantic=caseload_review(0.835) runner_up=xagg:statute_mix_by_year(0.351) | Put your crime-analyst hat on and tell me what in the pile of cases we have right now looks off or deserves a closer eye"
+  ],
+  "semantic_select": [
+   "caseload_review: score=0.835 runner_up=xagg:statute_mix_by_year(0.351) threshold=0.40 1.76s | Put your crime-analyst hat on and tell me what in the pile of cases we have right now looks off or deserves a closer eye"
+  ],
+  "log_lines": [
+   "2026-09-15 17:42:29,993 [INFO] src.pipeline.semantic_dispatch: SEMANTIC-DISPATCH no-fire: best=statute_mix_by_year(0.351) runner_up=graph_recurrence_weapon(0.150) threshold=0.40 1.36s | Put your crime-analyst hat on and tell me what in the pile of cases we have right now looks off or deserves a closer eye",
+   "2026-09-15 17:42:53,873 [INFO] src.pipeline.semantic_dispatch: SEMANTIC-SELECT caseload_review: score=0.835 runner_up=xagg:statute_mix_by_year(0.351) threshold=0.40 1.76s | Put your crime-analyst hat on and tell me what in the pile of cases we have right now looks off or deserves a closer eye",
+   "2026-09-15 17:42:53,874 [INFO] src.pipeline.harness.supervisor: SUBAGENT-SELECT Meta-Analysis via semantic=caseload_review(0.835) runner_up=xagg:statute_mix_by_year(0.351) | Put your crime-analyst hat on and tell me what in the pile of cases we have right now looks off or deserves a closer eye",
+   "2026-09-15 17:43:03,707 [INFO] src.pipeline.xagg: XAGG cms_fir_linkage: 4 CMS complaint(s), 4 linked to a case, 0 unlinked",
+   "2026-09-15 17:43:03,707 [INFO] src.pipeline.xagg: XAGG case_completeness_scan: 73 case(s) scanned; 9 missing an incident date, 52 missing an investigation status, 188 of 259 zimni entries carry no type, 13 of 44 recorded departures precede their own report time, 0 of 4 walk-in complaints unlinked",
+   "2026-09-15 17:43:04,160 [INFO] src.pipeline.xagg: XAGG graph_recurrence: entity_type=Person, 4 recurring node(s); 4 with a date-ordered timeline, 2 with a criminal-record outcome; فیصل=2[2024-09-25..2026-03-06], طارق=2[2024-09-25..2026-03-06], شہزیب عرف شابی=2[2024-09-14..2026-03-03], عاصم رشید=2[2026-03-19..2026-03-23]",
+   "2026-09-15 17:43:27,143 [INFO] src.pipeline.xagg: XAGG weapon_compliance_scan: 32 weapon(s); 30 unlicensed, 2 with no licence status recorded; 3 custody control(s) with no register column; 0 weapon(s) resolving to no case",
+   "2026-09-15 17:43:54,685 [INFO] src.pipeline.xagg: XAGG time_bucketed_breakdown: dimension=statute_by_year, 2 year bucket(s) [2024:cases=13,acts=26,sections=3, 2026:cases=51,acts=82,sections=31]",
+   "2026-09-15 17:44:28,104 [WARNING] src.llm.client: Local LLM failed: . Falling back to groq..."
+  ],
+  "actual_answer": "The current caseload reveals several critical issues requiring immediate attention:  \n\n1. **Repeat Offenders**: Three individuals—فیصل, شہزیب عرف شابی, and عاصم رشید—appear in **2 cases each**, suggesting potential links to ongoing criminal activity or organized involvement [Document 2].  \n\n2. **Unlicensed Weapons**: **30 cases** involve recovered weapons with no licence recorded, raising concerns about illegal arms proliferation and potential ties to violent crimes [Document 3].  \n\n3. **Incomplete Records**: **73 FIRs** have critical missing or incomplete fields, including 9 with no incident date, 52 lacking investigation status, and 188 diary entries (within these 73 cases) missing entry types, which hampers reliable event sequencing and case management [Document 1].  \n\n4. **Case Mix Shift**: Compared to 2024, 2026 shows a **3.9× increase** in FIRs, with a dramatic expansion in case types—from narrow focus on arms offenses and property crimes to inclusion of **murder, human trafficking, cyberstalking, narcotics, and domestic violence** [Document 4]. This diversification signals evolving crime patterns and potential underreporting of modern offenses in prior years.  \n\nThese findings highlight systemic record-keeping gaps, emerging crime trends, and repeat offender patterns that demand targeted investigative resources and policy review.",
+  "route": "XNETWORK",
+  "sub_agent": "Meta-Analysis",
+  "subquery_routes": [
+   "XAGG",
+   "XAGG",
+   "XAGG",
+   "XAGG"
+  ],
+  "status": "done",
+  "cutover_classification_failed": false,
+  "error": null
+ },
+ {
+  "id": "M116-G1-roman_ur",
+  "run": 1,
+  "text": "Aik crime analyst ki hesiyat se hamare mojooda cases ka jaiza lein aur bataen ke kya cheez ghair mamooli lagti hai ya nazar rakhne ke qabil hai.",
+  "elapsed_s": 126.9,
+  "fallbacks": 0,
+  "model": "local",
+  "subagent_select": [
+   "Meta-Analysis via trigger | Aik crime analyst ki hesiyat se hamare mojooda cases ka jaiza lein aur bataen ke kya cheez ghair mamooli lagti hai ya na"
+  ],
+  "semantic_select": [],
+  "log_lines": [
+   "2026-09-15 17:45:27,005 [INFO] src.pipeline.semantic_dispatch: SEMANTIC-DISPATCH no-fire: best=graph_recurrence_weapon(0.050) runner_up=statute_court_stage_join(0.002) threshold=0.40 1.55s | Aik crime analyst ki hesiyat se hamare mojooda cases ka jaiza lein aur bataen ke kya cheez ghair mamooli lagti hai ya na",
+   "2026-09-15 17:45:49,966 [INFO] src.pipeline.harness.supervisor: SUBAGENT-SELECT Meta-Analysis via trigger | Aik crime analyst ki hesiyat se hamare mojooda cases ka jaiza lein aur bataen ke kya cheez ghair mamooli lagti hai ya na",
+   "2026-09-15 17:45:49,966 [INFO] src.pipeline.harness.agents.meta_analysis: Meta-Analysis: deterministic decomposition plan 'caseload_review' matched.",
+   "2026-09-15 17:45:50,164 [INFO] src.pipeline.xagg: XAGG accused_relationship_breakdown: 24 relationship edge(s) across 10 FIR(s), 6 distinct value(s); dominant='اجنبی' 15; coverage 12 of 92 distinct accused",
+   "2026-09-15 17:45:50,545 [INFO] src.pipeline.xagg: XAGG offender_age_profile: 17 of 92 distinct accused carry an age (19 of 94 accused entries); range 24-49, mean 31.5; filters=none",
+   "2026-09-15 17:46:00,567 [INFO] src.pipeline.xagg: XAGG seized_property_disposition: 45 register entr(ies) across 28 FIR(s), 9 distinct disposition(s); forensic-lab dispatch 13 item(s) in 11 FIR(s) (16 mention forensic in any wording); heirs 7 item(s) in 7 FIR(s); 0 entr(ies) record no disposition",
+   "2026-09-15 17:46:11,178 [INFO] src.pipeline.xagg: XAGG incident_time_of_day: 64 of 73 incident(s) carry a datetime; 14 are date-only 00:00:00 and excluded; 50 usable -> {'night (00:00-05:59)': 1, 'morning (06:00-11:59)': 14, 'afternoon (12:00-17:59)': 16, 'evening (18:00-23:59)': 19}; peak='evening (18:00-23:59)'",
+   "2026-09-15 17:46:17,973 [INFO] src.pipeline.xagg: XAGG graph_recurrence: entity_type=Person, 4 recurring node(s); 4 with a date-ordered timeline, 2 with a criminal-record outcome; فیصل=2[2024-09-25..2026-03-06], طارق=2[2024-09-25..2026-03-06], شہزیب عرف شابی=2[2024-09-14..2026-03-03], عاصم رشید=2[2026-03-19..2026-03-23]"
+  ],
+  "actual_answer": "The current caseload reveals several non-routine patterns and areas warranting monitoring:  \n\n1. **Accused Profiles**:  \n   - **Age data gaps**: Of 92 distinct accused, **75 have no recorded age**, leaving the age range (24–49 years) and average (31.5) based on only **17 individuals** [Document 1]. This suggests significant underreporting of demographic data, limiting analysis of age-related trends.  \n   - **Recurring accused**: **Three individuals** (فیصل, شہزیب عرف شابی, عاصم رشید) appear in **2 cases each**, spanning different FIR numbers [Document 5]. This indicates potential repeat involvement, though the sample size is small.  \n\n2. **Relationships**:  \n   - **Stranger dominance**: In **10 FIRs** with 24 relationship entries, **15 entries** (62.5%) label the accused as **اجنبی (stranger)**, far exceeding other categories like **mother-in-law** (2 entries) or **husband** (2 entries) [Document 2]. This suggests a high proportion of crimes involving no prior relationship between accused and complainant, possibly pointing to opportunistic offenses.  \n\n3. **Seized Property**:  \n   - **Forensic focus**: **13 items** from **11 FIRs** were sent to a forensic laboratory, while **7 items** from **7 FIRs** were held for deceased heirs [Document 3]. This highlights forensic involvement in a subset of cases, potentially linked to drug-related or violent crimes, though the scale is limited.  \n\n4. **Timing of Incidents**:  \n   - **Evening peak**: Of **50 incidents** with usable timestamps, **19 (38%)** occurred in the **evening (18:00–23:59)**, making it the busiest time band [Document 4]. This contrasts with the **morning** (28%) and **afternoon** (32%), suggesting a possible link to nocturnal activities or environments.  \n\n5. **Data Limitations**:  \n   - **Incomplete records**: Only **64/73 incidents** (87.7%) have recorded timestamps, and **75/92 accused** lack age data [Document 1, 4]. These gaps may skew analysis and highlight systemic underreporting in critical fields.  \n\n**Key Monitoring Areas**:  \n- The **prevalence of stranger relationships** and **evening timing** could signal patterns in burglary, assault, or drug-related crimes.  \n- The **recurring accused** and **forensic property handling** merit closer scrutiny for potential links to organized crime or repeat offenses.  \n- **Data completeness** (age, timestamps) remains a critical barrier to deeper analysis, requiring procedural improvements.",
+  "route": "XNETWORK",
+  "sub_agent": "Meta-Analysis",
+  "subquery_routes": [
+   "XAGG",
+   "XAGG",
+   "XAGG",
+   "XAGG",
+   "XAGG"
+  ],
+  "status": "done",
+  "cutover_classification_failed": false,
+  "error": null
+ },
+ {
+  "id": "M116-G6-en",
+  "run": 1,
+  "text": "Write a brief starter note for an officer who has just been posted here — what should they expect from the caseload as it stands?",
+  "elapsed_s": 102.4,
+  "fallbacks": 0,
+  "model": "local",
+  "subagent_select": [
+   "Meta-Analysis via semantic=orientation_note(0.999) runner_up=caseload_review(0.305) | Write a brief starter note for an officer who has just been posted here — what should they expect from the caseload as i"
+  ],
+  "semantic_select": [
+   "orientation_note: score=0.999 runner_up=caseload_review(0.305) threshold=0.40 1.76s | Write a brief starter note for an officer who has just been posted here — what should they expect from the caseload as i"
+  ],
+  "log_lines": [
+   "2026-09-15 17:47:34,760 [INFO] src.pipeline.semantic_dispatch: SEMANTIC-DISPATCH no-fire: best=unsupported_officer(0.037) runner_up=offender_age_profile(0.006) threshold=0.40 1.40s | Write a brief starter note for an officer who has just been posted here — what should they expect from the caseload as i",
+   "2026-09-15 17:47:58,576 [INFO] src.pipeline.semantic_dispatch: SEMANTIC-SELECT orientation_note: score=0.999 runner_up=caseload_review(0.305) threshold=0.40 1.76s | Write a brief starter note for an officer who has just been posted here — what should they expect from the caseload as i",
+   "2026-09-15 17:47:58,578 [INFO] src.pipeline.harness.supervisor: SUBAGENT-SELECT Meta-Analysis via semantic=orientation_note(0.999) runner_up=caseload_review(0.305) | Write a brief starter note for an officer who has just been posted here — what should they expect from the caseload as i",
+   "2026-09-15 17:48:06,526 [INFO] src.pipeline.xagg: XAGG district_breakdown: entity=Case, 9 district(s); فیصل آباد=19, لاہور=18, راولپنڈی=10, اسلام آباد=5, چنیوٹ=5, حیدر آباد=5, کراچی ایسٹ=5, کراچی وسطی=5, ملتان=1",
+   "2026-09-15 17:48:07,051 [INFO] src.pipeline.xagg: XAGG time_bucketed_breakdown: dimension=statute_by_year, 2 year bucket(s) [2024:cases=13,acts=26,sections=3, 2026:cases=51,acts=82,sections=31]",
+   "2026-09-15 17:48:24,071 [INFO] src.pipeline.xagg: XAGG incident_to_report_minutes_by_year: 2 year bucket(s) [2024=15.0min/n=13, 2026=1401.3min/n=51], 0 row(s) excluded for a missing/unparseable/out-of-order timestamp",
+   "2026-09-15 17:48:32,800 [INFO] src.pipeline.xagg: XAGG gender_breakdown: 94 accused edge(s), 3 distinct value(s); مرد=67, عورت=24, unknown=3"
+  ],
+  "actual_answer": "The current caseload is concentrated in **فیصل آباد** (Faisalabad, 19 cases) and **لاہور** (Lahore, 18 cases), with significantly fewer cases in other districts [Document 1]. Case types have diversified sharply since 2024, now including **narcotics (CNSA 1997)**, **cybercrime (PECA 2016)**, and **domestic violence**—absent in prior years—alongside expanded **Pakistan Penal Code (PPC)** offenses like murder, fraud, and assault [Document 2]. Notably, **PPC §34 (conspiracy)** remains prevalent (23 cases), while **cybercrime** and **narcotics** cases each account for 9 and 12 cases, respectively. Reporting delays have worsened, with an average of **~23.4 hours** from incident to report in 2026, compared to **15 minutes** in 2024 [Document 3]. The accused profile is heavily male-dominated: **67 men** vs. **24 women**, with **3 unknown** [Document 4]. Officers should prioritize adapting to complex, multi-jurisdictional cases and address systemic delays in reporting.\n\n_A cited claim ([Document 4]) could only be partially confirmed against its source: The source confirms 24 female accused but does not specify that the 3 unknown individuals are women._",
+  "route": "XNETWORK",
+  "sub_agent": "Meta-Analysis",
+  "subquery_routes": [
+   "XAGG",
+   "XAGG",
+   "XAGG",
+   "XAGG"
+  ],
+  "status": "done",
+  "cutover_classification_failed": false,
+  "error": null
+ },
+ {
+  "id": "M116-G6-ur",
+  "run": 1,
+  "text": "یہاں نئے تعینات ہونے والے افسر کے لیے ایک مختصر تعارفی نوٹ لکھیں — انہیں موجودہ کیس لوڈ سے کیا توقع رکھنی چاہیے؟",
+  "elapsed_s": 65.6,
+  "fallbacks": 0,
+  "model": "local",
+  "subagent_select": [],
+  "semantic_select": [],
+  "log_lines": [
+   "2026-09-15 17:49:18,270 [INFO] src.pipeline.semantic_dispatch: SEMANTIC-DISPATCH no-fire: best=unsupported_officer(0.031) runner_up=offender_age_profile(0.003) threshold=0.40 1.48s | یہاں نئے تعینات ہونے والے افسر کے لیے ایک مختصر تعارفی نوٹ لکھیں — انہیں موجودہ کیس لوڈ سے کیا توقع رکھنی چاہیے؟"
+  ],
+  "actual_answer": "No community cluster in the case corpus is closely related to this specific question (\"یہاں نئے تعینات ہونے والے افسر کے لیے ایک مختصر تعارفی نوٹ لکھیں — انہیں موجودہ کیس لوڈ سے کیا توقع رکھنی چاہیے؟\") (nearest cluster found was distance 0.186 against a relevance cutoff of 0.145). Rather than describing an unrelated cluster, no cross-case network finding is being reported here.",
+  "route": null,
+  "sub_agent": null,
+  "subquery_routes": [],
+  "status": "done",
+  "cutover_classification_failed": false,
+  "error": null
+ },
+ {
+  "id": "Q1-R1",
+  "run": 1,
+  "text": "Take whichever offence shows up in the largest number of FIRs — how do the cases charged under it spread out from one district to the next?",
+  "elapsed_s": 15.3,
+  "fallbacks": 0,
+  "model": "local",
+  "subagent_select": [],
+  "semantic_select": [],
+  "log_lines": [
+   "2026-09-15 17:50:23,484 [INFO] src.pipeline.xagg: XAGG district_breakdown: entity=Case, 9 district(s); فیصل آباد=19, لاہور=18, راولپنڈی=10, اسلام آباد=5, چنیوٹ=5, حیدر آباد=5, کراچی ایسٹ=5, کراچی وسطی=5, ملتان=1"
+  ],
+  "actual_answer": "The document does not specify which offence corresponds to the largest number of FIRs, as it only provides aggregate case counts per city/district. Therefore, it is not possible to determine how cases charged under the most common offence are distributed across districts based on the given data. The highest number of cases (19) is recorded in **فیصل آباد**, but no offence type is linked to this count in the source material [Document 1].",
+  "route": "XAGG",
+  "sub_agent": "Large-Scale Aggregate",
+  "subquery_routes": [],
+  "status": "done",
+  "cutover_classification_failed": false,
+  "error": null
+ },
+ {
+  "id": "Q1-R2",
+  "run": 1,
+  "text": "Jo dafa sab se zyada FIRs mein lagti hai, us ke muqadmat alag alag zilon mein kis tarah phaile hue hain?",
+  "elapsed_s": 46.8,
+  "fallbacks": 0,
+  "model": "local",
+  "subagent_select": [],
+  "semantic_select": [
+   "no-fire: best=most_cited_section_by_district(0.002) runner_up=xagg:xgraph_named_entity_network(0.001) threshold=0.40 1.46s | Jo dafa sab se zyada FIRs mein lagti hai, us ke muqadmat alag alag zilon mein kis tarah phaile hue hain?"
+  ],
+  "log_lines": [
+   "2026-09-15 17:50:41,128 [INFO] src.pipeline.semantic_dispatch: SEMANTIC-DISPATCH no-fire: best=xgraph_named_entity_network(0.001) runner_up=weapon_evidence_chain(0.001) threshold=0.40 1.38s | Jo dafa sab se zyada FIRs mein lagti hai, us ke muqadmat alag alag zilon mein kis tarah phaile hue hain?",
+   "2026-09-15 17:51:12,020 [INFO] src.pipeline.semantic_dispatch: SEMANTIC-SELECT no-fire: best=most_cited_section_by_district(0.002) runner_up=xagg:xgraph_named_entity_network(0.001) threshold=0.40 1.46s | Jo dafa sab se zyada FIRs mein lagti hai, us ke muqadmat alag alag zilon mein kis tarah phaile hue hain?",
+   "2026-09-15 17:51:12,051 [INFO] src.pipeline.xagg: XAGG relational_aggregate: group_by=crime_category, 73 case(s) considered, 7 bucket(s); filters=none; PPC=25, PPC, Arms Ordinance 1965=21, PECA 2016, PPC=9, CNSA 1997, Arms Ordinance 1965=8, CNSA 1997=4, PPC, Punjab Domestic Violence Act=4, PPC, Illegal Dispossession Act 2005=2"
+  ],
+  "actual_answer": "According to [Document 1], the legal code appearing in the most FIRs is **PPC (Pakistan Penal Code)**, with **61 cases** in total. These cases are distributed across different combinations of statutes as follows:  \n\n- **PPC alone**: 25 cases  \n- **PPC + Arms Ordinance 1965**: 21 cases  \n- **PPC + PECA 2016**: 9 cases  \n- **PPC + Punjab Domestic Violence Act**: 4 cases  \n- **PPC + Illegal Dispossession Act 2005**: 2 cases  \n\nThis shows that while **PPC** is the most frequently cited statute, many of its cases are grouped with other legal codes (e.g., Arms Ordinance 1965, PECA 2016, etc.), reflecting overlapping charges or complex legal scenarios. The total of 61 PPC-related cases matches the individual legal code breakdown in the document.",
+  "route": "XAGG",
+  "sub_agent": "Large-Scale Aggregate",
+  "subquery_routes": [],
+  "status": "done",
+  "cutover_classification_failed": false,
+  "error": null
+ }
+]

@@ -1,0 +1,22 @@
+[
+ {
+  "id": "Q1",
+  "run": 1,
+  "text": "How is the most frequently cited offence pattern distributed across districts?",
+  "elapsed_s": 35.4,
+  "fallbacks": 0,
+  "model": "local",
+  "subagent_select": [],
+  "semantic_select": [],
+  "log_lines": [
+   "2026-09-15 17:12:00,673 [INFO] src.pipeline.xagg: XAGG district_breakdown: entity=Case, 9 district(s); فیصل آباد=19, لاہور=18, راولپنڈی=10, اسلام آباد=5, چنیوٹ=5, حیدر آباد=5, کراچی ایسٹ=5, کراچی وسطی=5, ملتان=1"
+  ],
+  "actual_answer": "The provided data shows the number of cases recorded across different districts but does not specify the most frequently cited offence pattern. Based on [Document 1], the distribution of cases is as follows:  \n- **فیصل آباد** (Faislabad): 19 case(s)  \n- **لاہور** (Lahore): 18 case(s)  \n- **راولپنڈی** (Rawalpindi): 10 case(s)  \n- **اسلام آباد** (Islamabad): 5 case(s)  \n- **چنیوٹ** (Chiniot): 5 case(s)  \n- **حیدر آباد** (Hyderabad): 5 case(s)  \n- **کراچی ایسٹ** (Karachi East): 5 case(s)  \n- **کراچی وسطی** (Karachi Central): 5 case(s)  \n- **ملتان** (Multan): 1 case(s).  \n\nThe document does not include details about offence patterns or their frequency.",
+  "route": "XAGG",
+  "sub_agent": "Large-Scale Aggregate",
+  "subquery_routes": [],
+  "status": "done",
+  "cutover_classification_failed": false,
+  "error": null
+ }
+]
