@@ -1,0 +1,470 @@
+{
+ "candidates": {
+  "D0": "whether any member of the public who applied for a police service or filed a complaint with the police, for example at a Khidmat Markaz or through the complaint system, is also named as an accused or suspect in an FIR, matched by CNIC",
+  "D1": "whether any citizen who used a citizen service, such as a Khidmat Markaz application or a walk-in complaint, is also an accused in one of our FIRs, matched by CNIC",
+  "D2": "whether anyone who applied for a police service or filed a complaint with the police is also an accused person under investigation in an FIR: a cross-check of the service applicants against the accused roster, matched by CNIC",
+  "D3": "whether any citizen who used a citizen service, such as a Khidmat Markaz application or a walk-in complaint, is also an accused under investigation in one of our FIRs: a cross-check of service applicants against the accused roster, matched by CNIC"
+ },
+ "rule": ", declared here before scoring:\n  choose the candidate that maximises the MINIMUM score over the three\n  targets that reach the semantic layer (Q2, L2, P1 — P2/P3 are claimed by\n  the phrase chain's bare-noun tier and never reach it), subject to every\n  pre-written hazard (module145_hazards.json, 24) and every generic-tier\n  gold question (the 7 that consult the layer) scoring < 0.35 against it.\n  Ties go to the shorter description. If no candidate reaches 0.40 on all\n  three, the best is still shipped and the miss is reported as a miss.",
+ "items": [
+  {
+   "set": "target",
+   "id": "Q2",
+   "text": "Is there anyone who used one of our citizen services who also turns out to be under investigation for a crime?",
+   "reaches": true,
+   "scores": {
+    "D3": 0.9925495386123657,
+    "D1": 0.9529094696044922,
+    "D2": 0.4729260504245758,
+    "D0": 0.033731766045093536
+   }
+  },
+  {
+   "set": "target",
+   "id": "L2",
+   "text": "Is there anyone who used one of our citizen services who is also under investigation?",
+   "reaches": true,
+   "scores": {
+    "D3": 0.997432291507721,
+    "D1": 0.9718208312988281,
+    "D2": 0.635505199432373,
+    "D0": 0.018257733434438705
+   }
+  },
+  {
+   "set": "target",
+   "id": "P1",
+   "text": "Has anyone who filed a complaint with us later been charged with an offence?",
+   "reaches": true,
+   "scores": {
+    "D2": 0.32539936900138855,
+    "D0": 0.22417804598808289,
+    "D1": 0.08037759363651276,
+    "D3": 0.05412665754556656
+   }
+  },
+  {
+   "set": "target",
+   "id": "P2",
+   "text": "Do any of the people who applied for a police service at the Khidmat Markaz show up as accused in an FIR?",
+   "reaches": false,
+   "scores": {
+    "D0": 0.9959474205970764,
+    "D3": 0.9913325905799866,
+    "D1": 0.9845239520072937,
+    "D2": 0.8851838111877441
+   }
+  },
+  {
+   "set": "target",
+   "id": "P3",
+   "text": "Kya koi aisa shehri hai jisne police se koi service li ho aur wo kisi case mein mulzim bhi ho?",
+   "reaches": false,
+   "scores": {
+    "D2": 0.0014481497928500175,
+    "D0": 0.0010578653309494257,
+    "D3": 0.0002793248859234154,
+    "D1": 0.0002465673896949738
+   }
+  },
+  {
+   "set": "hazard",
+   "id": "H01",
+   "text": "How many cases in total?",
+   "reaches": true,
+   "scores": {
+    "D3": 5.822204548167065e-05,
+    "D2": 5.548178523895331e-05,
+    "D1": 5.098567271488719e-05,
+    "D0": 2.7717635020962916e-05
+   }
+  },
+  {
+   "set": "hazard",
+   "id": "H02",
+   "text": "List all the cases.",
+   "reaches": true,
+   "scores": {
+    "D1": 0.0010314525570720434,
+    "D3": 0.0008504866855219007,
+    "D0": 0.0005396434571594,
+    "D2": 0.00043776066740974784
+   }
+  },
+  {
+   "set": "hazard",
+   "id": "H03",
+   "text": "Which police station has the most cases?",
+   "reaches": true,
+   "scores": {
+    "D0": 0.0006391843780875206,
+    "D2": 0.00046112717245705426,
+    "D3": 3.5877306800102815e-05,
+    "D1": 3.582031786208972e-05
+   }
+  },
+  {
+   "set": "hazard",
+   "id": "H04",
+   "text": "Give me a summary of the caseload.",
+   "reaches": true,
+   "scores": {
+    "D2": 0.00015404738951474428,
+    "D3": 0.00013372377725318074,
+    "D1": 0.00010511124855838716,
+    "D0": 8.08995682746172e-05
+   }
+  },
+  {
+   "set": "hazard",
+   "id": "H05",
+   "text": "What is the weather like in Lahore today?",
+   "reaches": true,
+   "scores": {
+    "D2": 1.6073778169811703e-05,
+    "D3": 1.607273588888347e-05,
+    "D1": 1.60077543114312e-05,
+    "D0": 1.5935236660880037e-05
+   }
+  },
+  {
+   "set": "hazard",
+   "id": "H06",
+   "text": "Hello, what can you do?",
+   "reaches": true,
+   "scores": {
+    "D0": 4.93902298330795e-05,
+    "D2": 2.809248326229863e-05,
+    "D3": 2.5837623979896307e-05,
+    "D1": 2.440162825223524e-05
+   }
+  },
+  {
+   "set": "hazard",
+   "id": "H07",
+   "text": "What does section 302 of the PPC say?",
+   "reaches": true,
+   "scores": {
+    "D0": 0.000261997920460999,
+    "D2": 0.0002586304908618331,
+    "D3": 6.6611566580832e-05,
+    "D1": 5.540596612263471e-05
+   }
+  },
+  {
+   "set": "hazard",
+   "id": "H08",
+   "text": "How many theft cases are open?",
+   "reaches": true,
+   "scores": {
+    "D2": 1.8884078599512577e-05,
+    "D0": 1.8592680135043338e-05,
+    "D1": 1.731160591589287e-05,
+    "D3": 1.6735668395995162e-05
+   }
+  },
+  {
+   "set": "hazard",
+   "id": "H09",
+   "text": "Show me the cases registered last month.",
+   "reaches": true,
+   "scores": {
+    "D1": 4.3474814447108656e-05,
+    "D3": 3.422080771997571e-05,
+    "D0": 2.7620217224466614e-05,
+    "D2": 2.5193539840984158e-05
+   }
+  },
+  {
+   "set": "hazard",
+   "id": "H10",
+   "text": "Draft a letter to the SHO about staffing.",
+   "reaches": true,
+   "scores": {
+    "D2": 3.062426549149677e-05,
+    "D3": 2.3489139493904077e-05,
+    "D0": 2.171346204704605e-05,
+    "D1": 1.9187089492334053e-05
+   }
+  },
+  {
+   "set": "hazard",
+   "id": "H11",
+   "text": "Kul kitne muqadmat darj hain?",
+   "reaches": true,
+   "scores": {
+    "D1": 1.6438150851172395e-05,
+    "D3": 1.630564293009229e-05,
+    "D0": 1.6267618775600567e-05,
+    "D2": 1.625118420633953e-05
+   }
+  },
+  {
+   "set": "hazard",
+   "id": "H12",
+   "text": "تمام مقدمات کی فہرست دکھائیں",
+   "reaches": true,
+   "scores": {
+    "D1": 0.0007604847196489573,
+    "D3": 0.0005477917147800326,
+    "D2": 0.00034599093487486243,
+    "D0": 0.00028197490610182285
+   }
+  },
+  {
+   "set": "hazard",
+   "id": "H13",
+   "text": "How many cases were registered in 2025?",
+   "reaches": true,
+   "scores": {
+    "D2": 1.9200833776267245e-05,
+    "D0": 1.7971242414205335e-05,
+    "D3": 1.774073280103039e-05,
+    "D1": 1.659775443840772e-05
+   }
+  },
+  {
+   "set": "hazard",
+   "id": "H14",
+   "text": "Who is the complainant in FIR 460/26?",
+   "reaches": true,
+   "scores": {
+    "D2": 0.008994974195957184,
+    "D0": 0.008214524015784264,
+    "D1": 0.007261423394083977,
+    "D3": 0.004640050698071718
+   }
+  },
+  {
+   "set": "hazard",
+   "id": "H15",
+   "text": "Which officer investigated the most cases?",
+   "reaches": true,
+   "scores": {
+    "D2": 0.00018681389337871224,
+    "D3": 5.6546443374827504e-05,
+    "D0": 3.433869278524071e-05,
+    "D1": 2.009325362450909e-05
+   }
+  },
+  {
+   "set": "hazard",
+   "id": "H16",
+   "text": "Is crime going up month over month?",
+   "reaches": true,
+   "scores": {
+    "D0": 2.1603329514618963e-05,
+    "D2": 1.7523669157526456e-05,
+    "D3": 1.6237334421020932e-05,
+    "D1": 1.623533717065584e-05
+   }
+  },
+  {
+   "set": "hazard",
+   "id": "H17",
+   "text": "What is the procedure for registering an FIR?",
+   "reaches": true,
+   "scores": {
+    "D2": 0.009034885093569756,
+    "D0": 0.004227727651596069,
+    "D3": 0.0027869229670614004,
+    "D1": 0.0014544305158779025
+   }
+  },
+  {
+   "set": "hazard",
+   "id": "H18",
+   "text": "Tell me about the cybercrime wing.",
+   "reaches": true,
+   "scores": {
+    "D0": 0.0001899648632388562,
+    "D1": 0.00010278073023073375,
+    "D3": 4.94318337587174e-05,
+    "D2": 4.601874024956487e-05
+   }
+  },
+  {
+   "set": "hazard",
+   "id": "H19",
+   "text": "How many FIRs were registered in Lahore?",
+   "reaches": true,
+   "scores": {
+    "D1": 0.0005896180518902838,
+    "D3": 0.0005045864381827414,
+    "D0": 0.00031800559372641146,
+    "D2": 0.00022948658443056047
+   }
+  },
+  {
+   "set": "hazard",
+   "id": "H20",
+   "text": "How many accused persons in total are under 30 years old?",
+   "reaches": true,
+   "scores": {
+    "D2": 0.0010834592394530773,
+    "D0": 0.00025016340077854693,
+    "D3": 0.00019801269809249789,
+    "D1": 0.00012856465764343739
+   }
+  },
+  {
+   "set": "hazard",
+   "id": "H21",
+   "text": "پچھلے سال کتنے مقدمات درج ہوئے؟",
+   "reaches": true,
+   "scores": {
+    "D2": 1.8104661648976617e-05,
+    "D0": 1.7379676137352362e-05,
+    "D1": 1.6720625353627838e-05,
+    "D3": 1.6588339349254966e-05
+   }
+  },
+  {
+   "set": "hazard",
+   "id": "H22",
+   "text": "Mujhe sab se naye case ke baare mein batao",
+   "reaches": true,
+   "scores": {
+    "D1": 2.894669523811899e-05,
+    "D0": 2.3686843633186072e-05,
+    "D3": 2.0129982658545487e-05,
+    "D2": 1.681978210399393e-05
+   }
+  },
+  {
+   "set": "hazard",
+   "id": "H23",
+   "text": "What happened in the bank fraud case?",
+   "reaches": true,
+   "scores": {
+    "D1": 2.4331729946425185e-05,
+    "D0": 2.167479215131607e-05,
+    "D3": 1.9460745534161106e-05,
+    "D2": 1.9242374037276022e-05
+   }
+  },
+  {
+   "set": "hazard",
+   "id": "H24",
+   "text": "Thanks, that's all for now.",
+   "reaches": true,
+   "scores": {
+    "D3": 1.988372423511464e-05,
+    "D2": 1.7412174202036113e-05,
+    "D0": 1.7202526578330435e-05,
+    "D1": 1.7059952369891107e-05
+   }
+  },
+  {
+   "set": "gold",
+   "id": "D1",
+   "text": "How many FIRs are currently registered?",
+   "reaches": true,
+   "scores": {
+    "D3": 0.0009978123707696795,
+    "D1": 0.0009074771078303456,
+    "D2": 0.0006832679500803351,
+    "D0": 0.000398195261368528
+   }
+  },
+  {
+   "set": "gold",
+   "id": "S2",
+   "text": "Which police station handles the most cases?",
+   "reaches": true,
+   "scores": {
+    "D0": 0.0007923836237750947,
+    "D2": 0.00043995113810524344,
+    "D3": 5.424894334282726e-05,
+    "D1": 4.893630830338225e-05
+   }
+  },
+  {
+   "set": "gold",
+   "id": "CR3",
+   "text": "In the online banking fraud matter involving two separate victims, was each victim's case processed and recorded the same way?",
+   "reaches": true,
+   "scores": {
+    "D0": 4.2767042032210156e-05,
+    "D1": 2.5340284992125817e-05,
+    "D3": 2.4128066797857173e-05,
+    "D2": 1.7509402823634446e-05
+   }
+  },
+  {
+   "set": "gold",
+   "id": "G6",
+   "text": "Yahan naye tainaat hone wale afsar ke liye ek mukhtasar orientation note likhein — unhein mojooda case load se kya tawaqqo rakhni chahiye?",
+   "reaches": true,
+   "scores": {
+    "D1": 2.6378438633400947e-05,
+    "D3": 2.5064566216315143e-05,
+    "D0": 2.2993282982497476e-05,
+    "D2": 1.673665792623069e-05
+   }
+  },
+  {
+   "set": "gold",
+   "id": "KB1",
+   "text": "What legal requirement governs how a report of a crime becomes a formal FIR, and does our recordkeeping actually follow it?",
+   "reaches": true,
+   "scores": {
+    "D3": 0.0012476685224100947,
+    "D0": 0.0011642527533695102,
+    "D1": 0.000932013732381165,
+    "D2": 0.000809982477221638
+   }
+  },
+  {
+   "set": "gold",
+   "id": "KB4",
+   "text": "جب پولیس کسی مقدمے سے متعلق اشیاء اپنی تحویل میں لیتی ہے، تو کیا اِس بارے میں کوئی باقاعدہ معیار موجود ہے کہ اُنہیں کیسے درج اور بالآخر کیسے تلف کیا جائے — اور کیا ہمارا پراپرٹی ریکارڈ اُس پر عمل کرتا ہے؟",
+   "reaches": true,
+   "scores": {
+    "D0": 0.00039001950062811375,
+    "D2": 0.00026423000963404775,
+    "D3": 7.815879507688805e-05,
+    "D1": 5.776501711807214e-05
+   }
+  },
+  {
+   "set": "gold",
+   "id": "KB8",
+   "text": "Agar kisi case ki tafteesh lambi ho jaye, to kya qanoon police ko iske mukammal hone se pehle adaalat ko kuch report karna zaroori karta hai — aur kya hamara case-tracking data batayega ke aisa hua ya nahi?",
+   "reaches": true,
+   "scores": {
+    "D0": 0.0003671463637147099,
+    "D2": 0.00032290900708176196,
+    "D1": 8.976754907052964e-05,
+    "D3": 8.813173189992085e-05
+   }
+  }
+ ],
+ "report": {
+  "D0": {
+   "min_over_reaching_targets": 0.0183,
+   "max_over_hazards_and_gold": 0.0082,
+   "eligible": true,
+   "length": 44
+  },
+  "D1": {
+   "min_over_reaching_targets": 0.0804,
+   "max_over_hazards_and_gold": 0.0073,
+   "eligible": true,
+   "length": 30
+  },
+  "D2": {
+   "min_over_reaching_targets": 0.3254,
+   "max_over_hazards_and_gold": 0.009,
+   "eligible": true,
+   "length": 38
+  },
+  "D3": {
+   "min_over_reaching_targets": 0.0541,
+   "max_over_hazards_and_gold": 0.0046,
+   "eligible": true,
+   "length": 41
+  }
+ },
+ "chosen": "D2"
+}

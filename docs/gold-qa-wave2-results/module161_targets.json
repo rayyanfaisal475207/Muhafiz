@@ -1,0 +1,10 @@
+{
+ "_note": "Module 161 target set, WRITTEN BEFORE the capability description existed and before any score was seen. Q2 is the live question the module is filed from (GOLD_QA_REMAINING_FIXES_PLAN.md row 161); L2 is Module 145's recorded wording of the same live query. P1-P3 are the non-gold paraphrases for MODULE161_RESULT.md section 6: two English rewordings that name neither 'citizen services' nor 'under investigation', and one Roman-Urdu. None of them is a tuning target: the description is written from what the aggregate computes.",
+ "targets": [
+  {"id": "Q2", "language": "en", "text": "Is there anyone who used one of our citizen services who also turns out to be under investigation for a crime?", "expected_kind": "applicant_accused_overlap"},
+  {"id": "L2", "language": "en", "text": "Is there anyone who used one of our citizen services who is also under investigation?", "expected_kind": "applicant_accused_overlap"},
+  {"id": "P1", "language": "en", "text": "Has anyone who filed a complaint with us later been charged with an offence?", "expected_kind": "applicant_accused_overlap"},
+  {"id": "P2", "language": "en", "text": "Do any of the people who applied for a police service at the Khidmat Markaz show up as accused in an FIR?", "expected_kind": "applicant_accused_overlap"},
+  {"id": "P3", "language": "roman-ur", "text": "Kya koi aisa shehri hai jisne police se koi service li ho aur wo kisi case mein mulzim bhi ho?", "expected_kind": "applicant_accused_overlap"}
+ ]
+}

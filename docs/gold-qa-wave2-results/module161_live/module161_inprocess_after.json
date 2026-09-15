@@ -1,0 +1,183 @@
+{
+ "L2::run1": {
+  "answer": "No cross-case connections or patterns were found for this query, across either entity-graph search or cross-case pattern synthesis. No community cluster in the case corpus is closely related to this specific question (\"Is there anyone who used one of our citizen services who is also under investigation?\") (nearest cluster found was distance 0.167 against a relevance cutoff of 0.145). Rather than describing an unrelated cluster, no cross-case network finding is being reported here.Response generated (485 chars)",
+  "confidence": "medium",
+  "elapsed_s": 43.3,
+  "expected_kind": "applicant_accused_overlap",
+  "model": "local",
+  "question": "Is there anyone who used one of our citizen services who is also under investigation?",
+  "reason": "Asks whether any entity appears in both citizen service records and investigation contexts — a cross-case entity linkage question with no specific name given, requiring traversal of connections across cases to check for overlaps",
+  "route": "XGRAPH",
+  "route_error": null,
+  "secondary_methods": [],
+  "semantic_dispatch_enabled": true,
+  "semantic_dispatch_lines": [
+   "src.pipeline.semantic_dispatch: SEMANTIC-DISPATCH no-fire: best=applicant_accused_overlap(0.018) runner_up=graph_recurrence_person(0.002) threshold=0.40 2.56s | Is there anyone who used one of our citizen services who is also under investigation?"
+  ],
+  "status": null,
+  "steps": [
+   "supervisor/active: Routing through the agent harness...",
+   "supervisor:dispatch/active: Classified query as route='XGRAPH' -> sub-agent='Cross-Case Linkage'",
+   "supervisor:dispatch/done: Cross-Case Linkage completed with status=empty",
+   "supervisor/done: Harness routing complete",
+   "memory/done: Saved to session"
+  ],
+  "used_cutover": true,
+  "xagg_lines": []
+ },
+ "P1::run1": {
+  "answer": "No cross-case connections or patterns were found for this query, across either entity-graph search or cross-case pattern synthesis. No community cluster in the case corpus is closely related to this specific question (\"Has anyone who filed a complaint with us later been charged with an offence?\") (nearest cluster found was distance 0.183 against a relevance cutoff of 0.145). Rather than describing an unrelated cluster, no cross-case network finding is being reported here.Response generated (476 chars)",
+  "confidence": "medium",
+  "elapsed_s": 31.9,
+  "expected_kind": "applicant_accused_overlap",
+  "model": "local",
+  "question": "Has anyone who filed a complaint with us later been charged with an offence?",
+  "reason": "Asks whether any complainant (descriptive reference, no literal identifier) has been charged in other cases — a cross-case relationship check with no specific entity named, matching XGRAPH's pattern for recurrence/consistency across cases",
+  "route": "XGRAPH",
+  "route_error": null,
+  "secondary_methods": [],
+  "semantic_dispatch_enabled": true,
+  "semantic_dispatch_lines": [
+   "src.pipeline.semantic_dispatch: SEMANTIC-DISPATCH no-fire: best=applicant_accused_overlap(0.224) runner_up=cms_fir_linkage(0.006) threshold=0.40 2.30s | Has anyone who filed a complaint with us later been charged with an offence?"
+  ],
+  "status": null,
+  "steps": [
+   "supervisor/active: Routing through the agent harness...",
+   "supervisor:dispatch/active: Classified query as route='XGRAPH' -> sub-agent='Cross-Case Linkage'",
+   "supervisor:dispatch/done: Cross-Case Linkage completed with status=empty",
+   "supervisor/done: Harness routing complete",
+   "memory/done: Saved to session"
+  ],
+  "used_cutover": true,
+  "xagg_lines": []
+ },
+ "P2::run1": {
+  "answer": "Yes (with some uncertainty) — the same entity recurs across 6 case(s), a possible cross-case link: fir-202-26, fir-214-26, fir-401-26, fir-64-26, fir-65-26, fir-891-24 (graph traversal, depth 1 hop(s)). Chain confidence 50%. These cases are linked because the graph resolved a shared entity across them; that resolution is an inference from the records, not independent proof that every mention is the same individual. (C-20260903-L0-0015) This cluster centers on a single case, FIR 312/26, a PPC case investigated at Thana Cant, Multan. Wasim Akram Sheikh and Farheen Qosur are named individuals linked to this case, with a stated co-accused relationship between them.\n\n(C-20260903-L0-0014) This cluster centers on a single case, fir-301-26 (FIR 301/26), an arms ordinance case handled at Thana New Karachi, Karachi. Only two named individuals are connected to this case: Irfaan Masih and Waqar Hussain. The police registered the case themselves.\n\n(C-20260903-L0-0002) This cluster centers on a single case, fir-77-26 (FIR 77/26), a PPC case handled at Thana Sadar police station in Chiniot district. The individuals connected to this case are Zaahid Parvez, Kunwal Ya'qoob, Muhammad Ya'qoob, and Shabir Ahmad. Relationships between these individuals include co-mention in the case record.\n\n**Confirmed connections**\n\n- This cross-case traversal returned linked evidence across 6 case(s): fir-202-26, fir-214-26, fir-401-26, fir-64-26, fir-65-26, fir-891-24 (traversal depth 1 hop(s)).\n- This cluster centers on a single case, FIR 312/26, a PPC case investigated at Thana Cant, Multan. Wasim Akram Sheikh and Farheen Qosur are named individuals linked to this case, with a stated co-accused relationship between them. — fir-312-26\n- This cluster centers on a single case, fir-301-26 (FIR 301/26), an arms ordinance case handled at Thana New Karachi, Karachi. Only two named individuals are connected to this case: Irfaan Masih and Waqar Hussain. The police registered the case themselves.\n- This cluster centers on a single case, fir-77-26 (FIR 77/26), a PPC case handled at Thana Sadar police station in Chiniot district. The individuals connected to this case are Zaahid Parvez, Kunwal Ya'qoob, Muhammad Ya'qoob, and Shabir Ahmad. Relationships between these individuals include co-mention in the case record.\n\n_The cross-case pattern summary could not be verified as an accurate paraphrase; showing the raw community-cluster summaries instead._Response generated (2448 chars)",
+  "confidence": "medium",
+  "elapsed_s": 55.7,
+  "expected_kind": "applicant_accused_overlap",
+  "model": "local",
+  "question": "Do any of the people who applied for a police service at the Khidmat Markaz show up as accused in an FIR?",
+  "reason": "Cross-case entity lookup checking if applicants at Khidmat Markaz appear as accused in any FIR — station explicitly named",
+  "route": "XGRAPH",
+  "route_error": null,
+  "secondary_methods": [],
+  "semantic_dispatch_enabled": true,
+  "semantic_dispatch_lines": [],
+  "status": null,
+  "steps": [
+   "supervisor/active: Routing through the agent harness...",
+   "supervisor:dispatch/active: Classified query as route='XGRAPH' -> sub-agent='Cross-Case Linkage'",
+   "supervisor:dispatch/done: Cross-Case Linkage completed with status=ok",
+   "supervisor/done: Harness routing complete",
+   "cross_case_finding/done: Found 4 cross-case connection(s)",
+   "citations/done: 3 citation(s)",
+   "memory/done: Saved to session"
+  ],
+  "used_cutover": true,
+  "xagg_lines": []
+ },
+ "P3::run1": {
+  "answer": "Yes (with some uncertainty) — the same entity recurs across 6 case(s), a possible cross-case link: fir-202-26, fir-214-26, fir-401-26, fir-64-26, fir-65-26, fir-891-24 (graph traversal, depth 1 hop(s)). Chain confidence 50%. These cases are linked because the graph resolved a shared entity across them; that resolution is an inference from the records, not independent proof that every mention is the same individual.\n\n**Confirmed connections**\n\n- This cross-case traversal returned linked evidence across 6 case(s): fir-202-26, fir-214-26, fir-401-26, fir-64-26, fir-65-26, fir-891-24 (traversal depth 1 hop(s)).\n\n_No community cluster in the case corpus is closely related to this specific question (\"Kya koi aisa shehri hai jisne police se koi service li ho aur wo kisi case mein mulzim bhi ho?\") (nearest cluster found was distance 0.154 against a relevance cutoff of 0.145). Rather than describing an unrelated cluster, no cross-case network finding is being reported here._Response generated (980 chars)",
+  "confidence": "medium",
+  "elapsed_s": 30.0,
+  "expected_kind": "applicant_accused_overlap",
+  "model": "local",
+  "question": "Kya koi aisa shehri hai jisne police se koi service li ho aur wo kisi case mein mulzim bhi ho?",
+  "reason": "Cross-case entity relationship query asking whether any individual (described descriptively, no literal identifier given) has both used police services and appeared as a suspect in cases — XGRAPH handles explicit cross-case checks for entity recurrence/connections even with descriptive references",
+  "route": "XGRAPH",
+  "route_error": null,
+  "secondary_methods": [],
+  "semantic_dispatch_enabled": true,
+  "semantic_dispatch_lines": [],
+  "status": null,
+  "steps": [
+   "supervisor/active: Routing through the agent harness...",
+   "supervisor:dispatch/active: Classified query as route='XGRAPH' -> sub-agent='Cross-Case Linkage'",
+   "supervisor:dispatch/done: Cross-Case Linkage completed with status=partial",
+   "supervisor/done: Harness routing complete",
+   "cross_case_finding/done: Found 1 cross-case connection(s)",
+   "memory/done: Saved to session"
+  ],
+  "used_cutover": true,
+  "xagg_lines": []
+ },
+ "Q2::run1": {
+  "answer": "No cross-case connections or patterns were found for this query, across either entity-graph search or cross-case pattern synthesis. No community cluster in the case corpus is closely related to this specific question (\"Is there anyone who used one of our citizen services who also turns out to be under investigation for a crime?\") (nearest cluster found was distance 0.170 against a relevance cutoff of 0.145). Rather than describing an unrelated cluster, no cross-case network finding is being reported here.Response generated (510 chars)",
+  "confidence": "medium",
+  "elapsed_s": 47.3,
+  "expected_kind": "applicant_accused_overlap",
+  "model": "local",
+  "question": "Is there anyone who used one of our citizen services who also turns out to be under investigation for a crime?",
+  "reason": "Cross-case recurrence check for entities appearing both in citizen service records and criminal investigations — no specific entity named, but explicit cross-case intent ('under investigation')",
+  "route": "XGRAPH",
+  "route_error": null,
+  "secondary_methods": [],
+  "semantic_dispatch_enabled": true,
+  "semantic_dispatch_lines": [
+   "src.pipeline.semantic_dispatch: SEMANTIC-DISPATCH no-fire: best=applicant_accused_overlap(0.034) runner_up=graph_recurrence_person(0.010) threshold=0.40 2.44s | Is there anyone who used one of our citizen services who also turns out to be under investigation for a crime?"
+  ],
+  "status": null,
+  "steps": [
+   "supervisor/active: Routing through the agent harness...",
+   "supervisor:dispatch/active: Classified query as route='XGRAPH' -> sub-agent='Cross-Case Linkage'",
+   "supervisor:dispatch/done: Cross-Case Linkage completed with status=empty",
+   "supervisor/done: Harness routing complete",
+   "memory/done: Saved to session"
+  ],
+  "used_cutover": true,
+  "xagg_lines": []
+ },
+ "Q2::run2": {
+  "answer": "No cross-case connections or patterns were found for this query, across either entity-graph search or cross-case pattern synthesis. No community cluster in the case corpus is closely related to this specific question (\"Is there anyone who used one of our citizen services who also turns out to be under investigation for a crime?\") (nearest cluster found was distance 0.170 against a relevance cutoff of 0.145). Rather than describing an unrelated cluster, no cross-case network finding is being reported here.Response generated (510 chars)",
+  "confidence": "medium",
+  "elapsed_s": 41.6,
+  "expected_kind": "applicant_accused_overlap",
+  "model": "local",
+  "question": "Is there anyone who used one of our citizen services who also turns out to be under investigation for a crime?",
+  "reason": "Cross-case recurrence check for entities appearing both in citizen service records and criminal investigations — no specific entity named, but explicit cross-case intent ('under investigation')",
+  "route": "XGRAPH",
+  "route_error": null,
+  "secondary_methods": [],
+  "semantic_dispatch_enabled": true,
+  "semantic_dispatch_lines": [
+   "src.pipeline.semantic_dispatch: SEMANTIC-DISPATCH no-fire: best=applicant_accused_overlap(0.034) runner_up=graph_recurrence_person(0.010) threshold=0.40 2.08s | Is there anyone who used one of our citizen services who also turns out to be under investigation for a crime?"
+  ],
+  "status": null,
+  "steps": [
+   "supervisor/active: Routing through the agent harness...",
+   "supervisor:dispatch/active: Classified query as route='XGRAPH' -> sub-agent='Cross-Case Linkage'",
+   "supervisor:dispatch/done: Cross-Case Linkage completed with status=empty",
+   "supervisor/done: Harness routing complete",
+   "memory/done: Saved to session"
+  ],
+  "used_cutover": true,
+  "xagg_lines": []
+ },
+ "Q2::run3": {
+  "answer": "No cross-case connections or patterns were found for this query, across either entity-graph search or cross-case pattern synthesis. No community cluster in the case corpus is closely related to this specific question (\"Is there anyone who used one of our citizen services who also turns out to be under investigation for a crime?\") (nearest cluster found was distance 0.170 against a relevance cutoff of 0.145). Rather than describing an unrelated cluster, no cross-case network finding is being reported here.Response generated (510 chars)",
+  "confidence": "medium",
+  "elapsed_s": 42.2,
+  "expected_kind": "applicant_accused_overlap",
+  "model": "local",
+  "question": "Is there anyone who used one of our citizen services who also turns out to be under investigation for a crime?",
+  "reason": "Cross-case check for overlap between citizen service users and criminal investigations — no specific entity named, but explicitly asks whether any such connection exists across cases",
+  "route": "XGRAPH",
+  "route_error": null,
+  "secondary_methods": [],
+  "semantic_dispatch_enabled": true,
+  "semantic_dispatch_lines": [
+   "src.pipeline.semantic_dispatch: SEMANTIC-DISPATCH no-fire: best=applicant_accused_overlap(0.034) runner_up=graph_recurrence_person(0.010) threshold=0.40 2.37s | Is there anyone who used one of our citizen services who also turns out to be under investigation for a crime?"
+  ],
+  "status": null,
+  "steps": [
+   "supervisor/active: Routing through the agent harness...",
+   "supervisor:dispatch/active: Classified query as route='XGRAPH' -> sub-agent='Cross-Case Linkage'",
+   "supervisor:dispatch/done: Cross-Case Linkage completed with status=empty",
+   "supervisor/done: Harness routing complete",
+   "memory/done: Saved to session"
+  ],
+  "used_cutover": true,
+  "xagg_lines": []
+ }
+}

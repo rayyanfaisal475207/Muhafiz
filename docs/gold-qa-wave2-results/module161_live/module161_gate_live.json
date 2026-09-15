@@ -1,0 +1,13 @@
+{
+ "investigator": {
+  "outcome": "PermissionError",
+  "message": "Cross-case aggregate queries require supervisor role or higher.",
+  "cypher_reads": 0
+ },
+ "supervisor": {
+  "outcome": "answered",
+  "kind": "applicant_accused_overlap",
+  "matched_count": 1,
+  "cypher_reads": 4
+ }
+}

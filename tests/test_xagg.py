@@ -7190,3 +7190,311 @@ class TestModule144NonFilterableKindsAreUntouched:
         result, _ = await _m144_run("How many cases per station?", monkeypatch)
         assert result["total_cases_considered"] == 5
         assert xagg.render_filter_line(result) == []
+
+
+# ══════════════════════════════════════════════════════════════════════
+# [Gold-QA fix — Module 161] applicant_accused_overlap — the person join
+# across the citizen-services silo (PKM applications, CMS complaints) and
+# the accused roster. Keyed on CNIC only; a name coincidence is REPORTED and
+# never counted. Reachable only through Module 145's semantic layer — there
+# is no phrase list for it, by design.
+# ══════════════════════════════════════════════════════════════════════
+
+from src.pipeline import semantic_dispatch as _sd  # noqa: E402
+
+_M161_Q2 = (
+    "Is there anyone who used one of our citizen services who also turns "
+    "out to be under investigation for a crime?"
+)
+# A planted decision for Q2. The MEASURED one is in
+# docs/gold-qa-wave2-results/module161_probe_after.json and is asserted
+# there by tests/test_semantic_dispatch.py; here the score only has to
+# clear the threshold so dispatch can be exercised without the scorer.
+_M161_Q2_MATCH = _sd.SemanticMatch(
+    "applicant_accused_overlap", 0.9, "graph_recurrence_person", 0.05,
+)
+
+
+def _m161_silo(record_id, record_type, cnic, service_type=None, submitted_at=None, status=None):
+    key = "applicant_cnic" if record_type == "pkm_application" else "complainant_cnic"
+    row = {
+        "record_id": record_id, "record_type": record_type, "service_type": service_type,
+        "submitted_at": submitted_at, "status": status,
+        "applicant_cnic": None, "complainant_cnic": None,
+    }
+    row[key] = cnic
+    return row
+
+
+def _m161_accused(entity_id, name, cnic, case_id):
+    return {"entity_id": entity_id, "cnic": cnic, "name": name, "case_id": case_id}
+
+
+def _m161_person_name(cnic, name):
+    return {"cnic": cnic, "name": name}
+
+
+class _M161AgeClient:
+    """Routes the three reads `_applicant_accused_overlap()` issues — the
+    silo records, the accused roster, the citizens' own names — and records
+    the params each was called with so scoping can be asserted."""
+
+    def __init__(self, silo_rows, accused_rows, name_rows=()):
+        self.silo_rows = silo_rows
+        self.accused_rows = accused_rows
+        self.name_rows = list(name_rows)
+        self.calls: list[tuple[str, dict]] = []
+
+    async def execute_cypher(self, cypher_query, params=None, columns=("result",), graph=None):
+        self.calls.append((cypher_query, params or {}))
+        if "$record_types" in cypher_query:
+            return self.silo_rows
+        if "r.role = 'accused'" in cypher_query:
+            return self.accused_rows
+        if "p.cnic IN $cnics" in cypher_query:
+            return self.name_rows
+        raise AssertionError(f"unexpected query: {cypher_query[:80]}")
+
+
+def _m161_live_shape():
+    """The measured live graph, as a fixture (MODULE161_RESULT.md §1): 18
+    silo records over 14 citizens, all with a CNIC; a roster where exactly
+    ONE citizen's CNIC is an accused's, and where 9 of the other 13 share a
+    given name with an accused on a different CNIC. Scaled down: 5 records
+    over 4 citizens, 1 CNIC match, 2 citizens with name collisions (4
+    colliding accused)."""
+    silo = [
+        _m161_silo("pkm_application:pkm-app-c14-01", "pkm_application", "00000-1000055-1",
+              "driving_license", "2021-04-10T00:00:00Z", "completed"),
+        _m161_silo("pkm_application:PKMAPP-C306-1", "pkm_application", "00000-9000068-1",
+              "vehicle_verification"),
+        _m161_silo("cms_complaint:CMSC-C317-1", "cms_complaint", "00000-9000100-1"),
+        _m161_silo("pkm_application:PKMAPP-C316-1", "pkm_application", "00000-9000096-1",
+              "women_violence_report"),
+        _m161_silo("pkm_application:PKMAPP-C316-2", "pkm_application", "00000-9000096-1",
+              "women_violence_report"),
+    ]
+    accused = [
+        _m161_accused("PERSON-e71d55c47b", "سرفراز احمد", "00000-1000055-1", "fir-620-26"),
+        # کنول ×3 and صبا ×1 among the accused — none on the citizens' CNICs.
+        _m161_accused("PERSON-k1", "کنول", "00000-9000901-1", "fir-1-26"),
+        _m161_accused("PERSON-k2", "کنول", "00000-9000902-1", "fir-2-26"),
+        _m161_accused("PERSON-k3", "کنول", "00000-9000903-1", "fir-3-26"),
+        _m161_accused("PERSON-s1", "صبا", "00000-9000904-1", "fir-4-26"),
+        _m161_accused("PERSON-z1", "ذیشان", "00000-9000905-1", "fir-5-26"),
+    ]
+    names = [
+        _m161_person_name("00000-1000055-1", "سرفراز احمد"),
+        _m161_person_name("00000-9000068-1", "کنول"),
+        _m161_person_name("00000-9000100-1", "صبا"),
+        _m161_person_name("00000-9000096-1", "فرحین"),
+    ]
+    return silo, accused, names
+
+
+async def test_module161_cnic_join_finds_the_one_match_and_counts_name_collisions_without_matching_them(monkeypatch):
+    silo, accused, names = _m161_live_shape()
+    monkeypatch.setattr(xagg, "age_client", _M161AgeClient(silo, accused, names))
+
+    result = await xagg._applicant_accused_overlap()
+
+    assert result["kind"] == "applicant_accused_overlap"
+    assert result["service_record_count"] == 5
+    assert result["distinct_citizen_count"] == 4
+    assert result["accused_entry_count"] == 6
+    assert result["distinct_accused_count"] == 6
+    assert result["matched_count"] == 1
+    (match,) = result["matches"]
+    assert match["cnic"] == "00000-1000055-1"
+    assert match["name"] == "سرفراز احمد"
+    assert match["case_ids"] == ["fir-620-26"]
+    assert match["match_key"] == "cnic"
+    assert [s["record_id"] for s in match["services"]] == ["pkm_application:pkm-app-c14-01"]
+    # کنول (3 accused) + صبا (1 accused) share a name with an unmatched
+    # citizen; those are reported, and they are NOT in `matches`.
+    assert result["citizens_with_name_collision"] == 2
+    assert result["name_only_collisions"] == 4
+
+    rendered = "\n".join(xagg.render_applicant_accused_overlap(result))
+    assert "Yes — exactly one person" in rendered
+    assert "سرفراز احمد (CNIC 00000-1000055-1) — accused in fir-620-26" in rendered
+    assert "Khidmat Markaz application for driving license submitted 2021-04-10 (completed)" in rendered
+    assert "Matched on CNIC, not on name." in rendered
+    assert "A match on name alone would have added 4 more 'match(es)' on 2 citizen(s)" in rendered
+    assert "کنول" not in rendered  # a name collision is never listed as a match
+
+
+async def test_module161_no_match_is_answered_no_with_the_counts_that_prove_it(monkeypatch):
+    silo, accused, names = _m161_live_shape()
+    accused = [a for a in accused if a["cnic"] != "00000-1000055-1"]
+    monkeypatch.setattr(xagg, "age_client", _M161AgeClient(silo, accused, names))
+
+    result = await xagg._applicant_accused_overlap()
+
+    assert result["matched_count"] == 0 and result["matches"] == []
+    rendered = "\n".join(xagg.render_applicant_accused_overlap(result))
+    assert rendered.startswith("No. None of the 4 distinct citizens who used a police service (5 ")
+    assert "compared against 5 accused entries across our FIRs (5 distinct accused)" in rendered
+    assert "A match on name alone would have added 4 more" in rendered
+
+
+async def test_module161_empty_silo_says_there_is_no_one_to_compare(monkeypatch):
+    _, accused, _ = _m161_live_shape()
+    monkeypatch.setattr(xagg, "age_client", _M161AgeClient([], accused))
+    result = await xagg._applicant_accused_overlap()
+    assert result["service_record_count"] == 0
+    assert xagg.render_applicant_accused_overlap(result) == [
+        "No citizen-service records (Khidmat Markaz applications or CMS "
+        "complaints) are in the data, so there is no one to compare "
+        "against the accused."
+    ]
+
+
+async def test_module161_records_and_accused_without_a_cnic_are_counted_never_silently_dropped(monkeypatch):
+    silo, accused, names = _m161_live_shape()
+    silo.append(_m161_silo("cms_complaint:no-key", "cms_complaint", None))
+    accused.append(_m161_accused("PERSON-nokey", "بلال", None, "fir-9-26"))
+    monkeypatch.setattr(xagg, "age_client", _M161AgeClient(silo, accused, names))
+
+    result = await xagg._applicant_accused_overlap()
+
+    assert result["records_without_cnic"] == 1
+    assert result["accused_without_cnic"] == 1
+    assert result["distinct_citizen_count"] == 4   # the keyless record is not a citizen entry
+    assert result["distinct_accused_count"] == 7   # but the keyless accused IS still an accused
+    rendered = "\n".join(xagg.render_applicant_accused_overlap(result))
+    assert "1 service record(s) carry no CNIC" in rendered
+    assert "1 accused carry no CNIC" in rendered
+
+
+async def test_module161_same_as_canonicalisation_collapses_a_duplicate_accused(monkeypatch):
+    """An accused resolved to two Person nodes is one person, as in
+    `_total_accused_count()`; the join still sees one match."""
+    silo, accused, names = _m161_live_shape()
+    accused.append(_m161_accused("PERSON-dup", "سرفراز احمد", "00000-1000055-1", "fir-621-26"))
+    monkeypatch.setattr(xagg, "age_client", _M161AgeClient(silo, accused, names))
+
+    async def _pairs():
+        return [("PERSON-dup", "PERSON-e71d55c47b")]
+    monkeypatch.setattr(xagg, "fetch_confirmed_same_as", _pairs)
+
+    result = await xagg._applicant_accused_overlap()
+    assert result["accused_entry_count"] == 7
+    assert result["distinct_accused_count"] == 6
+    assert result["matched_count"] == 1
+    assert result["matches"][0]["case_ids"] == ["fir-620-26", "fir-621-26"]
+
+
+async def test_module161_jurisdiction_scopes_the_accused_side_only(monkeypatch):
+    """The silo is read whole (10 of 18 live records are linked to no case,
+    so they have no jurisdiction to scope by); the accused roster is what
+    the allow-list narrows."""
+    silo, accused, names = _m161_live_shape()
+    client = _M161AgeClient(silo, accused, names)
+    monkeypatch.setattr(xagg, "age_client", client)
+
+    await xagg._applicant_accused_overlap(jurisdiction_case_ids=["fir-1-26"])
+
+    silo_q = next(q for q, _ in client.calls if "$record_types" in q)
+    accused_q, accused_params = next((q, p) for q, p in client.calls if "r.role = 'accused'" in q)
+    assert "$case_ids" not in silo_q
+    assert "c.case_id IN $case_ids" in accused_q
+    assert accused_params["case_ids"] == ["fir-1-26"]
+
+
+async def test_module161_emits_its_xagg_log_line_with_the_figures(monkeypatch, caplog):
+    silo, accused, names = _m161_live_shape()
+    monkeypatch.setattr(xagg, "age_client", _M161AgeClient(silo, accused, names))
+    with caplog.at_level(logging.INFO, logger="src.pipeline.xagg"):
+        await xagg._applicant_accused_overlap()
+    assert "XAGG applicant_accused_overlap: 5 citizen-service record(s) over 4 distinct citizen(s)" in caplog.text
+    assert "CNIC join matched 1 [سرفراز احمد:00000-1000055-1:fir-620-26]" in caplog.text
+    assert "a name join would have added 4 false match(es) on 2 citizen(s)" in caplog.text
+
+
+class TestModule161Dispatch:
+    """Reachable through the description alone, and through nothing else."""
+
+    @pytest.fixture(autouse=True)
+    def _isolated_semantic_cache(self):
+        _sd.reset_for_tests()
+        yield
+        _sd.reset_for_tests()
+
+    def test_no_phrase_list_exists_for_it(self):
+        """The anti-goal, pinned: the phrase chain NEVER returns this kind.
+        Unprepared, Q2 lands on a generic catch-all exactly as on origin/main."""
+        assert "applicant_accused_overlap" in xagg._SEMANTIC_ONLY_AGGREGATE_KINDS
+        assert xagg.phrase_aggregate_kind(_M161_Q2) in xagg._GENERIC_AGGREGATE_KINDS
+        assert xagg.resolve_aggregate_kind(_M161_Q2) in xagg._GENERIC_AGGREGATE_KINDS
+
+    def test_a_prepared_semantic_match_dispatches_to_it_and_counts_as_specific(self):
+        _sd.seed_for_tests(_M161_Q2, _M161_Q2_MATCH)
+        assert xagg.resolve_aggregate_kind(_M161_Q2) == "applicant_accused_overlap"
+        # So the supervisor's Meta-Analysis skip guard treats it as a
+        # purpose-built single-call answer, not a compound question.
+        assert xagg.resolves_to_specific_aggregate(_M161_Q2)
+
+    async def test_run_aggregate_dispatches_a_prepared_q2_to_the_join(self, monkeypatch):
+        silo, accused, names = _m161_live_shape()
+        monkeypatch.setattr(xagg, "age_client", _M161AgeClient(silo, accused, names))
+        _sd.seed_for_tests(_M161_Q2, _M161_Q2_MATCH)
+        result = await xagg.run_aggregate(_M161_Q2, None, gateway=None, user_role="supervisor")
+        assert result["kind"] == "applicant_accused_overlap"
+        assert result["matched_count"] == 1
+
+    async def test_an_investigator_is_refused_before_the_join_reads_anything(self, monkeypatch):
+        """The access boundary. This aggregate cross-references citizens who
+        used a service against people under investigation — cross-case by
+        construction — so it goes through the same role gate every cross-case
+        aggregate does, and an investigator gets the PermissionError before a
+        single Cypher read is issued."""
+        silo, accused, names = _m161_live_shape()
+        client = _M161AgeClient(silo, accused, names)
+        monkeypatch.setattr(xagg, "age_client", client)
+        _sd.seed_for_tests(_M161_Q2, _M161_Q2_MATCH)
+        with pytest.raises(PermissionError):
+            await xagg.run_aggregate(_M161_Q2, None, gateway=None, user_role="investigator")
+        assert client.calls == []
+
+    @pytest.mark.parametrize("role", ["supervisor", "station-admin", "platform-admin"])
+    async def test_supervisor_and_above_receive_it(self, monkeypatch, role):
+        silo, accused, names = _m161_live_shape()
+        monkeypatch.setattr(xagg, "age_client", _M161AgeClient(silo, accused, names))
+        _sd.seed_for_tests(_M161_Q2, _M161_Q2_MATCH)
+        result = await xagg.run_aggregate(_M161_Q2, None, gateway=None, user_role=role)
+        assert result["kind"] == "applicant_accused_overlap"
+
+    def test_cr2_still_dispatches_to_graph_recurrence_person(self):
+        """CR2 is the nearest existing capability. Its phrase result stands:
+        even a planted full-score match for this kind cannot move it, because
+        the semantic layer is consulted only from the generic tier."""
+        _sd.seed_for_tests(
+            _CR2_GOLD_QUESTION,
+            _sd.SemanticMatch("applicant_accused_overlap", 1.0, "graph_recurrence_person", 0.0),
+        )
+        assert xagg.resolve_aggregate_kind(_CR2_GOLD_QUESTION) == "graph_recurrence_person"
+
+    def test_all32_negative_control_equality(self):
+        """No gold question resolves here. The 25 that resolve by phrase
+        cannot be moved even by a planted full-score match; the 7 on the
+        generic tier are planted with their MEASURED decisions against the
+        enlarged table (module161_probe_after.json) and none clears the
+        threshold for this kind — or for any other."""
+        probe_path = Path(__file__).resolve().parent.parent / "docs" / "gold-qa-wave2-results" / "module161_probe_after.json"
+        probe = json.loads(probe_path.read_text(encoding="utf-8"))
+        assert probe["descriptions"] == _sd.CAPABILITY_DESCRIPTIONS, "table drifted since the measurement"
+        measured = {it["text"]: it for it in probe["items"] if it["set"] == "gold"}
+        for it in _gold32_items():
+            text = it["question"]
+            if xagg.phrase_aggregate_kind(text) in xagg._GENERIC_AGGREGATE_KINDS:
+                m = measured[text]
+                _sd.seed_for_tests(text, _sd.SemanticMatch(m["best"], m["score"], m["runner_up"], m["runner_up_score"]))
+            else:
+                _sd.seed_for_tests(
+                    text, _sd.SemanticMatch("applicant_accused_overlap", 1.0, "total_count", 0.0),
+                )
+        for it in _gold32_items():
+            text = it["question"]
+            assert xagg.resolve_aggregate_kind(text) == xagg.phrase_aggregate_kind(text), it.get("id")
+            assert xagg.resolve_aggregate_kind(text) != "applicant_accused_overlap", it.get("id")

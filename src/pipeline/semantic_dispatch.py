@@ -114,6 +114,12 @@ CAPABILITY_DESCRIPTIONS: dict[str, str] = {
         "whether walk-in complaints filed at a police station are linked to a "
         "formal FIR or stay separate from the case record"
     ),
+    "applicant_accused_overlap": (
+        "whether any member of the public who applied for a police service or "
+        "filed a complaint with the police, for example at a Khidmat Markaz "
+        "or through the complaint system, is also named as an accused or "
+        "suspect in an FIR, matched by CNIC"
+    ),
     "court_readiness_scan": (
         "preparing a case file for handover to court: which fields a prosecutor "
         "or court is most likely to find incomplete before accepting the file"
