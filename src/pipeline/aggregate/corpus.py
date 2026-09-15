@@ -49,6 +49,7 @@ from src.pipeline.aggregate.spec import (
     Ratio,
     RelationCountPredicate,
     Scope,
+    TimeWindow,
     Traversal,
 )
 
@@ -59,7 +60,9 @@ PopulationAxis = Literal[
     "relationship_grain", "role_pair", "fanning", "filtered",
 ]
 GroupingAxis = Literal["none", "single", "multi", "sparse", "invalid", "via_traversal"]
-DerivedAxis = Literal["none", "ratio", "comparison", "threshold", "top_n"]
+DerivedAxis = Literal[
+    "none", "ratio", "comparison", "threshold", "top_n", "time_window",
+]
 GuardAxis = Literal[
     "none", "fanout", "tombstone", "superseded", "sparse_property",
     "null_grouping", "zero_denominator", "canonicalization", "scope",
@@ -486,6 +489,95 @@ def build_corpus() -> list[Case]:
         ),
         outcome="refused", refusal_code="zero_denominator",
         derived_axis="ratio", guard_axis="zero_denominator",
+    ))
+
+    # ── TIME WINDOWS ──────────────────────────────────────────────────
+    #
+    # `incident_date` is Postgres-authoritative (64/73) and the AGE Case
+    # node carries no date at all, so each window resolves to a case-id
+    # allow-list before compilation. Bounds are INCLUSIVE on both ends,
+    # which the two boundary cases below prove against the dataset's own
+    # extremes rather than asserting.
+    #
+    # Every expected value here came from direct SQL over `cases`, never
+    # from this engine.
+    for _name, _start, _end, _expected, _note in (
+        ("2024", "2024-01-01", "2024-12-31", 13,
+         "WHERE incident_date BETWEEN 2024-01-01 AND 2024-12-31"),
+        ("2026", "2026-01-01", "2026-12-31", 51,
+         "WHERE incident_date BETWEEN 2026-01-01 AND 2026-12-31"),
+        ("2025_empty", "2025-01-01", "2025-12-31", 0,
+         "no case has a 2025 incident_date; an empty window is a real "
+         "answer, not an absent filter"),
+        ("lower_bound_only", "2026-01-01", None, 51,
+         "WHERE incident_date >= 2026-01-01"),
+        ("upper_bound_only", None, "2024-12-31", 13,
+         "WHERE incident_date <= 2024-12-31"),
+        ("narrow_sept_2024", "2024-09-01", "2024-09-30", 13,
+         "WHERE incident_date BETWEEN 2024-09-01 AND 2024-09-30"),
+        ("pre_2020_empty", None, "2019-12-31", 0,
+         "Module 144's original question shape; the corpus min is 2024-09-14"),
+        ("inclusive_min_boundary", "2024-09-14", "2024-09-14", 1,
+         "the dataset's own minimum date, matched by an equal-bound window "
+         "— proves the lower bound is inclusive"),
+        ("inclusive_max_boundary", "2026-08-01", "2026-08-01", 1,
+         "the dataset's own maximum date — proves the upper bound is "
+         "inclusive"),
+    ):
+        cases.append(Case(
+            name=f"time_window_{_name}",
+            description=f"Temporal restriction on incident_date ({_name}).",
+            spec=AggregateSpec(
+                question_text=f"How many cases fall in the {_name} window?",
+                measure="count", population=PopulationNode(entity="Case"),
+                grain="ENTITY", distinct_key="case_id", scope=sc,
+                time_window=TimeWindow(
+                    field="incident_date", start=_start, end=_end),
+            ),
+            outcome="value",
+            truth=GroundTruth(_expected, "SQL", _note),
+            measure_axis="count", population_axis="filtered",
+            derived_axis="time_window",
+        ))
+
+    cases.append(Case(
+        name="time_window_inverted_range_refused",
+        description="start after end matches nothing and is a mistake, not an intent.",
+        spec=AggregateSpec(
+            question_text="How many cases between 2026 and 2024?",
+            measure="count", population=PopulationNode(entity="Case"),
+            grain="ENTITY", distinct_key="case_id", scope=sc,
+            time_window=TimeWindow(
+                field="incident_date", start="2026-01-01", end="2024-01-01"),
+        ),
+        outcome="refused", refusal_code="invalid_time_window",
+        derived_axis="time_window", guard_axis="invariant",
+    ))
+
+    cases.append(Case(
+        name="time_window_unsupported_field_refused",
+        description="A window on a field with no temporal resolver must refuse.",
+        spec=AggregateSpec(
+            question_text="How many persons aged within 2024?",
+            measure="count_distinct", population=PopulationNode(entity="Person"),
+            grain="ENTITY", distinct_key="entity_id", scope=sc,
+            time_window=TimeWindow(field="Person.age", start="2024-01-01"),
+        ),
+        outcome="refused", refusal_code="unsupported_operation",
+        derived_axis="time_window", guard_axis="unimplemented",
+    ))
+
+    cases.append(Case(
+        name="time_window_population_without_case_refused",
+        description="A population that never reaches Case cannot be restricted.",
+        spec=AggregateSpec(
+            question_text="How many officers in 2024?",
+            measure="count_distinct", population=PopulationNode(entity="Officer"),
+            grain="ENTITY", distinct_key="entity_id", scope=sc,
+            time_window=TimeWindow(field="incident_date", start="2024-01-01"),
+        ),
+        outcome="refused", refusal_code="compile_failed",
+        derived_axis="time_window", guard_axis="invariant",
     ))
 
     cases.append(Case(

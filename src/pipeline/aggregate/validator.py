@@ -593,6 +593,99 @@ def _validate_ratio(
     return issues
 
 
+def _validate_time_window(
+    snapshot: reg.RegistrySnapshot, spec: AggregateSpec
+) -> list[ValidationIssue]:
+    """Accept a time window ONLY when it can actually be executed.
+
+    Five conditions, each refusing rather than degrading:
+
+      1. the logical field exists in the registry;
+      2. the registry names a source this engine can query for it, and
+         `temporal.supported_temporal_fields()` has a column mapping —
+         together these keep the authority decision the REGISTRY's, never
+         the caller's, and stop the validator accepting a window the
+         compiler cannot honour (the Phase 2 defect);
+      3. both bounds are well-formed ISO dates;
+      4. at least one bound is present — a window with neither is not a
+         restriction, and accepting it would let a spec claim a filter it
+         does not have;
+      5. `start <= end`.
+
+    A window on a field that exists but has no temporal implementation is
+    refused with `unsupported_operation`, naming the field — the same
+    treatment `_validate_implemented()` gives a wholly unimplemented
+    feature, because from the caller's side it is the same situation.
+    """
+    tw = spec.time_window
+    if tw is None:
+        return []
+
+    from src.pipeline.aggregate import temporal
+
+    issues: list[ValidationIssue] = []
+
+    lf = snapshot.logical_field(tw.field)
+    if lf is None:
+        return [
+            _issue(
+                "unknown_field",
+                f"time_window names {tw.field!r}, which is not a field in the "
+                f"data model.",
+                "time_window",
+            )
+        ]
+
+    supported = temporal.supported_temporal_fields(snapshot)
+    if tw.field not in supported:
+        return [
+            _issue(
+                "unsupported_operation",
+                f"time_window on {tw.field!r} is not implemented: the registry "
+                f"gives its authority as {lf.source!r} and no temporal "
+                f"resolution exists for it. Supported: "
+                f"{', '.join(sorted(supported)) or 'none'}. Refused rather "
+                f"than ignored.",
+                "time_window",
+            )
+        ]
+
+    for label, bound in (("start", tw.start), ("end", tw.end)):
+        if not temporal.is_valid_bound(bound):
+            issues.append(
+                _issue(
+                    "invalid_time_window",
+                    f"time_window {label} {bound!r} is not an ISO date "
+                    f"(YYYY-MM-DD). Bounds are dates; interpreting phrases "
+                    f"like 'last year' belongs upstream, not here.",
+                    "time_window",
+                )
+            )
+
+    if tw.start is None and tw.end is None:
+        issues.append(
+            _issue(
+                "invalid_time_window",
+                "time_window has neither a start nor an end, so it restricts "
+                "nothing; omit it rather than declaring an empty restriction.",
+                "time_window",
+            )
+        )
+
+    if not temporal.bounds_ordered(tw.start, tw.end):
+        issues.append(
+            _issue(
+                "invalid_time_window",
+                f"time_window start {tw.start!r} is after end {tw.end!r}; an "
+                f"inverted range matches nothing and is almost certainly a "
+                f"mistake rather than an intent.",
+                "time_window",
+            )
+        )
+
+    return issues
+
+
 def _validate_scope(spec: AggregateSpec) -> list[ValidationIssue]:
     """Scope must come from the caller, never from the question.
 
@@ -706,10 +799,6 @@ _UNIMPLEMENTED_FIELDS: dict[str, str] = {
         "the compiler; a spec carrying it would silently return the "
         "uncompared figure"
     ),
-    "time_window": (
-        "time windows are declared but not emitted; a spec carrying one would "
-        "silently return the unfiltered total (this is Module 144's defect)"
-    ),
     "threshold": (
         "standalone thresholds are declared but not emitted; express the "
         "condition as a population predicate instead, which IS emitted"
@@ -771,6 +860,7 @@ def validate(snapshot: reg.RegistrySnapshot, spec: AggregateSpec) -> ValidationR
     # refused before any other diagnosis, so the reported reason is "this
     # cannot be honoured" rather than an incidental field-name complaint.
     issues.extend(_validate_implemented(spec))
+    issues.extend(_validate_time_window(snapshot, spec))
     issues.extend(_validate_population(snapshot, spec.population, label="population"))
     issues.extend(_validate_measure(snapshot, spec))
     issues.extend(_validate_grain(snapshot, spec))

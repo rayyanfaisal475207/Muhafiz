@@ -458,6 +458,36 @@ def _counted_expression(
     return f"count({alias})", f"counted rows at {spec.grain} grain (links, not entities)"
 
 
+def _case_alias_for(
+    spec: AggregateSpec, base_alias: str, terminal_alias: str
+) -> Optional[str]:
+    """Which alias in the compiled pattern carries `case_id`, if any.
+
+    A case-id allow-list (jurisdiction scope, or a resolved time window)
+    can only be applied where the query actually binds a Case node. Three
+    situations, and the third is why this is a function rather than a
+    one-line check:
+
+      1. the population IS Case            -> the base alias;
+      2. a traversal ENDS at Case          -> the terminal alias;
+      3. the population never reaches Case -> None, and the caller refuses.
+
+    Case (2) is what lets "distinct accused persons in 2024" work at all:
+    the measured entity is Person, but the population hops to Case, so the
+    window restricts the hop. Without it, every non-Case population would
+    have had its window silently dropped — the defect in a new disguise.
+
+    Only the FINAL traversal is considered. An intermediate Case would bind
+    an alias the emitted pattern no longer exposes by the time the
+    restriction is appended, so claiming it would be wrong.
+    """
+    if spec.population.entity == "Case":
+        return base_alias
+    if spec.population.traversals and spec.population.traversals[-1].target == "Case":
+        return terminal_alias
+    return None
+
+
 def _population_fans(snapshot: reg.RegistrySnapshot, pop: PopulationNode) -> bool:
     """Whether any hop multiplies rows IN THE DIRECTION IT IS TRAVELLED."""
     current = pop.entity
@@ -474,14 +504,35 @@ def _population_fans(snapshot: reg.RegistrySnapshot, pop: PopulationNode) -> boo
 
 
 def compile_spec(
-    snapshot: reg.RegistrySnapshot, spec: AggregateSpec
+    snapshot: reg.RegistrySnapshot,
+    spec: AggregateSpec,
+    *,
+    window_case_ids: Optional[tuple[str, ...]] = None,
 ) -> CompiledQuery:
     """Compile a VALIDATED spec into a parameterised AGE query.
 
     Callers must validate first. This function assumes the spec is legal
     and concerns itself only with emitting it safely; where the two
     overlap, it raises rather than degrading.
+
+    `window_case_ids` is the case-id allow-list a resolved `time_window`
+    produced (see `temporal.resolve_window()`). It is passed in rather than
+    resolved here because resolving it requires a database read, and this
+    function is deliberately pure: the same spec plus the same allow-list
+    must always emit the same query text.
+
+    A spec carrying `spec.time_window` MUST be compiled with the
+    corresponding `window_case_ids`. Passing the spec without them would
+    emit the unrestricted query — the exact silent-ignore defect this
+    parameter exists to make impossible — so the guard below refuses that
+    combination rather than trusting callers to remember.
     """
+    if spec.time_window is not None and window_case_ids is None:
+        raise CompilerError(
+            "spec carries a time_window but no resolved case-id allow-list "
+            "was supplied; compiling it would silently emit the unrestricted "
+            "query. Resolve the window with temporal.resolve_window() first."
+        )
     bag = _ParamBag()
     # `base_alias` is the population's own entity — what gets measured.
     # `terminal_alias` is where the traversals landed, used only for
@@ -491,14 +542,48 @@ def compile_spec(
     )
     base_alias = "n"
 
-    # Jurisdiction scope narrows to a caller-supplied allow-list. It is a
-    # bound parameter like any other value, so a case id from a question
-    # cannot widen it.
+    # ── Case-id allow-lists ───────────────────────────────────────────
+    #
+    # Two sources, combined by INTERSECTION and never by union:
+    #
+    #   * jurisdiction scope — what the caller is permitted to see;
+    #   * a resolved time window — what the question asked for.
+    #
+    # A time window on `incident_date` cannot be a Cypher predicate: the
+    # AGE `Case` node carries no date at all (keys: as_of, case_id,
+    # confidence, source_doc_id), and the registry gives Postgres as the
+    # authority. `temporal.resolve_window()` therefore turns the window
+    # into the set of case ids that satisfy it, and it lands here — in the
+    # same allow-list mechanism jurisdiction scope already uses, as a bound
+    # parameter. See `temporal.py` for why that is a resolution rather than
+    # an approximation.
+    allow_list: Optional[list[str]] = None
     if spec.scope.kind == "jurisdiction" and spec.scope.case_ids:
-        scope_alias = base_alias if spec.population.entity == "Case" else None
-        if scope_alias:
-            connector = " AND " if " WHERE " in clause else " WHERE "
-            clause += f"{connector}{scope_alias}.case_id IN {bag.add(list(spec.scope.case_ids))}"
+        allow_list = list(spec.scope.case_ids)
+    if window_case_ids is not None:
+        allow_list = (
+            list(window_case_ids)
+            if allow_list is None
+            else [cid for cid in window_case_ids if cid in set(allow_list)]
+        )
+
+    if allow_list is not None:
+        case_alias = _case_alias_for(spec, base_alias, terminal_alias)
+        if case_alias is None:
+            # The population never reaches Case, so a case-id restriction
+            # cannot be applied to it. Refusing beats emitting the query
+            # without the filter — that silent drop is the entire defect
+            # this work exists to eliminate.
+            raise CompilerError(
+                f"a case-id restriction was requested but the population "
+                f"({spec.population.entity}) does not reach Case, so the "
+                f"restriction cannot be applied"
+            )
+        connector = " AND " if " WHERE " in clause else " WHERE "
+        clause += f"{connector}{case_alias}.case_id IN {bag.add(allow_list)}"
+        notes.append(
+            f"restricted to {len(allow_list)} case id(s) via {case_alias}.case_id"
+        )
 
     expr, grain_note = _counted_expression(snapshot, spec, base_alias)
     notes.append(grain_note)
@@ -534,7 +619,10 @@ def compile_spec(
 
 
 def compile_ratio(
-    snapshot: reg.RegistrySnapshot, spec: AggregateSpec
+    snapshot: reg.RegistrySnapshot,
+    spec: AggregateSpec,
+    *,
+    window_case_ids: Optional[tuple[str, ...]] = None,
 ) -> tuple[CompiledQuery, CompiledQuery]:
     """Compile a ratio as TWO independent queries.
 
@@ -543,10 +631,19 @@ def compile_ratio(
     receipt can state both, the invariant checker can assert
     numerator <= denominator, and a denominator of zero is visible before a
     division is attempted rather than after.
+
+    A time window applies to BOTH halves. Restricting only the numerator
+    would compute "cases in 2024 with >1 officer, over all cases ever" —
+    a ratio whose two sides describe different populations, which
+    `_validate_ratio()` exists to prevent and which would quietly understate
+    every windowed percentage.
     """
     if spec.ratio is None:
         raise CompilerError("compile_ratio called on a spec with no ratio")
 
     num_spec = dataclasses.replace(spec, population=spec.ratio.numerator, ratio=None, group_by=())
     den_spec = dataclasses.replace(spec, population=spec.ratio.denominator, ratio=None, group_by=())
-    return compile_spec(snapshot, num_spec), compile_spec(snapshot, den_spec)
+    return (
+        compile_spec(snapshot, num_spec, window_case_ids=window_case_ids),
+        compile_spec(snapshot, den_spec, window_case_ids=window_case_ids),
+    )

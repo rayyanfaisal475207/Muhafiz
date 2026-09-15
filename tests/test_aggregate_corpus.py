@@ -96,9 +96,31 @@ class TestUnimplementedFieldsAreRefusedNotIgnored:
                 f"would be silently ignored"
             )
 
-    @pytest.mark.parametrize("field", ["compare", "time_window", "threshold"])
+    @pytest.mark.parametrize("field", ["compare", "threshold"])
     def test_named_fields_are_guarded(self, field):
+        """Fields still declared but not emitted.
+
+        `time_window` was on this list and has been REMOVED because it is
+        now genuinely implemented end-to-end — validated against registry
+        authority, resolved to a case-id allow-list, compiled into the
+        query, and reported truthfully in the receipt (see
+        `tests/test_aggregate_temporal.py`). Leaving it here would have
+        refused a capability the engine now has.
+
+        The two structural guards in this class are what make that removal
+        safe rather than a loosening: one asserts every remaining entry is
+        genuinely absent from the compiler, the other asserts every spec
+        field is either consumed or guarded. A field cannot quietly leave
+        this list without acquiring a real implementation.
+        """
         assert field in validator_mod._UNIMPLEMENTED_FIELDS
+
+    def test_time_window_left_the_guard_list_by_being_implemented(self):
+        """The removal above is justified by the compiler, not by assertion."""
+        from src.pipeline.aggregate import compiler as compiler_mod
+
+        assert "time_window" not in validator_mod._UNIMPLEMENTED_FIELDS
+        assert "spec.time_window" in inspect.getsource(compiler_mod)
 
 
 # ══════════════════════════════════════════════════════════════════════

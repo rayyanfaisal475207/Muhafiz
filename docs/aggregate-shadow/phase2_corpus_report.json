@@ -1,10 +1,10 @@
 {
-  "registry_as_of": "2026-09-15T14:37:27.747768+00:00",
-  "case_count": 30,
+  "registry_as_of": "2026-09-15T14:57:18.640879+00:00",
+  "case_count": 42,
   "coverage": {
     "measure": {
       "avg": 2,
-      "count": 16,
+      "count": 28,
       "count_distinct": 8,
       "max": 1,
       "median": 1,
@@ -12,9 +12,9 @@
       "sum": 1
     },
     "population": {
-      "direct": 17,
+      "direct": 20,
       "fanning": 4,
-      "filtered": 2,
+      "filtered": 11,
       "property_filter": 2,
       "relationship_existence": 1,
       "relationship_grain": 2,
@@ -23,7 +23,7 @@
     "grouping": {
       "invalid": 1,
       "multi": 1,
-      "none": 26,
+      "none": 38,
       "sparse": 1,
       "via_traversal": 1
     },
@@ -31,22 +31,23 @@
       "comparison": 1,
       "none": 25,
       "ratio": 3,
-      "threshold": 1
+      "threshold": 1,
+      "time_window": 12
     },
     "guard": {
       "fanout": 6,
-      "invariant": 4,
-      "none": 6,
+      "invariant": 6,
+      "none": 15,
       "null_grouping": 1,
       "scope": 2,
       "sparse_property": 5,
       "tombstone": 2,
-      "unimplemented": 3,
+      "unimplemented": 4,
       "zero_denominator": 1
     },
     "outcome": {
-      "refused": 14,
-      "value": 16
+      "refused": 17,
+      "value": 25
     }
   },
   "cases": [
@@ -60,7 +61,7 @@
       "expected_refusal_code": null,
       "verdict": "PASS",
       "explanation": "73 matches SQL ground truth",
-      "ms": 47.2,
+      "ms": 52.5,
       "axes": {
         "measure": "count",
         "population": "direct",
@@ -88,7 +89,7 @@
       "expected_refusal_code": null,
       "verdict": "PASS",
       "explanation": "208 matches PYTHON ground truth",
-      "ms": 58.3,
+      "ms": 56.6,
       "axes": {
         "measure": "count_distinct",
         "population": "direct",
@@ -118,7 +119,7 @@
       "expected_refusal_code": null,
       "verdict": "PASS",
       "explanation": "24 matches PYTHON ground truth",
-      "ms": 53.5,
+      "ms": 55.8,
       "axes": {
         "measure": "min",
         "population": "direct",
@@ -148,7 +149,7 @@
       "expected_refusal_code": null,
       "verdict": "PASS",
       "explanation": "49 matches PYTHON ground truth",
-      "ms": 51.5,
+      "ms": 56.0,
       "axes": {
         "measure": "max",
         "population": "direct",
@@ -178,7 +179,7 @@
       "expected_refusal_code": null,
       "verdict": "PASS",
       "explanation": "31.842105263157894 matches PYTHON ground truth",
-      "ms": 51.5,
+      "ms": 57.2,
       "axes": {
         "measure": "avg",
         "population": "direct",
@@ -208,7 +209,7 @@
       "expected_refusal_code": null,
       "verdict": "PASS",
       "explanation": "605 matches PYTHON ground truth",
-      "ms": 58.3,
+      "ms": 56.9,
       "axes": {
         "measure": "sum",
         "population": "direct",
@@ -238,7 +239,7 @@
       "expected_refusal_code": "unsupported_operation",
       "verdict": "NEW_REFUSED_CORRECTLY",
       "explanation": "refused with 'unsupported_operation', as specified",
-      "ms": 0.4,
+      "ms": 0.2,
       "axes": {
         "measure": "median",
         "population": "direct",
@@ -264,7 +265,7 @@
       "expected_refusal_code": null,
       "verdict": "PASS",
       "explanation": "30 matches GRAPH ground truth",
-      "ms": 56.0,
+      "ms": 55.6,
       "axes": {
         "measure": "count_distinct",
         "population": "property_filter",
@@ -292,7 +293,7 @@
       "expected_refusal_code": null,
       "verdict": "PASS",
       "explanation": "32 matches GRAPH ground truth",
-      "ms": 53.0,
+      "ms": 52.8,
       "axes": {
         "measure": "count_distinct",
         "population": "relationship_existence",
@@ -320,7 +321,7 @@
       "expected_refusal_code": null,
       "verdict": "PASS",
       "explanation": "92 matches GRAPH ground truth",
-      "ms": 61.2,
+      "ms": 65.4,
       "axes": {
         "measure": "count_distinct",
         "population": "through_relationship",
@@ -350,7 +351,7 @@
       "expected_refusal_code": null,
       "verdict": "PASS",
       "explanation": "94 matches GRAPH ground truth",
-      "ms": 63.7,
+      "ms": 67.1,
       "axes": {
         "measure": "count",
         "population": "relationship_grain",
@@ -380,7 +381,7 @@
       "expected_refusal_code": null,
       "verdict": "PASS",
       "explanation": "208 matches GRAPH ground truth",
-      "ms": 67.9,
+      "ms": 73.6,
       "axes": {
         "measure": "count_distinct",
         "population": "fanning",
@@ -411,7 +412,7 @@
       "expected_refusal_code": null,
       "verdict": "PASS",
       "explanation": "45 matches GRAPH ground truth",
-      "ms": 51.5,
+      "ms": 47.6,
       "axes": {
         "measure": "count_distinct",
         "population": "property_filter",
@@ -439,7 +440,7 @@
       "expected_refusal_code": null,
       "verdict": "PASS",
       "explanation": "19 matches SQL ground truth",
-      "ms": 52.1,
+      "ms": 51.2,
       "axes": {
         "measure": "count",
         "population": "through_relationship",
@@ -544,7 +545,7 @@
       "expected_refusal_code": "grouping_field_too_sparse",
       "verdict": "NEW_REFUSED_CORRECTLY",
       "explanation": "refused with 'grouping_field_too_sparse', as specified",
-      "ms": 0.3,
+      "ms": 0.2,
       "axes": {
         "measure": "count",
         "population": "direct",
@@ -570,7 +571,7 @@
       "expected_refusal_code": "unknown_field",
       "verdict": "NEW_REFUSED_CORRECTLY",
       "explanation": "refused with 'unknown_field', as specified",
-      "ms": 0.2,
+      "ms": 0.1,
       "axes": {
         "measure": "count",
         "population": "direct",
@@ -596,7 +597,7 @@
       "expected_refusal_code": "unsupported_operation",
       "verdict": "NEW_REFUSED_CORRECTLY",
       "explanation": "refused with 'unsupported_operation', as specified",
-      "ms": 0.3,
+      "ms": 0.1,
       "axes": {
         "measure": "count",
         "population": "direct",
@@ -622,7 +623,7 @@
       "expected_refusal_code": null,
       "verdict": "PASS",
       "explanation": "5.47945205479452 matches PYTHON ground truth",
-      "ms": 114.0,
+      "ms": 111.0,
       "axes": {
         "measure": "count",
         "population": "filtered",
@@ -653,7 +654,7 @@
       "expected_refusal_code": null,
       "verdict": "PASS",
       "explanation": "95.89041095890411 matches GRAPH ground truth",
-      "ms": 115.0,
+      "ms": 97.9,
       "axes": {
         "measure": "count",
         "population": "relationship_grain",
@@ -684,7 +685,7 @@
       "expected_refusal_code": null,
       "verdict": "PASS",
       "explanation": "0 matches GRAPH ground truth",
-      "ms": 59.7,
+      "ms": 50.7,
       "axes": {
         "measure": "count_distinct",
         "population": "filtered",
@@ -712,7 +713,7 @@
       "expected_refusal_code": "zero_denominator",
       "verdict": "NEW_REFUSED_CORRECTLY",
       "explanation": "refused with 'zero_denominator', as specified",
-      "ms": 110.3,
+      "ms": 102.9,
       "axes": {
         "measure": "count",
         "population": "direct",
@@ -732,6 +733,336 @@
       ]
     },
     {
+      "name": "time_window_2024",
+      "description": "Temporal restriction on incident_date (2024).",
+      "expected_outcome": "value",
+      "expected_value": 13,
+      "ground_truth_route": "SQL",
+      "ground_truth_note": "WHERE incident_date BETWEEN 2024-01-01 AND 2024-12-31",
+      "expected_refusal_code": null,
+      "verdict": "PASS",
+      "explanation": "13 matches SQL ground truth",
+      "ms": 62.9,
+      "axes": {
+        "measure": "count",
+        "population": "filtered",
+        "grouping": "none",
+        "derived": "time_window",
+        "guard": "none"
+      },
+      "status": "ok",
+      "value": 13,
+      "refusal_code": null,
+      "coverage_verdict": "COMPLETE",
+      "caveat": null,
+      "injected": [],
+      "compiled": [
+        "MATCH (n:Case) WHERE n.case_id IN $p0 RETURN count(DISTINCT n.case_id) AS value"
+      ]
+    },
+    {
+      "name": "time_window_2026",
+      "description": "Temporal restriction on incident_date (2026).",
+      "expected_outcome": "value",
+      "expected_value": 51,
+      "ground_truth_route": "SQL",
+      "ground_truth_note": "WHERE incident_date BETWEEN 2026-01-01 AND 2026-12-31",
+      "expected_refusal_code": null,
+      "verdict": "PASS",
+      "explanation": "51 matches SQL ground truth",
+      "ms": 55.3,
+      "axes": {
+        "measure": "count",
+        "population": "filtered",
+        "grouping": "none",
+        "derived": "time_window",
+        "guard": "none"
+      },
+      "status": "ok",
+      "value": 51,
+      "refusal_code": null,
+      "coverage_verdict": "COMPLETE",
+      "caveat": null,
+      "injected": [],
+      "compiled": [
+        "MATCH (n:Case) WHERE n.case_id IN $p0 RETURN count(DISTINCT n.case_id) AS value"
+      ]
+    },
+    {
+      "name": "time_window_2025_empty",
+      "description": "Temporal restriction on incident_date (2025_empty).",
+      "expected_outcome": "value",
+      "expected_value": 0,
+      "ground_truth_route": "SQL",
+      "ground_truth_note": "no case has a 2025 incident_date; an empty window is a real answer, not an absent filter",
+      "expected_refusal_code": null,
+      "verdict": "PASS",
+      "explanation": "0 matches SQL ground truth",
+      "ms": 55.9,
+      "axes": {
+        "measure": "count",
+        "population": "filtered",
+        "grouping": "none",
+        "derived": "time_window",
+        "guard": "none"
+      },
+      "status": "ok",
+      "value": 0,
+      "refusal_code": null,
+      "coverage_verdict": "INSUFFICIENT",
+      "caveat": "Only 0 record(s) qualify — too few to report a meaningful figure.",
+      "injected": [],
+      "compiled": [
+        "MATCH (n:Case) WHERE n.case_id IN $p0 RETURN count(DISTINCT n.case_id) AS value"
+      ]
+    },
+    {
+      "name": "time_window_lower_bound_only",
+      "description": "Temporal restriction on incident_date (lower_bound_only).",
+      "expected_outcome": "value",
+      "expected_value": 51,
+      "ground_truth_route": "SQL",
+      "ground_truth_note": "WHERE incident_date >= 2026-01-01",
+      "expected_refusal_code": null,
+      "verdict": "PASS",
+      "explanation": "51 matches SQL ground truth",
+      "ms": 56.4,
+      "axes": {
+        "measure": "count",
+        "population": "filtered",
+        "grouping": "none",
+        "derived": "time_window",
+        "guard": "none"
+      },
+      "status": "ok",
+      "value": 51,
+      "refusal_code": null,
+      "coverage_verdict": "COMPLETE",
+      "caveat": null,
+      "injected": [],
+      "compiled": [
+        "MATCH (n:Case) WHERE n.case_id IN $p0 RETURN count(DISTINCT n.case_id) AS value"
+      ]
+    },
+    {
+      "name": "time_window_upper_bound_only",
+      "description": "Temporal restriction on incident_date (upper_bound_only).",
+      "expected_outcome": "value",
+      "expected_value": 13,
+      "ground_truth_route": "SQL",
+      "ground_truth_note": "WHERE incident_date <= 2024-12-31",
+      "expected_refusal_code": null,
+      "verdict": "PASS",
+      "explanation": "13 matches SQL ground truth",
+      "ms": 56.7,
+      "axes": {
+        "measure": "count",
+        "population": "filtered",
+        "grouping": "none",
+        "derived": "time_window",
+        "guard": "none"
+      },
+      "status": "ok",
+      "value": 13,
+      "refusal_code": null,
+      "coverage_verdict": "COMPLETE",
+      "caveat": null,
+      "injected": [],
+      "compiled": [
+        "MATCH (n:Case) WHERE n.case_id IN $p0 RETURN count(DISTINCT n.case_id) AS value"
+      ]
+    },
+    {
+      "name": "time_window_narrow_sept_2024",
+      "description": "Temporal restriction on incident_date (narrow_sept_2024).",
+      "expected_outcome": "value",
+      "expected_value": 13,
+      "ground_truth_route": "SQL",
+      "ground_truth_note": "WHERE incident_date BETWEEN 2024-09-01 AND 2024-09-30",
+      "expected_refusal_code": null,
+      "verdict": "PASS",
+      "explanation": "13 matches SQL ground truth",
+      "ms": 60.1,
+      "axes": {
+        "measure": "count",
+        "population": "filtered",
+        "grouping": "none",
+        "derived": "time_window",
+        "guard": "none"
+      },
+      "status": "ok",
+      "value": 13,
+      "refusal_code": null,
+      "coverage_verdict": "COMPLETE",
+      "caveat": null,
+      "injected": [],
+      "compiled": [
+        "MATCH (n:Case) WHERE n.case_id IN $p0 RETURN count(DISTINCT n.case_id) AS value"
+      ]
+    },
+    {
+      "name": "time_window_pre_2020_empty",
+      "description": "Temporal restriction on incident_date (pre_2020_empty).",
+      "expected_outcome": "value",
+      "expected_value": 0,
+      "ground_truth_route": "SQL",
+      "ground_truth_note": "Module 144's original question shape; the corpus min is 2024-09-14",
+      "expected_refusal_code": null,
+      "verdict": "PASS",
+      "explanation": "0 matches SQL ground truth",
+      "ms": 55.3,
+      "axes": {
+        "measure": "count",
+        "population": "filtered",
+        "grouping": "none",
+        "derived": "time_window",
+        "guard": "none"
+      },
+      "status": "ok",
+      "value": 0,
+      "refusal_code": null,
+      "coverage_verdict": "INSUFFICIENT",
+      "caveat": "Only 0 record(s) qualify — too few to report a meaningful figure.",
+      "injected": [],
+      "compiled": [
+        "MATCH (n:Case) WHERE n.case_id IN $p0 RETURN count(DISTINCT n.case_id) AS value"
+      ]
+    },
+    {
+      "name": "time_window_inclusive_min_boundary",
+      "description": "Temporal restriction on incident_date (inclusive_min_boundary).",
+      "expected_outcome": "value",
+      "expected_value": 1,
+      "ground_truth_route": "SQL",
+      "ground_truth_note": "the dataset's own minimum date, matched by an equal-bound window — proves the lower bound is inclusive",
+      "expected_refusal_code": null,
+      "verdict": "PASS",
+      "explanation": "1 matches SQL ground truth",
+      "ms": 58.7,
+      "axes": {
+        "measure": "count",
+        "population": "filtered",
+        "grouping": "none",
+        "derived": "time_window",
+        "guard": "none"
+      },
+      "status": "ok",
+      "value": 1,
+      "refusal_code": null,
+      "coverage_verdict": "INSUFFICIENT",
+      "caveat": "Only 1 record(s) qualify — too few to report a meaningful figure.",
+      "injected": [],
+      "compiled": [
+        "MATCH (n:Case) WHERE n.case_id IN $p0 RETURN count(DISTINCT n.case_id) AS value"
+      ]
+    },
+    {
+      "name": "time_window_inclusive_max_boundary",
+      "description": "Temporal restriction on incident_date (inclusive_max_boundary).",
+      "expected_outcome": "value",
+      "expected_value": 1,
+      "ground_truth_route": "SQL",
+      "ground_truth_note": "the dataset's own maximum date — proves the upper bound is inclusive",
+      "expected_refusal_code": null,
+      "verdict": "PASS",
+      "explanation": "1 matches SQL ground truth",
+      "ms": 59.5,
+      "axes": {
+        "measure": "count",
+        "population": "filtered",
+        "grouping": "none",
+        "derived": "time_window",
+        "guard": "none"
+      },
+      "status": "ok",
+      "value": 1,
+      "refusal_code": null,
+      "coverage_verdict": "INSUFFICIENT",
+      "caveat": "Only 1 record(s) qualify — too few to report a meaningful figure.",
+      "injected": [],
+      "compiled": [
+        "MATCH (n:Case) WHERE n.case_id IN $p0 RETURN count(DISTINCT n.case_id) AS value"
+      ]
+    },
+    {
+      "name": "time_window_inverted_range_refused",
+      "description": "start after end matches nothing and is a mistake, not an intent.",
+      "expected_outcome": "refused",
+      "expected_value": null,
+      "ground_truth_route": null,
+      "ground_truth_note": null,
+      "expected_refusal_code": "invalid_time_window",
+      "verdict": "NEW_REFUSED_CORRECTLY",
+      "explanation": "refused with 'invalid_time_window', as specified",
+      "ms": 0.2,
+      "axes": {
+        "measure": "count",
+        "population": "direct",
+        "grouping": "none",
+        "derived": "time_window",
+        "guard": "invariant"
+      },
+      "status": "refused",
+      "value": null,
+      "refusal_code": "invalid_time_window",
+      "coverage_verdict": null,
+      "caveat": null,
+      "injected": [],
+      "compiled": []
+    },
+    {
+      "name": "time_window_unsupported_field_refused",
+      "description": "A window on a field with no temporal resolver must refuse.",
+      "expected_outcome": "refused",
+      "expected_value": null,
+      "ground_truth_route": null,
+      "ground_truth_note": null,
+      "expected_refusal_code": "unsupported_operation",
+      "verdict": "NEW_REFUSED_CORRECTLY",
+      "explanation": "refused with 'unsupported_operation', as specified",
+      "ms": 0.2,
+      "axes": {
+        "measure": "count",
+        "population": "direct",
+        "grouping": "none",
+        "derived": "time_window",
+        "guard": "unimplemented"
+      },
+      "status": "refused",
+      "value": null,
+      "refusal_code": "unsupported_operation",
+      "coverage_verdict": null,
+      "caveat": null,
+      "injected": [],
+      "compiled": []
+    },
+    {
+      "name": "time_window_population_without_case_refused",
+      "description": "A population that never reaches Case cannot be restricted.",
+      "expected_outcome": "refused",
+      "expected_value": null,
+      "ground_truth_route": null,
+      "ground_truth_note": null,
+      "expected_refusal_code": "compile_failed",
+      "verdict": "NEW_REFUSED_CORRECTLY",
+      "explanation": "refused with 'compile_failed', as specified",
+      "ms": 11.8,
+      "axes": {
+        "measure": "count",
+        "population": "direct",
+        "grouping": "none",
+        "derived": "time_window",
+        "guard": "invariant"
+      },
+      "status": "refused",
+      "value": null,
+      "refusal_code": "compile_failed",
+      "coverage_verdict": null,
+      "caveat": null,
+      "injected": [],
+      "compiled": []
+    },
+    {
       "name": "comparison_refused_not_emitted",
       "description": "compare is declared but never reaches the query.",
       "expected_outcome": "refused",
@@ -741,7 +1072,7 @@
       "expected_refusal_code": "unsupported_operation",
       "verdict": "NEW_REFUSED_CORRECTLY",
       "explanation": "refused with 'unsupported_operation', as specified",
-      "ms": 0.3,
+      "ms": 0.1,
       "axes": {
         "measure": "count",
         "population": "direct",
@@ -767,7 +1098,7 @@
       "expected_refusal_code": "missing_distinct_key",
       "verdict": "NEW_REFUSED_CORRECTLY",
       "explanation": "refused with 'missing_distinct_key', as specified",
-      "ms": 0.2,
+      "ms": 0.1,
       "axes": {
         "measure": "count",
         "population": "fanning",
@@ -793,7 +1124,7 @@
       "expected_refusal_code": "missing_distinct_key",
       "verdict": "NEW_REFUSED_CORRECTLY",
       "explanation": "refused with 'missing_distinct_key', as specified",
-      "ms": 0.2,
+      "ms": 0.1,
       "axes": {
         "measure": "count",
         "population": "fanning",
@@ -819,7 +1150,7 @@
       "expected_refusal_code": "compile_failed",
       "verdict": "NEW_REFUSED_CORRECTLY",
       "explanation": "refused with 'compile_failed', as specified",
-      "ms": 0.2,
+      "ms": 0.1,
       "axes": {
         "measure": "avg",
         "population": "fanning",
@@ -845,7 +1176,7 @@
       "expected_refusal_code": "unknown_entity",
       "verdict": "NEW_REFUSED_CORRECTLY",
       "explanation": "refused with 'unknown_entity', as specified",
-      "ms": 0.2,
+      "ms": 0.1,
       "axes": {
         "measure": "count",
         "population": "direct",
@@ -871,7 +1202,7 @@
       "expected_refusal_code": "unknown_relationship",
       "verdict": "NEW_REFUSED_CORRECTLY",
       "explanation": "refused with 'unknown_relationship', as specified",
-      "ms": 0.2,
+      "ms": 0.1,
       "axes": {
         "measure": "count",
         "population": "direct",
@@ -897,7 +1228,7 @@
       "expected_refusal_code": "no_distinct_key",
       "verdict": "NEW_REFUSED_CORRECTLY",
       "explanation": "refused with 'no_distinct_key', as specified",
-      "ms": 0.2,
+      "ms": 0.1,
       "axes": {
         "measure": "count_distinct",
         "population": "direct",
@@ -923,7 +1254,7 @@
       "expected_refusal_code": "scope_denied",
       "verdict": "NEW_REFUSED_CORRECTLY",
       "explanation": "refused with 'scope_denied', as specified",
-      "ms": 0.2,
+      "ms": 0.1,
       "axes": {
         "measure": "count",
         "population": "direct",
@@ -949,7 +1280,7 @@
       "expected_refusal_code": "scope_not_authenticated",
       "verdict": "NEW_REFUSED_CORRECTLY",
       "explanation": "refused with 'scope_not_authenticated', as specified",
-      "ms": 0.2,
+      "ms": 0.1,
       "axes": {
         "measure": "count",
         "population": "direct",
@@ -967,7 +1298,7 @@
     }
   ],
   "summary": {
-    "PASS": 16,
-    "NEW_REFUSED_CORRECTLY": 14
+    "PASS": 25,
+    "NEW_REFUSED_CORRECTLY": 17
   }
 }

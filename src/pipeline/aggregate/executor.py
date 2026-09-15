@@ -43,6 +43,7 @@ from src.graph import age_client
 from src.pipeline.aggregate import coverage as cov
 from src.pipeline.aggregate import registry as reg
 from src.pipeline.aggregate import shapes
+from src.pipeline.aggregate import temporal
 from src.pipeline.aggregate.compiler import CompiledQuery, compile_ratio, compile_spec
 from src.pipeline.aggregate.receipt import (
     AggregateReceipt,
@@ -176,16 +177,48 @@ async def execute(
 
     _arm_scope(spec)
 
+    # ── Resolve the time window BEFORE compiling ──────────────────────
+    #
+    # `incident_date` is Postgres-authoritative and the AGE `Case` node
+    # carries no date at all, so a window cannot be a Cypher predicate — it
+    # resolves to a case-id allow-list here and is handed to the compiler.
+    # Resolved once, before the simple/ratio split, so a ratio's two halves
+    # are restricted to the SAME set: restricting only the numerator would
+    # compute "cases in 2024 with >1 officer, over all cases ever".
+    window: Optional["temporal.WindowResolution"] = None
+    if spec.time_window is not None:
+        try:
+            window = await temporal.resolve_window(
+                snapshot, spec.time_window.field,
+                spec.time_window.start, spec.time_window.end,
+            )
+        except Exception as exc:  # noqa: BLE001 - authority unreachable
+            logger.error("aggregate executor: time window unresolved: %s", exc)
+            outcome = _refusal(
+                spec, snapshot, code="execution_failed",
+                reason=(
+                    f"time window on {spec.time_window.field!r} could not be "
+                    f"resolved against its authoritative source: {exc}"
+                ),
+            )
+            return dataclasses.replace(outcome, status="failed")
+
     if spec.ratio is not None:
-        return await _execute_ratio(snapshot, spec)
-    return await _execute_simple(snapshot, spec)
+        return await _execute_ratio(snapshot, spec, window=window)
+    return await _execute_simple(snapshot, spec, window=window)
 
 
 async def _execute_simple(
-    snapshot: reg.RegistrySnapshot, spec: AggregateSpec
+    snapshot: reg.RegistrySnapshot,
+    spec: AggregateSpec,
+    *,
+    window: Optional["temporal.WindowResolution"] = None,
 ) -> AggregateOutcome:
     try:
-        query = compile_spec(snapshot, spec)
+        query = compile_spec(
+            snapshot, spec,
+            window_case_ids=window.case_ids if window is not None else None,
+        )
     except Exception as exc:  # noqa: BLE001 - compile failure is a refusal
         return _refusal(spec, snapshot, code="compile_failed", reason=str(exc))
 
@@ -254,6 +287,12 @@ async def _execute_simple(
         field_name=field_for_coverage,
         field_entity=terminal,
         excluded_merged_n=_tombstones_excluded(snapshot, spec),
+        # A window's exclusions are reported as what they are: records that
+        # HAVE a date but fall outside it, kept apart from records with no
+        # date at all. Conflating the two would let "cases in 2024" and
+        # "cases not in 2024" fail to sum to the population without the
+        # discrepancy being visible anywhere.
+        excluded_by_filter_n=window.excluded_by_window_n if window else 0,
         source="graph",
     )
 
@@ -276,7 +315,8 @@ async def _execute_simple(
         coverage_verdict=coverage.verdict,
         caveat=coverage.caveat_text(),
         compiler_notes=query.notes,
-        calculation_steps=(f"{spec.measure} over {describe_population(spec)}",),
+        calculation_steps=_calculation_steps(spec, window),
+        filters_applied=_window_filters(window),
         source="graph",
         registry_as_of=snapshot.as_of,
         execution_status="ok",
@@ -284,8 +324,45 @@ async def _execute_simple(
     return AggregateOutcome(status="ok", value=value, receipt=receipt, rows=tuple(rows))
 
 
+def _window_filters(
+    window: Optional[temporal.WindowResolution],
+) -> tuple[str, ...]:
+    """The receipt's record of a temporal restriction that WAS executed.
+
+    Built from the resolution object rather than from `spec.time_window`,
+    and that distinction is the whole point of this work: the spec records
+    what was ASKED, the resolution records what was RUN. A receipt built
+    from the spec would have happily claimed a filter during the entire
+    period the compiler was ignoring it.
+    """
+    if window is None:
+        return ()
+    return (
+        f"{window.describe()} -> {window.matched_n} case(s); "
+        f"{window.excluded_by_window_n} outside the window, "
+        f"{window.null_field_n} with no recorded {window.field} "
+        f"(authority: {window.source}, {window.physical_path})",
+    )
+
+
+def _calculation_steps(
+    spec: AggregateSpec, window: Optional[temporal.WindowResolution]
+) -> tuple[str, ...]:
+    steps = [f"{spec.measure} over {describe_population(spec)}"]
+    if window is not None:
+        steps.insert(
+            0,
+            f"resolved {window.describe()} against {window.physical_path} "
+            f"-> {window.matched_n} case id(s)",
+        )
+    return tuple(steps)
+
+
 async def _execute_ratio(
-    snapshot: reg.RegistrySnapshot, spec: AggregateSpec
+    snapshot: reg.RegistrySnapshot,
+    spec: AggregateSpec,
+    *,
+    window: Optional[temporal.WindowResolution] = None,
 ) -> AggregateOutcome:
     """Run a ratio as two independent queries, then check invariants.
 
@@ -293,9 +370,15 @@ async def _execute_ratio(
     `compiler.compile_ratio()`. Independence is what lets
     `numerator <= denominator` be a real check rather than a tautology, and
     what lets a zero denominator be refused before any division happens.
+
+    A `window` restricts BOTH halves to the same case set, so a windowed
+    percentage stays a percentage of the windowed population.
     """
     try:
-        num_q, den_q = compile_ratio(snapshot, spec)
+        num_q, den_q = compile_ratio(
+            snapshot, spec,
+            window_case_ids=window.case_ids if window is not None else None,
+        )
     except Exception as exc:  # noqa: BLE001
         return _refusal(spec, snapshot, code="compile_failed", reason=str(exc))
 
@@ -348,6 +431,7 @@ async def _execute_ratio(
             dataclasses.replace(spec, population=spec.ratio.denominator)
         ) if spec.ratio else None,
         excluded_merged_n=_tombstones_excluded(snapshot, spec),
+        excluded_by_filter_n=window.excluded_by_window_n if window else 0,
         source="graph",
     )
 
@@ -377,10 +461,16 @@ async def _execute_ratio(
         caveat=coverage.caveat_text(),
         compiler_notes=num_q.notes + den_q.notes,
         calculation_steps=(
+            (
+                f"resolved {window.describe()} against {window.physical_path} "
+                f"-> {window.matched_n} case id(s), applied to BOTH halves",
+            ) if window is not None else ()
+        ) + (
             f"numerator = {numerator} ({describe_population(dataclasses.replace(spec, population=spec.ratio.numerator))})",
             f"denominator = {denominator}",
             f"{numerator} / {denominator} = {value:.4f}",
         ),
+        filters_applied=_window_filters(window),
         source="graph",
         registry_as_of=snapshot.as_of,
         execution_status="ok",
