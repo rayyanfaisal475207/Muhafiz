@@ -122,6 +122,7 @@ from src.pipeline.harness.types import (
     ToolError,
 )
 from src.pipeline import llm_query_fallback
+from src.pipeline.harness import subagent_selection
 from src.pipeline.router import _TIME_COMPARISON_XAGG_PATTERNS, route_query
 from src.pipeline.xagg import resolves_to_specific_aggregate
 
@@ -707,6 +708,92 @@ def _xagg_answers_in_one_call(query_text: str) -> bool:
     return resolves_to_specific_aggregate(query_text)
 
 
+# ═══════════════════════════════════════════════════════════════════════
+# [Gold-QA fix — Modules 158 / 164] Two selection sources in front of the
+# trigger list, both logged with one `SUBAGENT-SELECT` line.
+#
+# THE DEFECT. `_META_ANALYSIS_TRIGGER_PATTERNS` and
+# `meta_analysis._DECOMPOSITION_PLANS`' own pattern lists have been
+# maintained in parallel since Module 29. `_xagg_answers_in_one_call()`
+# above already lets a matched plan VETO the XAGG shortcut — and then the
+# question falls through the trigger list (which has no entry for it) to
+# `_ROUTE_TO_SUBAGENT["XAGG"]`, the very agent the veto was meant to
+# avoid. Module 79's live example landed there 1/1 with the same wrong
+# answer as before the plan existed (MODULE79_RESULT.md §4.1). And a
+# rewording that misses BOTH lists — Module 116's six pre-written
+# paraphrases reach Meta-Analysis 3/6 — falls to Cross-Case Linkage, which
+# correctly refuses a question it was never meant to answer.
+#
+# (1) A MATCHED PLAN IS A SELECTION. The plan's patterns are Meta-Analysis's
+#     own definition of what it decomposes; a second list agreeing adds
+#     nothing but a maintenance obligation. Deterministic and free, so it
+#     does not depend on the model server — the semantic layer below can be
+#     dark and a plan-matched question still reaches its plan.
+# (2) THE SEMANTIC LAYER (`harness/subagent_selection.py`), Module 145's
+#     mechanism at this chokepoint: the cross-encoder scores the question
+#     against one description per plan (what it computes, not its trigger
+#     words) alongside every neighbouring capability as an absorbing class.
+#     Scored in `Supervisor.handle()` (async) and read here (sync), the
+#     same split as `xagg.resolve_aggregate_kind()`.
+#
+# `semantic_selection_applies()` is the ONE statement of when (2) is
+# consulted, used by `handle()` to decide whether to pay for the scorer
+# and by `classify_to_subagent()` to decide whether to read the result:
+# never for a nested sub-query, DIRECT, a file request or a within-case
+# question (the demotion guard would discard the selection), and never
+# when the XAGG one-call skip, the trigger list or a plan already decided.
+# The trigger list itself is unchanged in body and order: CR3, G1 and G6
+# still select Meta-Analysis through it, and the 32 gold questions select
+# byte-identically (tests/test_subagent_selection.py pins all 32).
+# ═══════════════════════════════════════════════════════════════════════
+def _matched_plan_name(query_text: str) -> Optional[str]:
+    """Name of the Module 29 decomposition plan `query_text` matches, or
+    None. Pure; lazy import for the same circularity reason as
+    `_xagg_answers_in_one_call()`."""
+    try:
+        from src.pipeline.harness.agents.meta_analysis import _match_decomposition_plan
+    except ImportError:  # pragma: no cover - defensive
+        return None
+    plan = _match_decomposition_plan(query_text)
+    return plan.name if plan is not None else None
+
+
+def _meta_analysis_decided_by_phrase(route: str, query_text: str) -> Optional[str]:
+    """How the deterministic chain decides Meta-Analysis for `query_text`,
+    ignoring `allow_meta_analysis`: "xagg-one-call" (the skip wins, never
+    Meta-Analysis), "trigger", "plan:<name>", or None (undecided — the
+    semantic layer's territory)."""
+    if route == "XAGG" and (
+        any(pat.search(query_text) for pat in _TIME_COMPARISON_XAGG_PATTERNS)
+        or _xagg_answers_in_one_call(query_text)
+    ):
+        return "xagg-one-call"
+    if any(pat.search(query_text) for pat in _META_ANALYSIS_TRIGGER_PATTERNS):
+        return "trigger"
+    plan = _matched_plan_name(query_text)
+    if plan is not None:
+        return f"plan:{plan}"
+    return None
+
+
+def semantic_selection_applies(
+    route_result: dict, query_text: str = "", *, allow_meta_analysis: bool = True
+) -> bool:
+    """True iff `classify_to_subagent()` would consult the semantic
+    sub-agent selection for this question — i.e. Meta-Analysis is
+    reachable and nothing deterministic has decided. Sync and pure."""
+    if not allow_meta_analysis or not query_text:
+        return False
+    route = str(route_result.get("route") or "RAG").upper()
+    output_format = str(route_result.get("output_format") or "chat").lower()
+    case_scope = str(route_result.get("case_scope") or "within_case").lower()
+    if route == "DIRECT" or output_format in _FILE_OUTPUT_FORMATS:
+        return False
+    if case_scope != "cross_case":
+        return False
+    return _meta_analysis_decided_by_phrase(route, query_text) is None
+
+
 def classify_to_subagent(
     route_result: dict, query_text: str = "", *, allow_meta_analysis: bool = True
 ) -> str:
@@ -806,6 +893,28 @@ def classify_to_subagent(
         pat.search(query_text) for pat in _META_ANALYSIS_TRIGGER_PATTERNS
     ):
         sub_agent = META_ANALYSIS
+        logger.info("SUBAGENT-SELECT %s via trigger | %s", META_ANALYSIS, query_text[:120])
+    # [Gold-QA fix — Module 158] A matched decomposition plan selects
+    # Meta-Analysis on its own — see the comment block above
+    # `_matched_plan_name()`. Same `allow_meta_analysis` guard as the
+    # trigger clause, so the recursion guard is unchanged.
+    elif allow_meta_analysis and (_plan := _matched_plan_name(query_text)) is not None:
+        sub_agent = META_ANALYSIS
+        logger.info("SUBAGENT-SELECT %s via plan=%s | %s", META_ANALYSIS, _plan, query_text[:120])
+    # [Gold-QA fix — Module 164] The semantic layer, read synchronously
+    # from the decision `Supervisor.handle()` prepared. `lookup()` is None
+    # unless the best description is a plan that cleared the threshold;
+    # an unprepared question (unit tests, offline callers) is None too.
+    elif (
+        semantic_selection_applies(route_result, query_text, allow_meta_analysis=allow_meta_analysis)
+        and (_sem := subagent_selection.lookup(query_text)) is not None
+    ):
+        sub_agent = META_ANALYSIS
+        logger.info(
+            "SUBAGENT-SELECT %s via semantic=%s(%.3f) runner_up=%s(%.3f) | %s",
+            META_ANALYSIS, _sem.kind, _sem.score, _sem.runner_up, _sem.runner_up_score,
+            query_text[:120],
+        )
     else:
         if route not in _CROSS_CASE_ROUTES:
             if any(pat.search(query_text) for pat in _TIMELINE_TRIGGER_PATTERNS):
@@ -1122,6 +1231,14 @@ class Supervisor:
         emit = on_event if on_event is not None else (lambda _evt: None)
 
         route_result = await route_query(agent_input.query_text)
+        # [Gold-QA fix — Module 164] The async half of semantic sub-agent
+        # selection: score once, cache, so the sync `classify_to_subagent()`
+        # below can read the decision. Only paid for when nothing
+        # deterministic has decided — see `semantic_selection_applies()`.
+        if semantic_selection_applies(
+            route_result, agent_input.query_text, allow_meta_analysis=allow_meta_analysis
+        ):
+            await subagent_selection.prepare(agent_input.query_text)
         sub_agent_name = classify_to_subagent(
             route_result, agent_input.query_text, allow_meta_analysis=allow_meta_analysis
         )
