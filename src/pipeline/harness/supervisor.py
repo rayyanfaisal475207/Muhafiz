@@ -121,6 +121,7 @@ from src.pipeline.harness.types import (
     SubAgentStatus,
     ToolError,
 )
+from src.pipeline import llm_query_fallback
 from src.pipeline.router import _TIME_COMPARISON_XAGG_PATTERNS, route_query
 from src.pipeline.xagg import resolves_to_specific_aggregate
 
@@ -1442,6 +1443,30 @@ class Supervisor:
                 detail=f"{sub_agent_name} completed with status={result.status.value}",
             )
         )
+
+        # [Gold-QA fix — Module 178] THE FALLBACK BRANCH, and nothing else:
+        # after the selected sub-agent has run and come back with nothing,
+        # and only when keyword dispatch, semantic dispatch, sub-agent
+        # selection and plan matching have ALL missed (`applies()` is the
+        # one statement of that — see src/pipeline/llm_query_fallback.py's
+        # module docstring for the five bounds), the language model may
+        # write ONE read-only graph query. Off unless
+        # `config.LLM_QUERY_FALLBACK_ENABLED`. Deliberately placed after the
+        # dispatch — not in `classify_to_subagent()` — so it never
+        # competes with a selection and so Module 158's selection changes
+        # reconcile without touching this block.
+        if llm_query_fallback.applies(
+            route_result, agent_input.query_text, sub_agent_name, result,
+            allow_meta_analysis=allow_meta_analysis,
+        ):
+            logger.info(
+                "LLM-QUERY-FALLBACK firing: route=%s sub_agent=%s status=%s | %s",
+                route_result.get("route"), sub_agent_name, result.status.value,
+                agent_input.query_text[:120],
+            )
+            result, _outcome = await llm_query_fallback.attempt(
+                agent_input, route_result, result, emit=emit, gateway=gateway,
+            )
 
         # [AMENDMENT — Gold-QA fix, Module 3 follow-up] The one deliberate
         # exception to "[PRESERVE] returned exactly as received" below:

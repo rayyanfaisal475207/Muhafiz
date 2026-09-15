@@ -1,0 +1,48 @@
+{
+ "direct_attempt_as_investigator": {
+  "status": "denied",
+  "error": {
+   "kind": "permission_denied",
+   "message": "Cross-case generated queries require supervisor role or higher."
+  },
+  "caveats": [
+   "Cross-case access was denied for your role."
+  ],
+  "llm_calls": 0,
+  "query": null,
+  "events": [
+   {
+    "step": "llm_query_fallback",
+    "status": "skipped",
+    "detail": "denied: cross-case role required",
+    "ms": null,
+    "sources": null
+   }
+  ]
+ },
+ "Q2": {
+  "route": "XGRAPH",
+  "case_scope": "cross_case",
+  "station": null,
+  "district": null,
+  "used_cutover": true,
+  "sub_agent": "Cross-Case Linkage",
+  "fallback_fired": false,
+  "fallback": [],
+  "fallback_events": [],
+  "answer": "This question requires searching across multiple cases, which needs a supervisor-level role or higher. Your account doesn't have that access, so I can't run it. You can still ask about any case you're assigned to — select it from the case list and ask again.",
+  "status": "error",
+  "steps": [
+   "supervisor/active: Routing through the agent harness...",
+   "supervisor:dispatch/active: Classified query as route='XGRAPH' -> sub-agent='Cross-Case Linkage'",
+   "supervisor:dispatch/done: Cross-Case Linkage completed with status=denied",
+   "supervisor/done: Harness routing complete"
+  ],
+  "log": [],
+  "elapsed_s": 55.8,
+  "text": "Is there anyone who used one of our citizen services who also turns out to be under investigation for a crime?",
+  "role": "investigator",
+  "id": "Q2",
+  "truth": "exactly one person: سرفراز احمد, CNIC 00000-1000055-1, accused in fir-620-26 (pkm-app-c14-01, driving licence, Module 161 §1)"
+ }
+}

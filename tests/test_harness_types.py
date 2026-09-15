@@ -173,7 +173,7 @@ def test_execution_context_project_id_is_optional_and_settable():
 def test_source_tool_display_labels_cover_every_source_tool():
     # [RESOLVED-1a] GRAPH_HYBRID must be present and distinct — never
     # collapsed into "GRAPH" or omitted.
-    expected = {"RAG", "GRAPH", "GRAPH_HYBRID", "XGRAPH", "XAGG", "XNETWORK", "SQL", "WEB"}
+    expected = {"RAG", "GRAPH", "GRAPH_HYBRID", "XGRAPH", "XAGG", "XNETWORK", "SQL", "WEB", "LLM_QUERY"}
     assert set(SOURCE_TOOL_DISPLAY_LABELS.keys()) == expected
     assert SOURCE_TOOL_DISPLAY_LABELS["GRAPH_HYBRID"] != SOURCE_TOOL_DISPLAY_LABELS["GRAPH"]
 

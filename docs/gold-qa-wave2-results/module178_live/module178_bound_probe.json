@@ -1,0 +1,108 @@
+{
+ "role": "muhafiz_mcp_readonly",
+ "graph": "evidence_graph",
+ "ran_at": "2026-09-15T14:37:08Z",
+ "connection": {
+  "current_user": "muhafiz_mcp_readonly",
+  "rolsuper": false,
+  "rolbypassrls": false
+ },
+ "grants": [
+  {
+   "schema": "ag_catalog",
+   "usage": true
+  },
+  {
+   "schema": "evidence_graph",
+   "usage": true
+  },
+  {
+   "schema": "evidence_graph_eval",
+   "usage": false
+  },
+  {
+   "schema": "public",
+   "usage": true
+  }
+ ],
+ "table_privs_on_Case": {
+  "select": true,
+  "insert": false,
+  "update": false,
+  "delete": false
+ },
+ "read_works": {
+  "refused": false,
+  "rows": 1
+ },
+ "writes_role_only": {
+  "CREATE": {
+   "refused": true,
+   "error": "InsufficientPrivilegeError: permission denied for table Weapon"
+  },
+  "MERGE": {
+   "refused": true,
+   "error": "InsufficientPrivilegeError: permission denied for table Weapon"
+  },
+  "SET": {
+   "refused": false,
+   "rows": 1
+  },
+  "REMOVE": {
+   "refused": false,
+   "rows": 1
+  },
+  "DETACH DELETE": {
+   "refused": false,
+   "rows": 1
+  }
+ },
+ "writes_role_plus_read_only_txn": {
+  "CREATE": {
+   "refused": true,
+   "error": "ReadOnlySQLTransactionError: cannot execute SELECT in a read-only transaction"
+  },
+  "MERGE": {
+   "refused": true,
+   "error": "ReadOnlySQLTransactionError: cannot execute SELECT in a read-only transaction"
+  },
+  "SET": {
+   "refused": false,
+   "rows": 1
+  },
+  "REMOVE": {
+   "refused": false,
+   "rows": 1
+  },
+  "DETACH DELETE": {
+   "refused": false,
+   "rows": 1
+  }
+ },
+ "executor_rollback_proof": {
+  "forced_set_ran": [
+   {
+    "n": "fir-142-26"
+   }
+  ],
+  "after_call": [
+   {
+    "v": null,
+    "conf": 1.0
+   }
+  ],
+  "no_trace": true
+ },
+ "text_filter": {
+  "CREATE": "rejected: the generated query contains a write keyword: CREATE",
+  "MERGE": "rejected: the generated query contains a write keyword: MERGE",
+  "SET": "rejected: the generated query contains a write keyword: SET",
+  "REMOVE": "rejected: the generated query contains a write keyword: REMOVE",
+  "DETACH DELETE": "rejected: the generated query contains a write keyword: DELETE, DETACH"
+ },
+ "timeout": {
+  "fired": true,
+  "error": "QueryCanceledError",
+  "after_s": 1.0
+ }
+}

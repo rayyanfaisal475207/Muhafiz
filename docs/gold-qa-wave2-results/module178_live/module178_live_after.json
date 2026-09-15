@@ -1,0 +1,338 @@
+{
+ "Q2::run1": {
+  "route": "XGRAPH",
+  "case_scope": "cross_case",
+  "station": null,
+  "district": null,
+  "used_cutover": true,
+  "sub_agent": "Cross-Case Linkage",
+  "fallback_fired": true,
+  "fallback": [
+   {
+    "query": "MATCH (p:Person)-[:APPEARS_IN]->(sr:StructuredRecord {record_type: 'pkm_application'}) WITH p MATCH (p)-[:INVOLVED_IN {role: 'accused'}]->(i:Incident)-[:PART_OF]->(c:Case) RETURN p.canonical_name AS name, sr.record_id AS service_record, c.case_id AS case_id LIMIT 50",
+    "scoped_query": "MATCH (p:Person)-[:APPEARS_IN]->(sr:StructuredRecord {record_type: 'pkm_application'}) WITH p MATCH (p)-[:INVOLVED_IN {role: 'accused'}]->(i:Incident)-[:PART_OF]->(c:Case) RETURN p.canonical_name AS name, sr.record_id AS service_record, c.case_id AS case_id LIMIT 50",
+    "rows": null,
+    "model": "local:qwen3:14b",
+    "narration_model": null,
+    "verifier": null,
+    "reason": "the query failed to run (UndefinedColumnError: could not find rte for sr)",
+    "served": false,
+    "status": "abstained",
+    "elapsed_s": 9.2
+   }
+  ],
+  "fallback_events": [
+   {
+    "step": "llm_query_fallback",
+    "status": "active",
+    "detail": "Every aggregate and plan missed — asking the model for one read-only graph query"
+   },
+   {
+    "step": "llm_query_fallback",
+    "status": "error",
+    "detail": "the query failed to run (UndefinedColumnError: could not find rte for sr)",
+    "query": "MATCH (p:Person)-[:APPEARS_IN]->(sr:StructuredRecord {record_type: 'pkm_application'}) WITH p MATCH (p)-[:INVOLVED_IN {role: 'accused'}]->(i:Incident)-[:PART_OF]->(c:Case) RETURN p.canonical_name AS name, sr.record_id AS service_record, c.case_id AS case_id LIMIT 50",
+    "model": "local:qwen3:14b"
+   }
+  ],
+  "answer": "Generated-query fallback could not answer this: the query failed to run (UndefinedColumnError: could not find rte for sr); Generated graph query (not run or failed): MATCH (p:Person)-[:APPEARS_IN]->(sr:StructuredRecord {record_type: 'pkm_application'}) WITH p MATCH (p)-[:INVOLVED_IN {role: 'accused'}]->(i:Incident)-[:PART_OF]->(c:Case) RETURN p.canonical_name AS name, sr.record_id AS service_record, c.case_id AS case_id LIMIT 50",
+  "status": "error",
+  "steps": [
+   "supervisor/active: Routing through the agent harness...",
+   "supervisor:dispatch/active: Classified query as route='XGRAPH' -> sub-agent='Cross-Case Linkage'",
+   "supervisor:dispatch/done: Cross-Case Linkage completed with status=empty",
+   "llm_query_fallback/active: Every aggregate and plan missed — asking the model for one read-only graph query",
+   "llm_query_fallback/error: the query failed to run (UndefinedColumnError: could not find rte for sr)",
+   "supervisor/done: Harness routing complete"
+  ],
+  "log": [
+   "LLM-QUERY-FALLBACK firing: route=XGRAPH sub_agent=Cross-Case Linkage status=empty | Is there anyone who used one of our citizen services who also turns out to be under investigation for a crime?",
+   "LLM-QUERY-FALLBACK abstained: the query failed to run (UndefinedColumnError: could not find rte for sr) | q=Is there anyone who used one of our citizen services who also turns out to be under investigation fo"
+  ],
+  "elapsed_s": 43.0,
+  "text": "Is there anyone who used one of our citizen services who also turns out to be under investigation for a crime?",
+  "role": "platform-admin",
+  "id": "Q2",
+  "truth": "exactly one person: سرفراز احمد, CNIC 00000-1000055-1, accused in fir-620-26 (pkm-app-c14-01, driving licence, Module 161 §1)"
+ },
+ "Q2::run2": {
+  "route": "XGRAPH",
+  "case_scope": "cross_case",
+  "station": null,
+  "district": null,
+  "used_cutover": true,
+  "sub_agent": "Cross-Case Linkage",
+  "fallback_fired": true,
+  "fallback": [
+   {
+    "query": "MATCH (p:Person)-[:APPEARS_IN]->(sr:StructuredRecord {record_type: 'pkm_application'}) WITH p MATCH (p)-[:INVOLVED_IN {role: 'accused'}]->(i:Incident)-[:PART_OF]->(c:Case) RETURN p.canonical_name AS name, sr.record_id AS service_record, c.case_id AS case_id LIMIT 50",
+    "scoped_query": "MATCH (p:Person)-[:APPEARS_IN]->(sr:StructuredRecord {record_type: 'pkm_application'}) WITH p MATCH (p)-[:INVOLVED_IN {role: 'accused'}]->(i:Incident)-[:PART_OF]->(c:Case) RETURN p.canonical_name AS name, sr.record_id AS service_record, c.case_id AS case_id LIMIT 50",
+    "rows": null,
+    "model": "local:qwen3:14b",
+    "narration_model": null,
+    "verifier": null,
+    "reason": "the query failed to run (UndefinedColumnError: could not find rte for sr)",
+    "served": false,
+    "status": "abstained",
+    "elapsed_s": 8.5
+   }
+  ],
+  "fallback_events": [
+   {
+    "step": "llm_query_fallback",
+    "status": "active",
+    "detail": "Every aggregate and plan missed — asking the model for one read-only graph query"
+   },
+   {
+    "step": "llm_query_fallback",
+    "status": "error",
+    "detail": "the query failed to run (UndefinedColumnError: could not find rte for sr)",
+    "query": "MATCH (p:Person)-[:APPEARS_IN]->(sr:StructuredRecord {record_type: 'pkm_application'}) WITH p MATCH (p)-[:INVOLVED_IN {role: 'accused'}]->(i:Incident)-[:PART_OF]->(c:Case) RETURN p.canonical_name AS name, sr.record_id AS service_record, c.case_id AS case_id LIMIT 50",
+    "model": "local:qwen3:14b"
+   }
+  ],
+  "answer": "Generated-query fallback could not answer this: the query failed to run (UndefinedColumnError: could not find rte for sr); Generated graph query (not run or failed): MATCH (p:Person)-[:APPEARS_IN]->(sr:StructuredRecord {record_type: 'pkm_application'}) WITH p MATCH (p)-[:INVOLVED_IN {role: 'accused'}]->(i:Incident)-[:PART_OF]->(c:Case) RETURN p.canonical_name AS name, sr.record_id AS service_record, c.case_id AS case_id LIMIT 50",
+  "status": "error",
+  "steps": [
+   "supervisor/active: Routing through the agent harness...",
+   "supervisor:dispatch/active: Classified query as route='XGRAPH' -> sub-agent='Cross-Case Linkage'",
+   "supervisor:dispatch/done: Cross-Case Linkage completed with status=empty",
+   "llm_query_fallback/active: Every aggregate and plan missed — asking the model for one read-only graph query",
+   "llm_query_fallback/error: the query failed to run (UndefinedColumnError: could not find rte for sr)",
+   "supervisor/done: Harness routing complete"
+  ],
+  "log": [
+   "LLM-QUERY-FALLBACK firing: route=XGRAPH sub_agent=Cross-Case Linkage status=empty | Is there anyone who used one of our citizen services who also turns out to be under investigation for a crime?",
+   "LLM-QUERY-FALLBACK abstained: the query failed to run (UndefinedColumnError: could not find rte for sr) | q=Is there anyone who used one of our citizen services who also turns out to be under investigation fo"
+  ],
+  "elapsed_s": 61.2,
+  "text": "Is there anyone who used one of our citizen services who also turns out to be under investigation for a crime?",
+  "role": "platform-admin",
+  "id": "Q2",
+  "truth": "exactly one person: سرفراز احمد, CNIC 00000-1000055-1, accused in fir-620-26 (pkm-app-c14-01, driving licence, Module 161 §1)"
+ },
+ "Q2::run3": {
+  "route": "XGRAPH",
+  "case_scope": "cross_case",
+  "station": null,
+  "district": null,
+  "used_cutover": true,
+  "sub_agent": "Cross-Case Linkage",
+  "fallback_fired": true,
+  "fallback": [
+   {
+    "query": "MATCH (p:Person)-[:APPEARS_IN]->(sr:StructuredRecord {record_type: 'pkm_application'}) WITH p MATCH (p)-[:INVOLVED_IN {role: 'accused'}]->(i:Incident)-[:PART_OF]->(c:Case) RETURN p.canonical_name AS name, sr.record_id AS service_record, c.case_id AS case_id LIMIT 50",
+    "scoped_query": "MATCH (p:Person)-[:APPEARS_IN]->(sr:StructuredRecord {record_type: 'pkm_application'}) WITH p MATCH (p)-[:INVOLVED_IN {role: 'accused'}]->(i:Incident)-[:PART_OF]->(c:Case) RETURN p.canonical_name AS name, sr.record_id AS service_record, c.case_id AS case_id LIMIT 50",
+    "rows": null,
+    "model": "local:qwen3:14b",
+    "narration_model": null,
+    "verifier": null,
+    "reason": "the query failed to run (UndefinedColumnError: could not find rte for sr)",
+    "served": false,
+    "status": "abstained",
+    "elapsed_s": 12.3
+   }
+  ],
+  "fallback_events": [
+   {
+    "step": "llm_query_fallback",
+    "status": "active",
+    "detail": "Every aggregate and plan missed — asking the model for one read-only graph query"
+   },
+   {
+    "step": "llm_query_fallback",
+    "status": "error",
+    "detail": "the query failed to run (UndefinedColumnError: could not find rte for sr)",
+    "query": "MATCH (p:Person)-[:APPEARS_IN]->(sr:StructuredRecord {record_type: 'pkm_application'}) WITH p MATCH (p)-[:INVOLVED_IN {role: 'accused'}]->(i:Incident)-[:PART_OF]->(c:Case) RETURN p.canonical_name AS name, sr.record_id AS service_record, c.case_id AS case_id LIMIT 50",
+    "model": "local:qwen3:14b"
+   }
+  ],
+  "answer": "Generated-query fallback could not answer this: the query failed to run (UndefinedColumnError: could not find rte for sr); Generated graph query (not run or failed): MATCH (p:Person)-[:APPEARS_IN]->(sr:StructuredRecord {record_type: 'pkm_application'}) WITH p MATCH (p)-[:INVOLVED_IN {role: 'accused'}]->(i:Incident)-[:PART_OF]->(c:Case) RETURN p.canonical_name AS name, sr.record_id AS service_record, c.case_id AS case_id LIMIT 50",
+  "status": "error",
+  "steps": [
+   "supervisor/active: Routing through the agent harness...",
+   "supervisor:dispatch/active: Classified query as route='XGRAPH' -> sub-agent='Cross-Case Linkage'",
+   "supervisor:dispatch/done: Cross-Case Linkage completed with status=empty",
+   "llm_query_fallback/active: Every aggregate and plan missed — asking the model for one read-only graph query",
+   "llm_query_fallback/error: the query failed to run (UndefinedColumnError: could not find rte for sr)",
+   "supervisor/done: Harness routing complete"
+  ],
+  "log": [
+   "LLM-QUERY-FALLBACK firing: route=XGRAPH sub_agent=Cross-Case Linkage status=empty | Is there anyone who used one of our citizen services who also turns out to be under investigation for a crime?",
+   "LLM-QUERY-FALLBACK abstained: the query failed to run (UndefinedColumnError: could not find rte for sr) | q=Is there anyone who used one of our citizen services who also turns out to be under investigation fo"
+  ],
+  "elapsed_s": 37.5,
+  "text": "Is there anyone who used one of our citizen services who also turns out to be under investigation for a crime?",
+  "role": "platform-admin",
+  "id": "Q2",
+  "truth": "exactly one person: سرفراز احمد, CNIC 00000-1000055-1, accused in fir-620-26 (pkm-app-c14-01, driving licence, Module 161 §1)"
+ },
+ "Q3::run1": {
+  "route": "XGRAPH",
+  "case_scope": "cross_case",
+  "station": null,
+  "district": null,
+  "used_cutover": true,
+  "sub_agent": "Cross-Case Linkage",
+  "fallback_fired": true,
+  "fallback": [
+   {
+    "query": "MATCH (cr:StructuredRecord {record_type: 'criminal_record'})-[:BELONGS_TO_CASE]->(c1:Case)-[:PART_OF]->(i1:Incident) WHERE cr.conviction_status CONTAINS 'Convicted' WITH cr.subject_cnic AS cnic MATCH (p:Person) WHERE p.cnic = cnic MATCH (p)-[:INVOLVED_IN {role: 'accused', arrest_status: 'مفرور'}]->(i2:Incident)-[:PART_OF]->(c2:Case) WHERE c1.case_id <> c2.case_id RETURN p.canonical_name AS name, c1.case_id AS convicted_case, c2.case_id AS fugitive_case",
+    "scoped_query": null,
+    "rows": null,
+    "model": "local:qwen3:14b",
+    "narration_model": null,
+    "verifier": null,
+    "reason": "rejected before the database — no PART_OF edge runs Case -> Incident (it runs Incident -> Case)",
+    "served": false,
+    "status": "abstained",
+    "elapsed_s": 44.8
+   }
+  ],
+  "fallback_events": [
+   {
+    "step": "llm_query_fallback",
+    "status": "active",
+    "detail": "Every aggregate and plan missed — asking the model for one read-only graph query"
+   },
+   {
+    "step": "llm_query_fallback",
+    "status": "error",
+    "detail": "rejected before the database — no PART_OF edge runs Case -> Incident (it runs Incident -> Case)",
+    "query": "MATCH (cr:StructuredRecord {record_type: 'criminal_record'})-[:BELONGS_TO_CASE]->(c1:Case)-[:PART_OF]->(i1:Incident) WHERE cr.conviction_status CONTAINS 'Convicted' WITH cr.subject_cnic AS cnic MATCH (p:Person) WHERE p.cnic = cnic MATCH (p)-[:INVOLVED_IN {role: 'accused', arrest_status: 'مفرور'}]->(i2:Incident)-[:PART_OF]->(c2:Case) WHERE c1.case_id <> c2.case_id RETURN p.canonical_name AS name, c1.case_id AS convicted_case, c2.case_id AS fugitive_case",
+    "model": "local:qwen3:14b"
+   }
+  ],
+  "answer": "Generated-query fallback could not answer this: rejected before the database — no PART_OF edge runs Case -> Incident (it runs Incident -> Case); Generated graph query (not run or failed): MATCH (cr:StructuredRecord {record_type: 'criminal_record'})-[:BELONGS_TO_CASE]->(c1:Case)-[:PART_OF]->(i1:Incident) WHERE cr.conviction_status CONTAINS 'Convicted' WITH cr.subject_cnic AS cnic MATCH (p:Person) WHERE p.cnic = cnic MATCH (p)-[:INVOLVED_IN {role: 'accused', arrest_status: 'مفرور'}]->(i2:Incident)-[:PART_OF]->(c2:Case) WHERE c1.case_id <> c2.case_id RETURN p.canonical_name AS name, c1.case_id AS convicted_case, c2.case_id AS fugitive_case",
+  "status": "error",
+  "steps": [
+   "supervisor/active: Routing through the agent harness...",
+   "supervisor:dispatch/active: Classified query as route='XGRAPH' -> sub-agent='Cross-Case Linkage'",
+   "supervisor:dispatch/done: Cross-Case Linkage completed with status=empty",
+   "llm_query_fallback/active: Every aggregate and plan missed — asking the model for one read-only graph query",
+   "llm_query_fallback/error: rejected before the database — no PART_OF edge runs Case -> Incident (it runs Incident -> Case)",
+   "supervisor/done: Harness routing complete"
+  ],
+  "log": [
+   "LLM-QUERY-FALLBACK firing: route=XGRAPH sub_agent=Cross-Case Linkage status=empty | Is anyone convicted in one matter but still being sought as a fugitive in another?",
+   "LLM-QUERY-FALLBACK abstained: rejected before the database — no PART_OF edge runs Case -> Incident (it runs Incident -> Case) | q=Is anyone convicted in one matter but still being sought as a fugitive in another?"
+  ],
+  "elapsed_s": 85.5,
+  "text": "Is anyone convicted in one matter but still being sought as a fugitive in another?",
+  "role": "platform-admin",
+  "id": "Q3",
+  "truth": "to be established by hand from the graph (chalaan_outcome.conviction_status x INVOLVED_IN.arrest_status, joined on CNIC)"
+ },
+ "Q3::run2": {
+  "route": "XGRAPH",
+  "case_scope": "cross_case",
+  "station": null,
+  "district": null,
+  "used_cutover": true,
+  "sub_agent": "Cross-Case Linkage",
+  "fallback_fired": true,
+  "fallback": [
+   {
+    "query": "MATCH (cr:StructuredRecord {record_type: 'criminal_record'})-[:BELONGS_TO_CASE]->(c1:Case)-[:PART_OF]->(i1:Incident) WHERE cr.conviction_status CONTAINS 'Convicted' WITH cr.subject_cnic AS cnic MATCH (p:Person) WHERE p.cnic = cnic MATCH (p)-[:INVOLVED_IN {role: 'accused', arrest_status: 'مفرور'}]->(i2:Incident)-[:PART_OF]->(c2:Case) WHERE c1.case_id <> c2.case_id RETURN p.canonical_name AS name, c1.case_id AS convicted_case, c2.case_id AS fugitive_case",
+    "scoped_query": null,
+    "rows": null,
+    "model": "local:qwen3:14b",
+    "narration_model": null,
+    "verifier": null,
+    "reason": "rejected before the database — no PART_OF edge runs Case -> Incident (it runs Incident -> Case)",
+    "served": false,
+    "status": "abstained",
+    "elapsed_s": 44.6
+   }
+  ],
+  "fallback_events": [
+   {
+    "step": "llm_query_fallback",
+    "status": "active",
+    "detail": "Every aggregate and plan missed — asking the model for one read-only graph query"
+   },
+   {
+    "step": "llm_query_fallback",
+    "status": "error",
+    "detail": "rejected before the database — no PART_OF edge runs Case -> Incident (it runs Incident -> Case)",
+    "query": "MATCH (cr:StructuredRecord {record_type: 'criminal_record'})-[:BELONGS_TO_CASE]->(c1:Case)-[:PART_OF]->(i1:Incident) WHERE cr.conviction_status CONTAINS 'Convicted' WITH cr.subject_cnic AS cnic MATCH (p:Person) WHERE p.cnic = cnic MATCH (p)-[:INVOLVED_IN {role: 'accused', arrest_status: 'مفرور'}]->(i2:Incident)-[:PART_OF]->(c2:Case) WHERE c1.case_id <> c2.case_id RETURN p.canonical_name AS name, c1.case_id AS convicted_case, c2.case_id AS fugitive_case",
+    "model": "local:qwen3:14b"
+   }
+  ],
+  "answer": "Generated-query fallback could not answer this: rejected before the database — no PART_OF edge runs Case -> Incident (it runs Incident -> Case); Generated graph query (not run or failed): MATCH (cr:StructuredRecord {record_type: 'criminal_record'})-[:BELONGS_TO_CASE]->(c1:Case)-[:PART_OF]->(i1:Incident) WHERE cr.conviction_status CONTAINS 'Convicted' WITH cr.subject_cnic AS cnic MATCH (p:Person) WHERE p.cnic = cnic MATCH (p)-[:INVOLVED_IN {role: 'accused', arrest_status: 'مفرور'}]->(i2:Incident)-[:PART_OF]->(c2:Case) WHERE c1.case_id <> c2.case_id RETURN p.canonical_name AS name, c1.case_id AS convicted_case, c2.case_id AS fugitive_case",
+  "status": "error",
+  "steps": [
+   "supervisor/active: Routing through the agent harness...",
+   "supervisor:dispatch/active: Classified query as route='XGRAPH' -> sub-agent='Cross-Case Linkage'",
+   "supervisor:dispatch/done: Cross-Case Linkage completed with status=empty",
+   "llm_query_fallback/active: Every aggregate and plan missed — asking the model for one read-only graph query",
+   "llm_query_fallback/error: rejected before the database — no PART_OF edge runs Case -> Incident (it runs Incident -> Case)",
+   "supervisor/done: Harness routing complete"
+  ],
+  "log": [
+   "LLM-QUERY-FALLBACK firing: route=XGRAPH sub_agent=Cross-Case Linkage status=empty | Is anyone convicted in one matter but still being sought as a fugitive in another?",
+   "LLM-QUERY-FALLBACK abstained: rejected before the database — no PART_OF edge runs Case -> Incident (it runs Incident -> Case) | q=Is anyone convicted in one matter but still being sought as a fugitive in another?"
+  ],
+  "elapsed_s": 84.2,
+  "text": "Is anyone convicted in one matter but still being sought as a fugitive in another?",
+  "role": "platform-admin",
+  "id": "Q3",
+  "truth": "to be established by hand from the graph (chalaan_outcome.conviction_status x INVOLVED_IN.arrest_status, joined on CNIC)"
+ },
+ "Q3::run3": {
+  "route": "XGRAPH",
+  "case_scope": "cross_case",
+  "station": null,
+  "district": null,
+  "used_cutover": true,
+  "sub_agent": "Cross-Case Linkage",
+  "fallback_fired": true,
+  "fallback": [
+   {
+    "query": "MATCH (cr:StructuredRecord {record_type: 'criminal_record'})-[:BELONGS_TO_CASE]->(c1:Case)-[:PART_OF]->(i1:Incident) WHERE cr.conviction_status CONTAINS 'Convicted' WITH cr.subject_cnic AS cnic MATCH (p:Person) WHERE p.cnic = cnic MATCH (p)-[:INVOLVED_IN {role: 'accused', arrest_status: 'مفرور'}]->(i2:Incident)-[:PART_OF]->(c2:Case) WHERE c1.case_id <> c2.case_id RETURN p.canonical_name AS name, c1.case_id AS convicted_case, c2.case_id AS fugitive_case",
+    "scoped_query": null,
+    "rows": null,
+    "model": "local:qwen3:14b",
+    "narration_model": null,
+    "verifier": null,
+    "reason": "rejected before the database — no PART_OF edge runs Case -> Incident (it runs Incident -> Case)",
+    "served": false,
+    "status": "abstained",
+    "elapsed_s": 51.7
+   }
+  ],
+  "fallback_events": [
+   {
+    "step": "llm_query_fallback",
+    "status": "active",
+    "detail": "Every aggregate and plan missed — asking the model for one read-only graph query"
+   },
+   {
+    "step": "llm_query_fallback",
+    "status": "error",
+    "detail": "rejected before the database — no PART_OF edge runs Case -> Incident (it runs Incident -> Case)",
+    "query": "MATCH (cr:StructuredRecord {record_type: 'criminal_record'})-[:BELONGS_TO_CASE]->(c1:Case)-[:PART_OF]->(i1:Incident) WHERE cr.conviction_status CONTAINS 'Convicted' WITH cr.subject_cnic AS cnic MATCH (p:Person) WHERE p.cnic = cnic MATCH (p)-[:INVOLVED_IN {role: 'accused', arrest_status: 'مفرور'}]->(i2:Incident)-[:PART_OF]->(c2:Case) WHERE c1.case_id <> c2.case_id RETURN p.canonical_name AS name, c1.case_id AS convicted_case, c2.case_id AS fugitive_case",
+    "model": "local:qwen3:14b"
+   }
+  ],
+  "answer": "Generated-query fallback could not answer this: rejected before the database — no PART_OF edge runs Case -> Incident (it runs Incident -> Case); Generated graph query (not run or failed): MATCH (cr:StructuredRecord {record_type: 'criminal_record'})-[:BELONGS_TO_CASE]->(c1:Case)-[:PART_OF]->(i1:Incident) WHERE cr.conviction_status CONTAINS 'Convicted' WITH cr.subject_cnic AS cnic MATCH (p:Person) WHERE p.cnic = cnic MATCH (p)-[:INVOLVED_IN {role: 'accused', arrest_status: 'مفرور'}]->(i2:Incident)-[:PART_OF]->(c2:Case) WHERE c1.case_id <> c2.case_id RETURN p.canonical_name AS name, c1.case_id AS convicted_case, c2.case_id AS fugitive_case",
+  "status": "error",
+  "steps": [
+   "supervisor/active: Routing through the agent harness...",
+   "supervisor:dispatch/active: Classified query as route='XGRAPH' -> sub-agent='Cross-Case Linkage'",
+   "supervisor:dispatch/done: Cross-Case Linkage completed with status=empty",
+   "llm_query_fallback/active: Every aggregate and plan missed — asking the model for one read-only graph query",
+   "llm_query_fallback/error: rejected before the database — no PART_OF edge runs Case -> Incident (it runs Incident -> Case)",
+   "supervisor/done: Harness routing complete"
+  ],
+  "log": [
+   "LLM-QUERY-FALLBACK firing: route=XGRAPH sub_agent=Cross-Case Linkage status=empty | Is anyone convicted in one matter but still being sought as a fugitive in another?",
+   "LLM-QUERY-FALLBACK abstained: rejected before the database — no PART_OF edge runs Case -> Incident (it runs Incident -> Case) | q=Is anyone convicted in one matter but still being sought as a fugitive in another?"
+  ],
+  "elapsed_s": 81.7,
+  "text": "Is anyone convicted in one matter but still being sought as a fugitive in another?",
+  "role": "platform-admin",
+  "id": "Q3",
+  "truth": "to be established by hand from the graph (chalaan_outcome.conviction_status x INVOLVED_IN.arrest_status, joined on CNIC)"
+ }
+}
