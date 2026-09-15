@@ -1,0 +1,973 @@
+{
+  "registry_as_of": "2026-09-15T14:37:27.747768+00:00",
+  "case_count": 30,
+  "coverage": {
+    "measure": {
+      "avg": 2,
+      "count": 16,
+      "count_distinct": 8,
+      "max": 1,
+      "median": 1,
+      "min": 1,
+      "sum": 1
+    },
+    "population": {
+      "direct": 17,
+      "fanning": 4,
+      "filtered": 2,
+      "property_filter": 2,
+      "relationship_existence": 1,
+      "relationship_grain": 2,
+      "through_relationship": 2
+    },
+    "grouping": {
+      "invalid": 1,
+      "multi": 1,
+      "none": 26,
+      "sparse": 1,
+      "via_traversal": 1
+    },
+    "derived": {
+      "comparison": 1,
+      "none": 25,
+      "ratio": 3,
+      "threshold": 1
+    },
+    "guard": {
+      "fanout": 6,
+      "invariant": 4,
+      "none": 6,
+      "null_grouping": 1,
+      "scope": 2,
+      "sparse_property": 5,
+      "tombstone": 2,
+      "unimplemented": 3,
+      "zero_denominator": 1
+    },
+    "outcome": {
+      "refused": 14,
+      "value": 16
+    }
+  },
+  "cases": [
+    {
+      "name": "count_cases",
+      "description": "Total registered cases.",
+      "expected_outcome": "value",
+      "expected_value": 73,
+      "ground_truth_route": "SQL",
+      "ground_truth_note": "SELECT count(*) FROM cases",
+      "expected_refusal_code": null,
+      "verdict": "PASS",
+      "explanation": "73 matches SQL ground truth",
+      "ms": 47.2,
+      "axes": {
+        "measure": "count",
+        "population": "direct",
+        "grouping": "none",
+        "derived": "none",
+        "guard": "none"
+      },
+      "status": "ok",
+      "value": 73,
+      "refusal_code": null,
+      "coverage_verdict": "COMPLETE",
+      "caveat": null,
+      "injected": [],
+      "compiled": [
+        "MATCH (n:Case) RETURN count(DISTINCT n.case_id) AS value"
+      ]
+    },
+    {
+      "name": "count_distinct_active_persons",
+      "description": "Distinct ACTIVE persons — tombstoned donors excluded.",
+      "expected_outcome": "value",
+      "expected_value": 208,
+      "ground_truth_route": "PYTHON",
+      "ground_truth_note": "430 Person nodes fetched raw; 208 have merged_into IS NULL, 222 do not",
+      "expected_refusal_code": null,
+      "verdict": "PASS",
+      "explanation": "208 matches PYTHON ground truth",
+      "ms": 58.3,
+      "axes": {
+        "measure": "count_distinct",
+        "population": "direct",
+        "grouping": "none",
+        "derived": "none",
+        "guard": "tombstone"
+      },
+      "status": "ok",
+      "value": 208,
+      "refusal_code": null,
+      "coverage_verdict": "COMPLETE",
+      "caveat": null,
+      "injected": [
+        "n.merged_into IS NULL"
+      ],
+      "compiled": [
+        "MATCH (n:Person) WHERE n.merged_into IS NULL RETURN count(DISTINCT n.entity_id) AS value"
+      ]
+    },
+    {
+      "name": "min_person_age",
+      "description": "min of recorded accused/person ages.",
+      "expected_outcome": "value",
+      "expected_value": 24,
+      "ground_truth_route": "PYTHON",
+      "ground_truth_note": "min of 19 raw ages",
+      "expected_refusal_code": null,
+      "verdict": "PASS",
+      "explanation": "24 matches PYTHON ground truth",
+      "ms": 53.5,
+      "axes": {
+        "measure": "min",
+        "population": "direct",
+        "grouping": "none",
+        "derived": "none",
+        "guard": "sparse_property"
+      },
+      "status": "ok",
+      "value": 24,
+      "refusal_code": null,
+      "coverage_verdict": "INSUFFICIENT",
+      "caveat": "23 of 208 record(s) carry no Person.age for this field (96%); a figure computed over the remainder would not describe the population.",
+      "injected": [
+        "n.merged_into IS NULL"
+      ],
+      "compiled": [
+        "MATCH (n:Person) WHERE n.merged_into IS NULL RETURN min(n.age) AS value"
+      ]
+    },
+    {
+      "name": "max_person_age",
+      "description": "max of recorded accused/person ages.",
+      "expected_outcome": "value",
+      "expected_value": 49,
+      "ground_truth_route": "PYTHON",
+      "ground_truth_note": "max of 19 raw ages",
+      "expected_refusal_code": null,
+      "verdict": "PASS",
+      "explanation": "49 matches PYTHON ground truth",
+      "ms": 51.5,
+      "axes": {
+        "measure": "max",
+        "population": "direct",
+        "grouping": "none",
+        "derived": "none",
+        "guard": "sparse_property"
+      },
+      "status": "ok",
+      "value": 49,
+      "refusal_code": null,
+      "coverage_verdict": "INSUFFICIENT",
+      "caveat": "47 of 208 record(s) carry no Person.age for this field (96%); a figure computed over the remainder would not describe the population.",
+      "injected": [
+        "n.merged_into IS NULL"
+      ],
+      "compiled": [
+        "MATCH (n:Person) WHERE n.merged_into IS NULL RETURN max(n.age) AS value"
+      ]
+    },
+    {
+      "name": "avg_person_age",
+      "description": "avg of recorded accused/person ages.",
+      "expected_outcome": "value",
+      "expected_value": 31.842105263157894,
+      "ground_truth_route": "PYTHON",
+      "ground_truth_note": "mean of 19 raw ages",
+      "expected_refusal_code": null,
+      "verdict": "PASS",
+      "explanation": "31.842105263157894 matches PYTHON ground truth",
+      "ms": 51.5,
+      "axes": {
+        "measure": "avg",
+        "population": "direct",
+        "grouping": "none",
+        "derived": "none",
+        "guard": "sparse_property"
+      },
+      "status": "ok",
+      "value": 31.842105263157894,
+      "refusal_code": null,
+      "coverage_verdict": "INSUFFICIENT",
+      "caveat": "30 of 208 record(s) carry no Person.age for this field (97%); a figure computed over the remainder would not describe the population.",
+      "injected": [
+        "n.merged_into IS NULL"
+      ],
+      "compiled": [
+        "MATCH (n:Person) WHERE n.merged_into IS NULL RETURN avg(n.age) AS value"
+      ]
+    },
+    {
+      "name": "sum_person_age",
+      "description": "sum of recorded accused/person ages.",
+      "expected_outcome": "value",
+      "expected_value": 605,
+      "ground_truth_route": "PYTHON",
+      "ground_truth_note": "sum of 19 raw ages",
+      "expected_refusal_code": null,
+      "verdict": "PASS",
+      "explanation": "605 matches PYTHON ground truth",
+      "ms": 58.3,
+      "axes": {
+        "measure": "sum",
+        "population": "direct",
+        "grouping": "none",
+        "derived": "none",
+        "guard": "sparse_property"
+      },
+      "status": "ok",
+      "value": 605,
+      "refusal_code": null,
+      "coverage_verdict": "INSUFFICIENT",
+      "caveat": "578 of 208 record(s) carry no Person.age for this field (96%); a figure computed over the remainder would not describe the population.",
+      "injected": [
+        "n.merged_into IS NULL"
+      ],
+      "compiled": [
+        "MATCH (n:Person) WHERE n.merged_into IS NULL RETURN sum(n.age) AS value"
+      ]
+    },
+    {
+      "name": "median_refused",
+      "description": "median is declared but not computable in AGE.",
+      "expected_outcome": "refused",
+      "expected_value": null,
+      "ground_truth_route": null,
+      "ground_truth_note": null,
+      "expected_refusal_code": "unsupported_operation",
+      "verdict": "NEW_REFUSED_CORRECTLY",
+      "explanation": "refused with 'unsupported_operation', as specified",
+      "ms": 0.4,
+      "axes": {
+        "measure": "median",
+        "population": "direct",
+        "grouping": "none",
+        "derived": "none",
+        "guard": "unimplemented"
+      },
+      "status": "refused",
+      "value": null,
+      "refusal_code": "unsupported_operation",
+      "coverage_verdict": null,
+      "caveat": null,
+      "injected": [],
+      "compiled": []
+    },
+    {
+      "name": "weapons_unlicensed_property_filter",
+      "description": "Property filter on a real Urdu value.",
+      "expected_outcome": "value",
+      "expected_value": 30,
+      "ground_truth_route": "GRAPH",
+      "ground_truth_note": "MATCH (w:Weapon) WHERE w.license_status CONTAINS 'لائسنس'",
+      "expected_refusal_code": null,
+      "verdict": "PASS",
+      "explanation": "30 matches GRAPH ground truth",
+      "ms": 56.0,
+      "axes": {
+        "measure": "count_distinct",
+        "population": "property_filter",
+        "grouping": "none",
+        "derived": "none",
+        "guard": "none"
+      },
+      "status": "ok",
+      "value": 30,
+      "refusal_code": null,
+      "coverage_verdict": "COMPLETE",
+      "caveat": null,
+      "injected": [],
+      "compiled": [
+        "MATCH (n:Weapon) WHERE n.license_status CONTAINS $p0 RETURN count(DISTINCT n.entity_id) AS value"
+      ]
+    },
+    {
+      "name": "cases_with_a_weapon",
+      "description": "Relationship existence, reverse traversal, DISTINCT required.",
+      "expected_outcome": "value",
+      "expected_value": 32,
+      "ground_truth_route": "GRAPH",
+      "ground_truth_note": "MATCH (w:Weapon)-[:BELONGS_TO_CASE]->(c:Case) count(DISTINCT c.case_id)",
+      "expected_refusal_code": null,
+      "verdict": "PASS",
+      "explanation": "32 matches GRAPH ground truth",
+      "ms": 53.0,
+      "axes": {
+        "measure": "count_distinct",
+        "population": "relationship_existence",
+        "grouping": "none",
+        "derived": "none",
+        "guard": "none"
+      },
+      "status": "ok",
+      "value": 32,
+      "refusal_code": null,
+      "coverage_verdict": "COMPLETE",
+      "caveat": null,
+      "injected": [],
+      "compiled": [
+        "MATCH (m0:Weapon)-[e0:BELONGS_TO_CASE]->(n:Case) RETURN count(DISTINCT n.case_id) AS value"
+      ]
+    },
+    {
+      "name": "accused_distinct_through_relationship",
+      "description": "Role-filtered traversal; counts the SUBJECT, not the terminal.",
+      "expected_outcome": "value",
+      "expected_value": 92,
+      "ground_truth_route": "GRAPH",
+      "ground_truth_note": "role='accused', count(DISTINCT p.entity_id); 92 people across 94 edges",
+      "expected_refusal_code": null,
+      "verdict": "PASS",
+      "explanation": "92 matches GRAPH ground truth",
+      "ms": 61.2,
+      "axes": {
+        "measure": "count_distinct",
+        "population": "through_relationship",
+        "grouping": "none",
+        "derived": "none",
+        "guard": "fanout"
+      },
+      "status": "ok",
+      "value": 92,
+      "refusal_code": null,
+      "coverage_verdict": "COMPLETE",
+      "caveat": null,
+      "injected": [
+        "n.merged_into IS NULL"
+      ],
+      "compiled": [
+        "MATCH (n:Person)-[e0:INVOLVED_IN]->(m0:Incident) WHERE n.merged_into IS NULL AND e0.role = $p0 RETURN count(DISTINCT n.entity_id) AS value"
+      ]
+    },
+    {
+      "name": "accused_edges_relationship_grain",
+      "description": "The SAME question at RELATIONSHIP grain — 94 links, not 92 people.",
+      "expected_outcome": "value",
+      "expected_value": 94,
+      "ground_truth_route": "GRAPH",
+      "ground_truth_note": "count(r) over role='accused' edges",
+      "expected_refusal_code": null,
+      "verdict": "PASS",
+      "explanation": "94 matches GRAPH ground truth",
+      "ms": 63.7,
+      "axes": {
+        "measure": "count",
+        "population": "relationship_grain",
+        "grouping": "none",
+        "derived": "none",
+        "guard": "fanout"
+      },
+      "status": "ok",
+      "value": 94,
+      "refusal_code": null,
+      "coverage_verdict": "COMPLETE",
+      "caveat": null,
+      "injected": [
+        "n.merged_into IS NULL"
+      ],
+      "compiled": [
+        "MATCH (n:Person)-[e0:INVOLVED_IN]->(m0:Incident) WHERE n.merged_into IS NULL AND e0.role = $p0 RETURN count(n) AS value"
+      ]
+    },
+    {
+      "name": "active_persons_via_belongs_to_case",
+      "description": "Fanning traversal with a key — tombstones and superseded edges excluded.",
+      "expected_outcome": "value",
+      "expected_value": 208,
+      "ground_truth_route": "GRAPH",
+      "ground_truth_note": "merged_into IS NULL AND superseded_by IS NULL; 429 without them",
+      "expected_refusal_code": null,
+      "verdict": "PASS",
+      "explanation": "208 matches GRAPH ground truth",
+      "ms": 67.9,
+      "axes": {
+        "measure": "count_distinct",
+        "population": "fanning",
+        "grouping": "none",
+        "derived": "none",
+        "guard": "tombstone"
+      },
+      "status": "ok",
+      "value": 208,
+      "refusal_code": null,
+      "coverage_verdict": "COMPLETE",
+      "caveat": null,
+      "injected": [
+        "n.merged_into IS NULL",
+        "e0.superseded_by IS NULL"
+      ],
+      "compiled": [
+        "MATCH (n:Person)-[e0:BELONGS_TO_CASE]->(m0:Case) WHERE n.merged_into IS NULL AND e0.superseded_by IS NULL RETURN count(DISTINCT n.entity_id) AS value"
+      ]
+    },
+    {
+      "name": "malkhana_records",
+      "description": "RECORD grain over StructuredRecord, keyed by record_id.",
+      "expected_outcome": "value",
+      "expected_value": 45,
+      "ground_truth_route": "GRAPH",
+      "ground_truth_note": "record_type='malkhana_register'",
+      "expected_refusal_code": null,
+      "verdict": "PASS",
+      "explanation": "45 matches GRAPH ground truth",
+      "ms": 51.5,
+      "axes": {
+        "measure": "count_distinct",
+        "population": "property_filter",
+        "grouping": "none",
+        "derived": "none",
+        "guard": "none"
+      },
+      "status": "ok",
+      "value": 45,
+      "refusal_code": null,
+      "coverage_verdict": "COMPLETE",
+      "caveat": null,
+      "injected": [],
+      "compiled": [
+        "MATCH (n:StructuredRecord) WHERE n.record_type = $p0 RETURN count(DISTINCT n.record_id) AS value"
+      ]
+    },
+    {
+      "name": "cases_by_station_via_traversal",
+      "description": "Grouping dimension reached via a hop; measure stays on the base.",
+      "expected_outcome": "value",
+      "expected_value": 19,
+      "ground_truth_route": "SQL",
+      "ground_truth_note": "SELECT count(DISTINCT police_station) FROM cases = 19 groups; top group = 7 (تھانہ ماڈل ٹاؤن، لاہور)",
+      "expected_refusal_code": null,
+      "verdict": "PASS",
+      "explanation": "19 matches SQL ground truth",
+      "ms": 52.1,
+      "axes": {
+        "measure": "count",
+        "population": "through_relationship",
+        "grouping": "via_traversal",
+        "derived": "none",
+        "guard": "none"
+      },
+      "status": "ok",
+      "value": [
+        {
+          "key": "تھانہ ماڈل ٹاؤن، لاہور",
+          "count": 7
+        },
+        {
+          "key": "خواتین تھانہ، فیصل آباد",
+          "count": 5
+        },
+        {
+          "key": "سائبر کرائم سرکل، اسلام آباد",
+          "count": 5
+        },
+        {
+          "key": "موٹروے پولیس اسٹیشن ایم ٹو، لاہور",
+          "count": 5
+        },
+        {
+          "key": "تھانہ شاہ فیصل کالونی، کراچی",
+          "count": 5
+        },
+        {
+          "key": "تھانہ برکی، لاہور",
+          "count": 5
+        },
+        {
+          "key": "تھانہ صدر، ضلع چنیوٹ",
+          "count": 5
+        },
+        {
+          "key": "تھانہ نیو کراچی، کراچی",
+          "count": 5
+        },
+        {
+          "key": "تھانہ جھنگ روڈ، فیصل آباد",
+          "count": 5
+        },
+        {
+          "key": "تھانہ لطیف آباد، حیدر آباد",
+          "count": 5
+        },
+        {
+          "key": "تھانہ سول لائنز، فیصل آباد",
+          "count": 4
+        },
+        {
+          "key": "سائبر کرائم سرکل، راولپنڈی",
+          "count": 4
+        },
+        {
+          "key": "تھانہ کوتوالی، فیصل آباد",
+          "count": 4
+        },
+        {
+          "key": "تھانہ راجہ بازار، راولپنڈی",
+          "count": 4
+        },
+        {
+          "key": "تھانہ کینٹ، ملتان",
+          "count": 1
+        },
+        {
+          "key": "تھانہ صدر، راولپنڈی",
+          "count": 1
+        },
+        {
+          "key": "تھانہ اقبال ٹاؤن، لاہور",
+          "count": 1
+        },
+        {
+          "key": "تھانہ مدینہ ٹاؤن، فیصل آباد",
+          "count": 1
+        },
+        {
+          "key": "تھانہ وارث خان، راولپنڈی",
+          "count": 1
+        }
+      ],
+      "refusal_code": null,
+      "coverage_verdict": "COMPLETE",
+      "caveat": null,
+      "injected": [],
+      "compiled": [
+        "MATCH (n:Case)-[e0:FILED_AT]->(m0:PoliceStation) WITH m0.name AS gkey, count(DISTINCT n.case_id) AS value RETURN gkey, value ORDER BY value DESC"
+      ]
+    },
+    {
+      "name": "group_by_sparse_field_refused",
+      "description": "investigation_status is 21/73 — below the grouping presence floor.",
+      "expected_outcome": "refused",
+      "expected_value": null,
+      "ground_truth_route": null,
+      "ground_truth_note": null,
+      "expected_refusal_code": "grouping_field_too_sparse",
+      "verdict": "NEW_REFUSED_CORRECTLY",
+      "explanation": "refused with 'grouping_field_too_sparse', as specified",
+      "ms": 0.3,
+      "axes": {
+        "measure": "count",
+        "population": "direct",
+        "grouping": "sparse",
+        "derived": "none",
+        "guard": "sparse_property"
+      },
+      "status": "refused",
+      "value": null,
+      "refusal_code": "grouping_field_too_sparse",
+      "coverage_verdict": null,
+      "caveat": null,
+      "injected": [],
+      "compiled": []
+    },
+    {
+      "name": "group_by_unknown_field_refused",
+      "description": "A dimension that does not exist must be refused, not NULL-grouped.",
+      "expected_outcome": "refused",
+      "expected_value": null,
+      "ground_truth_route": null,
+      "ground_truth_note": null,
+      "expected_refusal_code": "unknown_field",
+      "verdict": "NEW_REFUSED_CORRECTLY",
+      "explanation": "refused with 'unknown_field', as specified",
+      "ms": 0.2,
+      "axes": {
+        "measure": "count",
+        "population": "direct",
+        "grouping": "invalid",
+        "derived": "none",
+        "guard": "null_grouping"
+      },
+      "status": "refused",
+      "value": null,
+      "refusal_code": "unknown_field",
+      "coverage_verdict": null,
+      "caveat": null,
+      "injected": [],
+      "compiled": []
+    },
+    {
+      "name": "group_by_two_dimensions_refused",
+      "description": "Cross-tab is declared but only dimension 0 is emitted.",
+      "expected_outcome": "refused",
+      "expected_value": null,
+      "ground_truth_route": null,
+      "ground_truth_note": null,
+      "expected_refusal_code": "unsupported_operation",
+      "verdict": "NEW_REFUSED_CORRECTLY",
+      "explanation": "refused with 'unsupported_operation', as specified",
+      "ms": 0.3,
+      "axes": {
+        "measure": "count",
+        "population": "direct",
+        "grouping": "multi",
+        "derived": "none",
+        "guard": "unimplemented"
+      },
+      "status": "refused",
+      "value": null,
+      "refusal_code": "unsupported_operation",
+      "coverage_verdict": null,
+      "caveat": null,
+      "injected": [],
+      "compiled": []
+    },
+    {
+      "name": "ratio_cases_multi_officer_entity_grain",
+      "description": "THE mandated case: % of cases with >1 DISTINCT officer.",
+      "expected_outcome": "value",
+      "expected_value": 5.47945205479452,
+      "ground_truth_route": "PYTHON",
+      "ground_truth_note": "raw ASSIGNED_TO rows grouped in Python: 4 of 73 cases have >1 distinct non-superseded officer",
+      "expected_refusal_code": null,
+      "verdict": "PASS",
+      "explanation": "5.47945205479452 matches PYTHON ground truth",
+      "ms": 114.0,
+      "axes": {
+        "measure": "count",
+        "population": "filtered",
+        "grouping": "none",
+        "derived": "ratio",
+        "guard": "invariant"
+      },
+      "status": "ok",
+      "value": 5.47945205479452,
+      "refusal_code": null,
+      "coverage_verdict": "COMPLETE",
+      "caveat": null,
+      "injected": [
+        "rc0.superseded_by IS NULL"
+      ],
+      "compiled": [
+        "MATCH (n:Case) MATCH (rt0:Officer)-[rc0:ASSIGNED_TO]->(n) WHERE rc0.superseded_by IS NULL WITH n, count(DISTINCT rt0.entity_id) AS relcnt WHERE relcnt > $p0 RETURN count(DISTINCT n.case_id) AS value",
+        "MATCH (n:Case) RETURN count(DISTINCT n.case_id) AS value"
+      ]
+    },
+    {
+      "name": "ratio_cases_multi_officer_relationship_grain",
+      "description": "Same question, edge reading — must be reachable only by asking.",
+      "expected_outcome": "value",
+      "expected_value": 95.89041095890411,
+      "ground_truth_route": "GRAPH",
+      "ground_truth_note": "count(r) > 1 per case: 70 of 73; the 67 duplicate (case,officer) pairs are one officer in two roles",
+      "expected_refusal_code": null,
+      "verdict": "PASS",
+      "explanation": "95.89041095890411 matches GRAPH ground truth",
+      "ms": 115.0,
+      "axes": {
+        "measure": "count",
+        "population": "relationship_grain",
+        "grouping": "none",
+        "derived": "ratio",
+        "guard": "fanout"
+      },
+      "status": "ok",
+      "value": 95.89041095890411,
+      "refusal_code": null,
+      "coverage_verdict": "COMPLETE",
+      "caveat": null,
+      "injected": [
+        "rc0.superseded_by IS NULL"
+      ],
+      "compiled": [
+        "MATCH (n:Case) MATCH (rt0:Officer)-[rc0:ASSIGNED_TO]->(n) WHERE rc0.superseded_by IS NULL WITH n, count(rc0) AS relcnt WHERE relcnt > $p0 RETURN count(DISTINCT n.case_id) AS value",
+        "MATCH (n:Case) RETURN count(DISTINCT n.case_id) AS value"
+      ]
+    },
+    {
+      "name": "threshold_cases_with_more_than_one_weapon",
+      "description": "Threshold over a relation count — composed, not special-cased.",
+      "expected_outcome": "value",
+      "expected_value": 0,
+      "ground_truth_route": "GRAPH",
+      "ground_truth_note": "weapon entity_ids are FIR-scoped, so no case has >1 distinct weapon",
+      "expected_refusal_code": null,
+      "verdict": "PASS",
+      "explanation": "0 matches GRAPH ground truth",
+      "ms": 59.7,
+      "axes": {
+        "measure": "count_distinct",
+        "population": "filtered",
+        "grouping": "none",
+        "derived": "threshold",
+        "guard": "none"
+      },
+      "status": "ok",
+      "value": 0,
+      "refusal_code": null,
+      "coverage_verdict": "INSUFFICIENT",
+      "caveat": "Only 0 record(s) qualify — too few to report a meaningful figure.",
+      "injected": [],
+      "compiled": [
+        "MATCH (n:Case) MATCH (rt0:Weapon)-[rc0:BELONGS_TO_CASE]->(n) WITH n, count(DISTINCT rt0.entity_id) AS relcnt WHERE relcnt > $p0 RETURN count(DISTINCT n.case_id) AS value"
+      ]
+    },
+    {
+      "name": "ratio_zero_denominator_refused",
+      "description": "Zero denominator must refuse before any division.",
+      "expected_outcome": "refused",
+      "expected_value": null,
+      "ground_truth_route": null,
+      "ground_truth_note": null,
+      "expected_refusal_code": "zero_denominator",
+      "verdict": "NEW_REFUSED_CORRECTLY",
+      "explanation": "refused with 'zero_denominator', as specified",
+      "ms": 110.3,
+      "axes": {
+        "measure": "count",
+        "population": "direct",
+        "grouping": "none",
+        "derived": "ratio",
+        "guard": "zero_denominator"
+      },
+      "status": "refused",
+      "value": null,
+      "refusal_code": "zero_denominator",
+      "coverage_verdict": null,
+      "caveat": null,
+      "injected": [],
+      "compiled": [
+        "MATCH (n:Vehicle) WHERE n.entity_id = $p0 RETURN count(DISTINCT n.entity_id) AS value",
+        "MATCH (n:Vehicle) WHERE n.entity_id = $p0 RETURN count(DISTINCT n.entity_id) AS value"
+      ]
+    },
+    {
+      "name": "comparison_refused_not_emitted",
+      "description": "compare is declared but never reaches the query.",
+      "expected_outcome": "refused",
+      "expected_value": null,
+      "ground_truth_route": null,
+      "ground_truth_note": null,
+      "expected_refusal_code": "unsupported_operation",
+      "verdict": "NEW_REFUSED_CORRECTLY",
+      "explanation": "refused with 'unsupported_operation', as specified",
+      "ms": 0.3,
+      "axes": {
+        "measure": "count",
+        "population": "direct",
+        "grouping": "none",
+        "derived": "comparison",
+        "guard": "unimplemented"
+      },
+      "status": "refused",
+      "value": null,
+      "refusal_code": "unsupported_operation",
+      "coverage_verdict": null,
+      "caveat": null,
+      "injected": [],
+      "compiled": []
+    },
+    {
+      "name": "fanout_case_person_no_key_refused",
+      "description": "Case->Person fans 73 into 449; ENTITY count without a key must refuse.",
+      "expected_outcome": "refused",
+      "expected_value": null,
+      "ground_truth_route": null,
+      "ground_truth_note": null,
+      "expected_refusal_code": "missing_distinct_key",
+      "verdict": "NEW_REFUSED_CORRECTLY",
+      "explanation": "refused with 'missing_distinct_key', as specified",
+      "ms": 0.2,
+      "axes": {
+        "measure": "count",
+        "population": "fanning",
+        "grouping": "none",
+        "derived": "none",
+        "guard": "fanout"
+      },
+      "status": "refused",
+      "value": null,
+      "refusal_code": "missing_distinct_key",
+      "coverage_verdict": null,
+      "caveat": null,
+      "injected": [],
+      "compiled": []
+    },
+    {
+      "name": "fanout_case_address_no_key_refused",
+      "description": "Case->Address reverse-fans 1 case into 2,100 rows.",
+      "expected_outcome": "refused",
+      "expected_value": null,
+      "ground_truth_route": null,
+      "ground_truth_note": null,
+      "expected_refusal_code": "missing_distinct_key",
+      "verdict": "NEW_REFUSED_CORRECTLY",
+      "explanation": "refused with 'missing_distinct_key', as specified",
+      "ms": 0.2,
+      "axes": {
+        "measure": "count",
+        "population": "fanning",
+        "grouping": "none",
+        "derived": "none",
+        "guard": "fanout"
+      },
+      "status": "refused",
+      "value": null,
+      "refusal_code": "missing_distinct_key",
+      "coverage_verdict": null,
+      "caveat": null,
+      "injected": [],
+      "compiled": []
+    },
+    {
+      "name": "avg_over_fanning_population_refused",
+      "description": "A fanning hop weights each value by its edge count.",
+      "expected_outcome": "refused",
+      "expected_value": null,
+      "ground_truth_route": null,
+      "ground_truth_note": null,
+      "expected_refusal_code": "compile_failed",
+      "verdict": "NEW_REFUSED_CORRECTLY",
+      "explanation": "refused with 'compile_failed', as specified",
+      "ms": 0.2,
+      "axes": {
+        "measure": "avg",
+        "population": "fanning",
+        "grouping": "none",
+        "derived": "none",
+        "guard": "fanout"
+      },
+      "status": "refused",
+      "value": null,
+      "refusal_code": "compile_failed",
+      "coverage_verdict": null,
+      "caveat": null,
+      "injected": [],
+      "compiled": []
+    },
+    {
+      "name": "unknown_entity_refused",
+      "description": "An entity the data model does not have.",
+      "expected_outcome": "refused",
+      "expected_value": null,
+      "ground_truth_route": null,
+      "ground_truth_note": null,
+      "expected_refusal_code": "unknown_entity",
+      "verdict": "NEW_REFUSED_CORRECTLY",
+      "explanation": "refused with 'unknown_entity', as specified",
+      "ms": 0.2,
+      "axes": {
+        "measure": "count",
+        "population": "direct",
+        "grouping": "none",
+        "derived": "none",
+        "guard": "invariant"
+      },
+      "status": "refused",
+      "value": null,
+      "refusal_code": "unknown_entity",
+      "coverage_verdict": null,
+      "caveat": null,
+      "injected": [],
+      "compiled": []
+    },
+    {
+      "name": "unknown_relationship_refused",
+      "description": "A traversal never observed in the graph.",
+      "expected_outcome": "refused",
+      "expected_value": null,
+      "ground_truth_route": null,
+      "ground_truth_note": null,
+      "expected_refusal_code": "unknown_relationship",
+      "verdict": "NEW_REFUSED_CORRECTLY",
+      "explanation": "refused with 'unknown_relationship', as specified",
+      "ms": 0.2,
+      "axes": {
+        "measure": "count",
+        "population": "direct",
+        "grouping": "none",
+        "derived": "none",
+        "guard": "invariant"
+      },
+      "status": "refused",
+      "value": null,
+      "refusal_code": "unknown_relationship",
+      "coverage_verdict": null,
+      "caveat": null,
+      "injected": [],
+      "compiled": []
+    },
+    {
+      "name": "entity_grain_without_usable_key_refused",
+      "description": "Address entity_id is on 2,100 of 2,171 nodes — not a key.",
+      "expected_outcome": "refused",
+      "expected_value": null,
+      "ground_truth_route": null,
+      "ground_truth_note": null,
+      "expected_refusal_code": "no_distinct_key",
+      "verdict": "NEW_REFUSED_CORRECTLY",
+      "explanation": "refused with 'no_distinct_key', as specified",
+      "ms": 0.2,
+      "axes": {
+        "measure": "count_distinct",
+        "population": "direct",
+        "grouping": "none",
+        "derived": "none",
+        "guard": "invariant"
+      },
+      "status": "refused",
+      "value": null,
+      "refusal_code": "no_distinct_key",
+      "coverage_verdict": null,
+      "caveat": null,
+      "injected": [],
+      "compiled": []
+    },
+    {
+      "name": "non_supervisor_cross_case_refused",
+      "description": "Scope comes from the caller and cannot be widened.",
+      "expected_outcome": "refused",
+      "expected_value": null,
+      "ground_truth_route": null,
+      "ground_truth_note": null,
+      "expected_refusal_code": "scope_denied",
+      "verdict": "NEW_REFUSED_CORRECTLY",
+      "explanation": "refused with 'scope_denied', as specified",
+      "ms": 0.2,
+      "axes": {
+        "measure": "count",
+        "population": "direct",
+        "grouping": "none",
+        "derived": "none",
+        "guard": "scope"
+      },
+      "status": "refused",
+      "value": null,
+      "refusal_code": "scope_denied",
+      "coverage_verdict": null,
+      "caveat": null,
+      "injected": [],
+      "compiled": []
+    },
+    {
+      "name": "unauthenticated_scope_refused",
+      "description": "A spec with no caller role would run unauthenticated.",
+      "expected_outcome": "refused",
+      "expected_value": null,
+      "ground_truth_route": null,
+      "ground_truth_note": null,
+      "expected_refusal_code": "scope_not_authenticated",
+      "verdict": "NEW_REFUSED_CORRECTLY",
+      "explanation": "refused with 'scope_not_authenticated', as specified",
+      "ms": 0.2,
+      "axes": {
+        "measure": "count",
+        "population": "direct",
+        "grouping": "none",
+        "derived": "none",
+        "guard": "scope"
+      },
+      "status": "refused",
+      "value": null,
+      "refusal_code": "scope_not_authenticated",
+      "coverage_verdict": null,
+      "caveat": null,
+      "injected": [],
+      "compiled": []
+    }
+  ],
+  "summary": {
+    "PASS": 16,
+    "NEW_REFUSED_CORRECTLY": 14
+  }
+}

@@ -950,14 +950,34 @@ class TestComparison:
         )
         assert "comparison_buckets_overlap" in validate(snapshot, spec).codes()
 
-    def test_disjoint_buckets_allowed(self, snapshot, supervisor_scope):
+    def test_disjoint_buckets_still_refused_because_compare_is_not_emitted(
+        self, snapshot, supervisor_scope
+    ):
+        """A well-formed comparison is still refused — and must be.
+
+        This test previously asserted that a disjoint-bucket `compare`
+        VALIDATES. That assertion encoded a live defect: the compiler
+        consumes `spec.compare` zero times, so such a spec compiled to
+        byte-identical Cypher as one with no comparison at all and returned
+        the uncompared grand total, while the receipt claimed a comparison
+        had been applied. Measured 2026-09-15.
+
+        The bucket-disjointness rules below it are still correct and still
+        tested; they simply cannot be reached until `compare` is genuinely
+        emitted. When it is, this test flips back to asserting `.ok` in the
+        same change that implements it — which is what
+        `test_unimplemented_fields_match_compiler_reality` enforces.
+        """
         spec = AggregateSpec(
             question_text="q", measure="count",
             population=PopulationNode(entity="Case"),
             grain="ENTITY", distinct_key="case_id", scope=supervisor_scope,
             compare=Comparison(dimension="year", buckets=(2024, 2026)),
         )
-        assert validate(snapshot, spec).ok
+        result = validate(snapshot, spec)
+        assert not result.ok
+        assert "unsupported_operation" in result.codes()
+        assert any("compare" in (i.field or "") for i in result.issues)
 
     def test_single_bucket_refused(self, snapshot, supervisor_scope):
         spec = AggregateSpec(

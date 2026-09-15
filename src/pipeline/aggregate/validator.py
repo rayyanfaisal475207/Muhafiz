@@ -673,6 +673,91 @@ def _validate_top_n(spec: AggregateSpec) -> list[ValidationIssue]:
 # ══════════════════════════════════════════════════════════════════════
 # Entry point
 # ══════════════════════════════════════════════════════════════════════
+# ══════════════════════════════════════════════════════════════════════
+# Declared-but-unimplemented fields.
+#
+# THE DEFECT THIS PREVENTS, measured 2026-09-15. `AggregateSpec` declares
+# `compare`, `time_window`, `threshold` and `null_policy`, and
+# `MAX_GROUP_DIMENSIONS` permits two grouping dimensions. The compiler
+# consumes NONE of the first four and only `group_by[0]`. So a spec saying
+# "count cases, restricted to 2024" validated as EXECUTABLE and compiled to
+#
+#     MATCH (n:Case) RETURN count(DISTINCT n.case_id) AS value
+#
+# byte-identical to the spec with no time window at all — returning 73, the
+# grand total, while the receipt asserted a filter had been applied.
+#
+# That is Module 144's defect ("How many FIRs were registered in 2019 or
+# earlier?" -> 73) reproduced inside the engine built to prevent it, and it
+# is strictly worse here because the receipt lends it false provenance.
+#
+# THE FIX BELONGS AT THIS LAYER, not in the compiler. The compiler's job is
+# to emit what it is asked for; a field it cannot emit is a SPECIFICATION
+# that cannot be honoured, and refusing unhonourable specifications is this
+# module's entire purpose. Silently dropping a filter is the one failure
+# mode the whole package exists to make impossible.
+#
+# This set is the contract between spec.py and compiler.py. When a field
+# becomes genuinely supported, its entry is removed here in the SAME change
+# that implements it — a test asserts the two stay in step.
+_UNIMPLEMENTED_FIELDS: dict[str, str] = {
+    "compare": (
+        "bucketed comparison is declared in AggregateSpec but not emitted by "
+        "the compiler; a spec carrying it would silently return the "
+        "uncompared figure"
+    ),
+    "time_window": (
+        "time windows are declared but not emitted; a spec carrying one would "
+        "silently return the unfiltered total (this is Module 144's defect)"
+    ),
+    "threshold": (
+        "standalone thresholds are declared but not emitted; express the "
+        "condition as a population predicate instead, which IS emitted"
+    ),
+}
+
+
+def _validate_implemented(spec: AggregateSpec) -> list[ValidationIssue]:
+    """Refuse any spec whose semantics the compiler cannot actually honour."""
+    issues: list[ValidationIssue] = []
+    for field, reason in _UNIMPLEMENTED_FIELDS.items():
+        if getattr(spec, field, None) is not None:
+            issues.append(
+                _issue(
+                    "unsupported_operation",
+                    f"{field}: {reason}. Refused rather than ignored.",
+                    field,
+                )
+            )
+    # Second and later grouping dimensions are accepted by
+    # MAX_GROUP_DIMENSIONS but only `group_by[0]` reaches the query, so a
+    # cross-tab would silently collapse to a single-dimension breakdown.
+    if len(spec.group_by) > 1:
+        issues.append(
+            _issue(
+                "unsupported_operation",
+                f"group_by carries {len(spec.group_by)} dimensions but the "
+                f"compiler emits only the first; a cross-tab would silently "
+                f"collapse to a one-dimensional breakdown. Refused rather "
+                f"than ignored.",
+                "group_by",
+            )
+        )
+    # `median` validates but cannot be emitted in Cypher (the compiler
+    # raises). Refuse here so the failure is a stated refusal rather than a
+    # CompilerError surfacing as an execution fault.
+    if spec.measure == "median":
+        issues.append(
+            _issue(
+                "unsupported_operation",
+                "median is not computable in AGE and the Python fetch path is "
+                "not implemented; refused rather than raised at compile time.",
+                "measure",
+            )
+        )
+    return issues
+
+
 def validate(snapshot: reg.RegistrySnapshot, spec: AggregateSpec) -> ValidationResult:
     """Validate a spec against measured data. Deterministic; no I/O, no LLM.
 
@@ -682,6 +767,10 @@ def validate(snapshot: reg.RegistrySnapshot, spec: AggregateSpec) -> ValidationR
     """
     issues: list[ValidationIssue] = []
     issues.extend(_validate_scope(spec))
+    # Checked early: a spec whose semantics cannot be emitted must be
+    # refused before any other diagnosis, so the reported reason is "this
+    # cannot be honoured" rather than an incidental field-name complaint.
+    issues.extend(_validate_implemented(spec))
     issues.extend(_validate_population(snapshot, spec.population, label="population"))
     issues.extend(_validate_measure(snapshot, spec))
     issues.extend(_validate_grain(snapshot, spec))
