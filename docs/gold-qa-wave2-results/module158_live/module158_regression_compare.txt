@@ -1,0 +1,48 @@
+id    route     =main =base sub_agent                =main subq(ours)             subq(main)             fb  ans=  s(ours)  s(main) 
+D1    XAGG      True  True  Large-Scale Aggregate    True  []                     []                     0   True  6.7      5.3     
+S2    XAGG      True  True  Large-Scale Aggregate    True  []                     []                     0   True  7.9      6.0     
+S3    XAGG      True  True  Large-Scale Aggregate    True  []                     []                     0   True  15.8     14.1    
+A1    XAGG      True  True  Large-Scale Aggregate    True  []                     []                     0   True  32.1     32.4    
+A7    XAGG      True  True  Large-Scale Aggregate    True  []                     []                     0   True  6.2      6.2     
+CP6   XAGG      True  True  Large-Scale Aggregate    True  []                     []                     0   True  12.1     12.3    
+CR2   XAGG      True  True  Large-Scale Aggregate    True  []                     []                     0   True  11.5     10.0    
+CR3   XNETWORK  True  True  Meta-Analysis            True  ['XAGG', 'XAGG', 'XAGG ['XAGG', 'XAGG', 'XAGG 0   True  101.2    100.7   
+CR4   XAGG      True  True  Large-Scale Aggregate    True  []                     []                     0   True  11.6     11.4    
+CR6   XAGG      True  True  Large-Scale Aggregate    True  []                     []                     0   True  6.0      6.0     
+CR7   XAGG      True  True  Large-Scale Aggregate    True  []                     []                     0   True  7.9      7.8     
+CR8   XAGG      True  True  Large-Scale Aggregate    True  []                     []                     0   True  6.7      6.8     
+CS4   XAGG      True  True  Large-Scale Aggregate    True  []                     []                     0   True  7.7      7.3     
+CP1   XAGG      True  True  Large-Scale Aggregate    True  []                     []                     0   True  5.9      5.9     
+M1    XAGG      True  True  Large-Scale Aggregate    True  []                     []                     0   True  15.4     15.3    
+M2    XAGG      True  True  Large-Scale Aggregate    True  []                     []                     0   True  10.9     10.7    
+M4    XAGG      True  True  Large-Scale Aggregate    True  []                     []                     0   True  8.8      8.7     
+M5    XAGG      True  True  Large-Scale Aggregate    True  []                     []                     0   True  11.2     11.2    
+M7    XAGG      True  True  Large-Scale Aggregate    True  []                     []                     0   True  5.8      6.1     
+G1    XNETWORK  True  True  Meta-Analysis            True  ['XAGG', 'XAGG', 'XAGG ['XAGG', 'XAGG', 'XAGG 0   False 125.0    136.7   
+G2    XAGG      True  True  Large-Scale Aggregate    True  []                     []                     0   True  12.1     12.0    
+G3    XAGG      True  True  Large-Scale Aggregate    True  []                     []                     0   True  11.6     11.8    
+G5    XAGG      True  True  Large-Scale Aggregate    True  []                     []                     0   True  7.0      6.8     
+G6    XNETWORK  True  True  Meta-Analysis            True  ['XAGG', 'XAGG', 'XAGG ['XAGG', 'XAGG', 'XAGG 2   False 221.8    224.7   
+KB1   RAG       True  True  Semantic Search          True  []                     []                     0   False 88.0     85.0    
+KB2   RAG       True  True  Semantic Search          True  []                     []                     0   False 203.2    97.8    
+KB3   RAG       True  True  Semantic Search          True  []                     []                     0   False 319.9    360.1   
+KB4   RAG       True  True  Semantic Search          True  []                     []                     0   False 108.6    114.8   
+KB5   RAG       True  True  Semantic Search          True  []                     []                     0   False 197.6    159.6   
+KB6   RAG       True  True  Semantic Search          True  []                     []                     0   False 78.9     82.9    
+KB8   RAG       True  True  Semantic Search          True  []                     []                     0   True  85.9     82.2    
+KB9   RAG       True  True  Semantic Search          True  []                     []                     0   False 317.4    360.1   
+
+route == main on 32/32; sub_agent == main on 32/32; answer byte-equal to main on 23/32; Groq fallbacks this run: 2 (main/Module 150 run: 3)
+total wall: ours 34.5 min; main 33.6 min
+
+questions with fallbacks:
+  G6: 2 — src.llm.client: Local LLM failed: . Falling back to groq... | src.llm.client: Local LLM failed: . Falling back to groq...
+
+selection lines (SUBAGENT-SELECT / SEMANTIC-SELECT) seen on gold questions:
+  D1: no-fire: best=xagg:total_count(0.973) runner_up=xagg:arrest_rate(0.102) threshold=0.40 1.72s | How many FIRs are currently registered?
+  S2: no-fire: best=xagg:station_or_category_counts(0.999) runner_up=xagg:top_districts_by(0.420) threshold=0.40 1.73s | Which police station hand
+  S3: no-fire: best=xagg:graph_recurrence_person(0.931) runner_up=orientation_note(0.072) threshold=0.40 1.63s | کیا کسی شخص کو ایک سے زیادہ بار گ
+  CR2: no-fire: best=xagg:graph_recurrence_person(0.999) runner_up=xagg:graph_recurrence_weapon(0.273) threshold=0.40 1.53s | Is there anyone with 
+  CR3: Meta-Analysis via trigger | In the online banking fraud matter involving two separate victims, was each victim's case processed and recorded
+  G1: Meta-Analysis via trigger | Acting as a crime analyst, review our current caseload and flag anything that looks unusual or worth monitoring.
+  G6: Meta-Analysis via trigger | Yahan naye tainaat hone wale afsar ke liye ek mukhtasar orientation note likhein — unhein mojooda case load se k

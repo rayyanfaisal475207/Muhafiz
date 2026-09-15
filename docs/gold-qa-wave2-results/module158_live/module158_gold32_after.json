@@ -1,0 +1,707 @@
+[
+ {
+  "id": "D1",
+  "run": 1,
+  "text": "How many FIRs are currently registered?",
+  "elapsed_s": 6.7,
+  "fallbacks": 0,
+  "model": "local",
+  "subagent_select": [],
+  "semantic_select": [
+   "no-fire: best=xagg:total_count(0.973) runner_up=xagg:arrest_rate(0.102) threshold=0.40 1.72s | How many FIRs are currently registered?"
+  ],
+  "log_lines": [
+   "2026-09-15 17:55:07,010 [INFO] src.pipeline.semantic_dispatch: SEMANTIC-SELECT no-fire: best=xagg:total_count(0.973) runner_up=xagg:arrest_rate(0.102) threshold=0.40 1.72s | How many FIRs are currently registered?",
+   "2026-09-15 17:55:07,039 [INFO] src.pipeline.xagg: XAGG total_count: 73 case(s) after filtering; unsupported_filters=none; filters=none"
+  ],
+  "actual_answer": "According to [Document 1], there are **73** total cases registered. Since the document refers to a \"cross-case aggregate\" and does not specify a breakdown by case type, the total number of FIRs cannot be determined with certainty from this data alone. However, if \"total cases\" in the document corresponds directly to FIRs (as implied by the context of a police cross-case statistics query), the answer would be **73 FIRs**.",
+  "route": "XAGG",
+  "sub_agent": "Large-Scale Aggregate",
+  "subquery_routes": [],
+  "status": "done",
+  "cutover_classification_failed": false,
+  "error": null
+ },
+ {
+  "id": "S2",
+  "run": 1,
+  "text": "Which police station handles the most cases?",
+  "elapsed_s": 7.9,
+  "fallbacks": 0,
+  "model": "local",
+  "subagent_select": [],
+  "semantic_select": [
+   "no-fire: best=xagg:station_or_category_counts(0.999) runner_up=xagg:top_districts_by(0.420) threshold=0.40 1.73s | Which police station handles the most cases?"
+  ],
+  "log_lines": [
+   "2026-09-15 17:55:14,694 [INFO] src.pipeline.semantic_dispatch: SEMANTIC-SELECT no-fire: best=xagg:station_or_category_counts(0.999) runner_up=xagg:top_districts_by(0.420) threshold=0.40 1.73s | Which police station handles the most cases?",
+   "2026-09-15 17:55:14,720 [INFO] src.pipeline.xagg: XAGG relational_aggregate: group_by=police_station, 73 case(s) considered, 15 bucket(s); filters=none; تھانہ ماڈل ٹاؤن، لاہور=7, سائبر کرائم سرکل، اسلام آباد=5, تھانہ لطیف آباد، حیدر آباد=5, تھانہ شاہ فیصل کالونی، کراچی=5, موٹروے پولیس اسٹیشن ایم ٹو، لاہور=5, خواتین تھانہ، فیصل آباد=5, تھانہ صدر، ضلع چنیوٹ=5, تھانہ نیو کراچی، کراچی=5, تھانہ جھنگ روڈ، فیصل آباد=5, تھانہ برکی، لاہور=5"
+  ],
+  "actual_answer": "According to [Document 1], **thane ماڈل ٹاؤن، لاہور** handles the most cases with **7 cases**, which is higher than any other police station listed in the aggregate. All other stations have 5 cases or fewer.",
+  "route": "XAGG",
+  "sub_agent": "Large-Scale Aggregate",
+  "subquery_routes": [],
+  "status": "done",
+  "cutover_classification_failed": false,
+  "error": null
+ },
+ {
+  "id": "S3",
+  "run": 1,
+  "text": "کیا کسی شخص کو ایک سے زیادہ بار گرفتار کیا گیا ہے؟",
+  "elapsed_s": 15.8,
+  "fallbacks": 0,
+  "model": "local",
+  "subagent_select": [],
+  "semantic_select": [
+   "no-fire: best=xagg:graph_recurrence_person(0.931) runner_up=orientation_note(0.072) threshold=0.40 1.63s | کیا کسی شخص کو ایک سے زیادہ بار گرفتار کیا گیا ہے؟"
+  ],
+  "log_lines": [
+   "2026-09-15 17:55:23,472 [INFO] src.pipeline.semantic_dispatch: SEMANTIC-SELECT no-fire: best=xagg:graph_recurrence_person(0.931) runner_up=orientation_note(0.072) threshold=0.40 1.63s | کیا کسی شخص کو ایک سے زیادہ بار گرفتار کیا گیا ہے؟",
+   "2026-09-15 17:55:24,021 [INFO] src.pipeline.xagg: XAGG graph_recurrence: entity_type=Person, 4 recurring node(s); 4 with a date-ordered timeline, 2 with a criminal-record outcome; فیصل=2[2024-09-25..2026-03-06], طارق=2[2024-09-25..2026-03-06], شہزیب عرف شابی=2[2024-09-14..2026-03-03], عاصم رشید=2[2026-03-19..2026-03-23]"
+  ],
+  "actual_answer": "Yes, two individuals appear to have been arrested more than once based on the records:\n\n1. **شہزیب عرف شابی**  \n   - Arrested in **FIR 891/24** (2024-09-14) with status: *گرفتار، بعد ازاں سزا یافتہ* (arrested, later convicted).  \n   - Arrested again in **FIR 214/26** (2026-03-03) with status: *گرفتار* (arrested).  \n\n2. **عاصم رشید**  \n   - Arrested in **FIR 64/26** (2026-03-19) with status: *گرفتار* (arrested).  \n   - Arrested again in **FIR 65/26** (2026-03-23) with status: *پہلے سے کیس 10 میں گرفتار، اس مقدمے میں بھی نامزد* (previously arrested in case 10, also named in this case).  \n\nBoth individuals have multiple arrest records in separate cases. [Document 1]",
+  "route": "XAGG",
+  "sub_agent": "Large-Scale Aggregate",
+  "subquery_routes": [],
+  "status": "done",
+  "cutover_classification_failed": false,
+  "error": null
+ },
+ {
+  "id": "A1",
+  "run": 1,
+  "text": "نامزد ملزمان میں مرد اور عورت کا تناسب کیا ہے؟",
+  "elapsed_s": 32.1,
+  "fallbacks": 0,
+  "model": "local",
+  "subagent_select": [],
+  "semantic_select": [],
+  "log_lines": [
+   "2026-09-15 17:55:59,133 [INFO] src.pipeline.xagg: XAGG gender_breakdown: 94 accused edge(s), 3 distinct value(s); مرد=67, عورت=24, unknown=3"
+  ],
+  "actual_answer": "According to [Document 1], among the total of 94 accused, there are 67 males (مرد) and 24 females (عورت). This results in a male-to-female ratio of **67:24**.",
+  "route": "XAGG",
+  "sub_agent": "Large-Scale Aggregate",
+  "subquery_routes": [],
+  "status": "done",
+  "cutover_classification_failed": false,
+  "error": null
+ },
+ {
+  "id": "A7",
+  "run": 1,
+  "text": "Kitne cases mein mudai ne police ke paas waqe ke kuch arse baad aane ki koi wajah batai, bajaye foran aane ke?",
+  "elapsed_s": 6.2,
+  "fallbacks": 0,
+  "model": "local",
+  "subagent_select": [],
+  "semantic_select": [],
+  "log_lines": [
+   "2026-09-15 17:56:11,808 [INFO] src.pipeline.xagg: XAGG reporting_delay_count: 8 of 73 FIR(s) record a reporting-delay reason"
+  ],
+  "actual_answer": "According to [Document 1], 8 of the 73 FIRs included a stated reason for reporting the incident to the police after some time (rather than immediately). The remaining 65 FIRs were reported without any stated delay.",
+  "route": "XAGG",
+  "sub_agent": "Large-Scale Aggregate",
+  "subquery_routes": [],
+  "status": "done",
+  "cutover_classification_failed": false,
+  "error": null
+ },
+ {
+  "id": "CP6",
+  "run": 1,
+  "text": "Kitne cases abhi tak bina kisi tafteeshi afsar ke asal tor par muqarrar kiye pade hue hain?",
+  "elapsed_s": 12.1,
+  "fallbacks": 0,
+  "model": "local",
+  "subagent_select": [],
+  "semantic_select": [],
+  "log_lines": [
+   "2026-09-15 17:56:18,962 [INFO] src.pipeline.xagg: XAGG placeholder_officer_count: 10 case(s) still carry a placeholder investigating officer (11 ever); ASI=7 SI=3"
+  ],
+  "actual_answer": "According to [Document 1], there are currently 10 FIRs that carry only a placeholder investigating officer — 7 marked \"(نامزد ASI)\" and 3 marked \"(نامزد SI)\". Additionally, 1 case that previously had a placeholder officer has since been assigned a real one. Therefore, **10 cases remain without an actual investigating officer assigned as of now**.",
+  "route": "XAGG",
+  "sub_agent": "Large-Scale Aggregate",
+  "subquery_routes": [],
+  "status": "done",
+  "cutover_classification_failed": false,
+  "error": null
+ },
+ {
+  "id": "CR2",
+  "run": 1,
+  "text": "Is there anyone with an earlier case already on record who has since resurfaced as a suspect in a newer, separate case?",
+  "elapsed_s": 11.5,
+  "fallbacks": 0,
+  "model": "local",
+  "subagent_select": [],
+  "semantic_select": [
+   "no-fire: best=xagg:graph_recurrence_person(0.999) runner_up=xagg:graph_recurrence_weapon(0.273) threshold=0.40 1.53s | Is there anyone with an earlier case already on record who has since resurfaced as a suspect in a newer, separate case?"
+  ],
+  "log_lines": [
+   "2026-09-15 17:56:33,530 [INFO] src.pipeline.semantic_dispatch: SEMANTIC-SELECT no-fire: best=xagg:graph_recurrence_person(0.999) runner_up=xagg:graph_recurrence_weapon(0.273) threshold=0.40 1.53s | Is there anyone with an earlier case already on record who has since resurfaced as a suspect in a newer, separate case?",
+   "2026-09-15 17:56:33,864 [INFO] src.pipeline.xagg: XAGG graph_recurrence: entity_type=Person, 4 recurring node(s); 4 with a date-ordered timeline, 2 with a criminal-record outcome; فیصل=2[2024-09-25..2026-03-06], طارق=2[2024-09-25..2026-03-06], شہزیب عرف شابی=2[2024-09-14..2026-03-03], عاصم رشید=2[2026-03-19..2026-03-23]"
+  ],
+  "actual_answer": "Yes, **شہزیب عرف شابی** (Shahzib a.k.a Shabi) meets this criterion.  \n\n- **Earlier case**: FIR 891/24 (2024-09-14), where they were **accused** and recorded as **\"Convicted, on bail pending appeal\"**.  \n- **Newer case**: FIR 214/26 (2026-03-03), where they resurfaced as an **accused** again, with a recorded status of **\"Under trial\"**.  \n\nThis person has a prior criminal-record outcome (conviction) from an earlier case and later appeared as a suspect in a separate, newer case [Document 1].  \n\nNo other person in the document fits this exact pattern.",
+  "route": "XAGG",
+  "sub_agent": "Large-Scale Aggregate",
+  "subquery_routes": [],
+  "status": "done",
+  "cutover_classification_failed": false,
+  "error": null
+ },
+ {
+  "id": "CR3",
+  "run": 1,
+  "text": "In the online banking fraud matter involving two separate victims, was each victim's case processed and recorded the same way?",
+  "elapsed_s": 101.2,
+  "fallbacks": 0,
+  "model": "local",
+  "subagent_select": [
+   "Meta-Analysis via trigger | In the online banking fraud matter involving two separate victims, was each victim's case processed and recorded the sam"
+  ],
+  "semantic_select": [],
+  "log_lines": [
+   "2026-09-15 17:56:46,036 [INFO] src.pipeline.semantic_dispatch: SEMANTIC-DISPATCH no-fire: best=accused_relationship_breakdown(0.005) runner_up=fir_register_completeness(0.002) threshold=0.40 1.58s | In the online banking fraud matter involving two separate victims, was each victim's case processed and recorded the sam",
+   "2026-09-15 17:57:06,420 [INFO] src.pipeline.harness.supervisor: SUBAGENT-SELECT Meta-Analysis via trigger | In the online banking fraud matter involving two separate victims, was each victim's case processed and recorded the sam",
+   "2026-09-15 17:57:06,421 [INFO] src.pipeline.harness.agents.meta_analysis: Meta-Analysis: deterministic decomposition plan 'record_consistency' matched.",
+   "2026-09-15 17:57:06,449 [INFO] src.pipeline.xagg: XAGG filtered_fir_listing: filters=['statute: PECA 2016', 'station: \\u0633\\u0627\\u0626\\u0628\\u0631 \\u06a9\\u0631\\u0627\\u0626\\u0645 \\u0633\\u0631\\u06a9\\u0644\\u060c \\u0627\\u0633\\u0644\\u0627\\u0645 \\u0622\\u0628\\u0627\\u062f, \\u0633\\u0627\\u0626\\u0628\\u0631 \\u06a9\\u0631\\u0627\\u0626\\u0645 \\u0633\\u0631\\u06a9\\u0644\\u060c \\u0631\\u0627\\u0648\\u0644\\u067e\\u0646\\u0688\\u06cc'] -> 2 FIR(s) ['64/26', '65/26']",
+   "2026-09-15 17:57:07,109 [INFO] src.pipeline.xagg: XAGG graph_recurrence: entity_type=Person, 4 recurring node(s); 4 with a date-ordered timeline, 2 with a criminal-record outcome; فیصل=2[2024-09-25..2026-03-06], طارق=2[2024-09-25..2026-03-06], شہزیب عرف شابی=2[2024-09-14..2026-03-03], عاصم رشید=2[2026-03-19..2026-03-23]",
+   "2026-09-15 17:57:17,736 [INFO] src.pipeline.xagg: XAGG cms_fir_linkage: 4 CMS complaint(s), 4 linked to a case, 0 unlinked"
+  ],
+  "actual_answer": "The two cases (FIR 64/26 and FIR 65/26) involved in the online banking fraud were **not handled identically**.  \n\n- **FIR 64/26** has a matching walk-in complaint recorded in the complaint management system (linked to CMS-ISB-2026-0341) [Document 3].  \n- **FIR 65/26** does **not** appear in the walk-in complaint linkage list, indicating no corresponding complaint was recorded for this case [Document 3].  \n\nThis discrepancy in complaint linkage suggests the two cases were processed differently, despite both being registered under the same statute (PECA 2016) and involving accused persons (e.g., عاصم رشید) [Document 1, Document 2].",
+  "route": "XNETWORK",
+  "sub_agent": "Meta-Analysis",
+  "subquery_routes": [
+   "XAGG",
+   "XAGG",
+   "XAGG"
+  ],
+  "status": "done",
+  "cutover_classification_failed": false,
+  "error": null
+ },
+ {
+  "id": "CR4",
+  "run": 1,
+  "text": "If we've got a weapon logged as evidence, can we tell who it was taken off and what happened to them?",
+  "elapsed_s": 11.6,
+  "fallbacks": 0,
+  "model": "local",
+  "subagent_select": [],
+  "semantic_select": [],
+  "log_lines": [
+   "2026-09-15 17:58:26,855 [INFO] src.pipeline.xagg: XAGG weapon_evidence_chain: 32 weapon(s); 30 traceable to a named accused, 2 unattributed; richest chain fir-891-24"
+  ],
+  "actual_answer": "Yes, for 30 of the 32 weapons logged as evidence, the register records who the weapon was recovered from, and that person’s status on the same case is directly documented in the case file [Document 1]. For example:  \n- A **30 بور پستول, بغیر لائسنس** logged in **FIR 891/24** was recovered from **شہزیب عرف شابی**, who was recorded as **گرفتار، بعد ازاں سزا یافتہ** (\"arrested, later convicted\"). The criminal-record system also notes \"Convicted, on bail pending appeal\" for this person in the same FIR.  \n- Other weapons (e.g., **30 بور پستول بمعہ 3 گولیاں, بغیر لائسنس** in **FIR 214/26**) were recovered from individuals like **شہزیب عرف شابی**, **کاشف**, **فیصل**, etc., with statuses such as **زیر تفتیش** (\"under investigation\") or **Under trial**.  \n\nHowever, **2 of the 32 weapons** have no person linked to them—they were recovered from crime scenes rather than from accused individuals (e.g., **عام لکڑی کی چھڑی** in **FIR-117-26**; **خالی خول (فائرنگ کا شاہد)** in **FIR-266-26**).  \n\n**Limitation**: The weapon → person link is not a database key. The **recovered_from** field contains only a name, which is matched to the accused named in the **same FIR** (weapon → FIR number → accused). If the same name appears in multiple FIRs, the system cannot distinguish between them. The criminal-record status is joined via the FIR number parsed from free-text case references, which works for this data but has potential ambiguities.",
+  "route": "XAGG",
+  "sub_agent": "Large-Scale Aggregate",
+  "subquery_routes": [],
+  "status": "done",
+  "cutover_classification_failed": false,
+  "error": null
+ },
+ {
+  "id": "CR6",
+  "run": 1,
+  "text": "جب کوئی شخص تھانے آ کر شکایت درج کراتا ہے، تو کیا وہ کسی باقاعدہ ایف آئی آر سے منسلک ہو جاتی ہے، یا دونوں الگ الگ ہی رہتے ہیں؟",
+  "elapsed_s": 6.0,
+  "fallbacks": 0,
+  "model": "local",
+  "subagent_select": [],
+  "semantic_select": [],
+  "log_lines": [
+   "2026-09-15 17:58:39,378 [INFO] src.pipeline.xagg: XAGG cms_fir_linkage: 4 CMS complaint(s), 4 linked to a case, 0 unlinked"
+  ],
+  "actual_answer": "When someone walks into a police station to file a complaint, the CMS (Citizen Management System) complaint and the FIR (First Information Report) are technically separate systems. However, they are linked in practice through a shared case tag. Specifically, all 4 current CMS complaints in the document are connected to real FIRs via this shared identifier (CMS.case_tag_number = FIR.e_tag_number). For example:  \n- CMS-KHI-2026-0417 → fir-417-26  \n- CMS-LHR-2026-0427 → fir-427-26  \n- CMS-KHI-2026-0462 → fir-462-26  \n- CMS-ISB-2026-0341 → fir-64-26  \n\nThis linkage ensures the two systems reference the same case, even though they operate independently [Document 1].",
+  "route": "XAGG",
+  "sub_agent": "Large-Scale Aggregate",
+  "subquery_routes": [],
+  "status": "done",
+  "cutover_classification_failed": false,
+  "error": null
+ },
+ {
+  "id": "CR7",
+  "run": 1,
+  "text": "کرمنل ریکارڈ سسٹم میں کتنے کیس مکمل ہو چکے ہیں اور کتنے ابھی زیرِ کارروائی ہیں — اور جہاں کسی ایک کیس کا الگ عدالتی ریکارڈ بھی موجود ہے، کیا دونوں ایک دوسرے سے مطابقت رکھتے ہیں؟",
+  "elapsed_s": 7.9,
+  "fallbacks": 0,
+  "model": "local",
+  "subagent_select": [],
+  "semantic_select": [],
+  "log_lines": [
+   "2026-09-15 17:58:46,372 [INFO] src.pipeline.xagg: XAGG criminal_record_court_crosscheck: 33 criminal record(s), 1 settled / 32 in progress; 1 cross-checked against a court outcome, 1 consistent"
+  ],
+  "actual_answer": "In the criminal record system, of 33 total records, **1 case has reached a verdict** (and is thus completed), while **32 remain ongoing** (still in progress). The breakdown of ongoing cases includes:  \n- 30 \"Under trial,\"  \n- 1 \"Convicted, on bail pending appeal,\"  \n- 1 \"Sub judice, external prior case,\"  \n- 1 \"Under trial, priority hearing requested.\"  \n\nRegarding consistency between criminal records and independent court-outcome records: **At least one case (FIR 891-24 (شہزیب عرف شابی)) shows alignment**. Here, the criminal record states \"Convicted, on bail pending appeal,\" while the court outcome records a 5-year imprisonment under section 392 of the penal code — described as consistent in the source [Document 1].",
+  "route": "XAGG",
+  "sub_agent": "Large-Scale Aggregate",
+  "subquery_routes": [],
+  "status": "done",
+  "cutover_classification_failed": false,
+  "error": null
+ },
+ {
+  "id": "CR8",
+  "run": 1,
+  "text": "اگر کسی گھریلو تشدد کی شکایت کو باقاعدہ کیس میں تبدیل ہونے کے طور پر درج کیا گیا ہو، تو کیا کیس ریکارڈ سے اس کی تصدیق ہو جاتی ہے؟",
+  "elapsed_s": 6.7,
+  "fallbacks": 0,
+  "model": "local",
+  "subagent_select": [],
+  "semantic_select": [],
+  "log_lines": [
+   "2026-09-15 17:58:55,249 [INFO] src.pipeline.xagg: XAGG dv_report_fir_match: 8 women-violence report(s), 4 matched to an FIR, 4 unconfirmed"
+  ],
+  "actual_answer": "Yes — confirmed by the case records. Of 8 domestic-violence report(s), 4 carry a forwarded FIR number that matches a real, active FIR; the remaining 4 record no forwarded number.  \n\nThe 4 confirmed cases with active FIR numbers are:  \n- pkm_application:pkm-app-c9-02 → fir-97-26  \n- pkm_application:PKMAPP-C316-2 → fir-416-26  \n- pkm_application:PKMAPP-C326-1 → fir-426-26  \n- pkm_application:PKMAPP-C336-2 → fir-436-26  \n\n[Document 1]",
+  "route": "XAGG",
+  "sub_agent": "Large-Scale Aggregate",
+  "subquery_routes": [],
+  "status": "done",
+  "cutover_classification_failed": false,
+  "error": null
+ },
+ {
+  "id": "CS4",
+  "run": 1,
+  "text": "Kya wusee criminal-history records mein koi aisa shakhs hai jo hamare apne darj kiye hue kisi case se match nahi karta?",
+  "elapsed_s": 7.7,
+  "fallbacks": 0,
+  "model": "local",
+  "subagent_select": [],
+  "semantic_select": [],
+  "log_lines": [
+   "2026-09-15 17:59:02,980 [INFO] src.pipeline.xagg: XAGG criminal_record_local_match_gap: 33 criminal record(s) over 32 distinct subject(s) vs 94 local accused entr(ies) (92 distinct CNIC); 1 subject(s) with no local match [00000-9000020-1]; 0 record(s) carry no CNIC"
+  ],
+  "actual_answer": "Yes — exactly one person in the criminal-records system has no matching accused record in any FIR we registered:  \n  - **وقاص** (CNIC 00000-9000020-1) — criminal record(s) **criminal_record:CR-C106-1**; the same NAME does appear among our accused, but on a different CNIC, so this is not a spelling mismatch.  \n\nThis is expected, as the criminal-records system is an external/federal record source, not a mirror of our FIRs. It can legitimately hold someone we have never charged. 31 of 32 subjects in the criminal-records system DO match a local accused record, so this is a single outlier, not a systematic linkage failure [Document 1].",
+  "route": "XAGG",
+  "sub_agent": "Large-Scale Aggregate",
+  "subquery_routes": [],
+  "status": "done",
+  "cutover_classification_failed": false,
+  "error": null
+ },
+ {
+  "id": "CP1",
+  "run": 1,
+  "text": "Kaunsa zila apne case load ke lihaz se sab se zyada hathiyar baramad karta hai?",
+  "elapsed_s": 5.9,
+  "fallbacks": 0,
+  "model": "local",
+  "subagent_select": [],
+  "semantic_select": [],
+  "log_lines": [
+   "2026-09-15 17:59:11,667 [INFO] src.pipeline.xagg: XAGG rate_breakdown: dimension=weapon_recovery_rate_by_district, 9 district(s); حیدر آباد=3/5=0.6, فیصل آباد=10/19=0.526, لاہور=8/18=0.444, اسلام آباد=2/5=0.4, چنیوٹ=2/5=0.4, کراچی ایسٹ=2/5=0.4, کراچی وسطی=2/5=0.4, راولپنڈی=3/10=0.3, ملتان=0/1=0.0"
+  ],
+  "actual_answer": "According to [Document 1], **حیدر آباد (Hyderabad)** has the highest weapon recovery rate among all listed districts, with **3 of 5 cases** (60%) recovering a weapon. This is higher than all other districts, including فیصل آباد (Faisalabad) at 53% and لاہور (Lahore) at 44%.",
+  "route": "XAGG",
+  "sub_agent": "Large-Scale Aggregate",
+  "subquery_routes": [],
+  "status": "done",
+  "cutover_classification_failed": false,
+  "error": null
+ },
+ {
+  "id": "M1",
+  "run": 1,
+  "text": "What kinds of cases are we dealing with now compared to a couple of years back?",
+  "elapsed_s": 15.4,
+  "fallbacks": 0,
+  "model": "local",
+  "subagent_select": [],
+  "semantic_select": [],
+  "log_lines": [
+   "2026-09-15 17:59:18,645 [INFO] src.pipeline.xagg: XAGG time_bucketed_breakdown: dimension=statute_by_year, 2 year bucket(s) [2024:cases=13,acts=26,sections=3, 2026:cases=51,acts=82,sections=31]"
+  ],
+  "actual_answer": "Compared to 2024, the types of cases in 2026 show a significant increase in both volume and diversity.  \n\n**In 2024** ([Document 1]):  \n- **13 FIRs** were registered, all under **Pakistan Penal Code (PPC)** and **Arms Ordinance 1965**, with charges limited to:  \n  - **Arms Ordinance 1965 §13** (unauthorized possession of firearms).  \n  - **PPC §34** (conspiracy to commit an offense).  \n  - **PPC §392** (robbery).  \n\n**In 2026** ([Document 1]):  \n- **51 FIRs** were registered, involving a broader range of legal acts:  \n  - **PPC** (39 FIRs), including sections related to:  \n    - **§34** (conspiracy).  \n    - **§302** (murder).  \n    - **§337-A(i)** (causing injury by dangerous driving).  \n    - **§365-A** (human trafficking).  \n    - **§384** (theft).  \n    - **§392** (robbery).  \n    - **§419** (cheating).  \n    - **§420** (fraud).  \n    - **§506** (criminal intimidation).  \n  - **Arms Ordinance 1965** (16 FIRs), primarily **§13** (unauthorized possession of firearms).  \n  - **CNSA 1997** (12 FIRs), specifically **§9(c)** (possession of narcotic substances).  \n  - **PECA 2016** (9 FIRs), targeting **§14** (cyberstalking) and **§21** (identity theft).  \n  - **Punjab Domestic Violence Act** (4 FIRs).  \n  - **Illegal Dispossession Act 2005** (2 FIRs), under **§3** (illegal eviction).  \n\n**Key differences**:  \n- **Volume**: 2026 saw a **3.9× increase** in FIRs compared to 2024.  \n- **Diversity**: 2026 included charges related to **cybercrime**, **narcotics**, **domestic violence**, and **land disputes**, whereas 2024 focused narrowly on **arms offenses** and **property crimes**.  \n- **Gravity**: 2026 involved more severe offenses (e.g., **murder**, **human trafficking**) alongside traditional crimes.  \n\nThis suggests a shift toward addressing a wider range of offenses, including modern challenges like cybercrime and domestic violence, alongside persistent issues like arms proliferation and theft.",
+  "route": "XAGG",
+  "sub_agent": "Large-Scale Aggregate",
+  "subquery_routes": [],
+  "status": "done",
+  "cutover_classification_failed": false,
+  "error": null
+ },
+ {
+  "id": "M2",
+  "run": 1,
+  "text": "Is caseload growing faster at our general-purpose stations, or at the handful set up for one specific type of crime?",
+  "elapsed_s": 10.9,
+  "fallbacks": 0,
+  "model": "local",
+  "subagent_select": [],
+  "semantic_select": [],
+  "log_lines": [
+   "2026-09-15 17:59:35,014 [INFO] src.pipeline.xagg: XAGG station_caseload_by_specialisation: 19 station(s), 73 FIR(s); crime_type_specialised=2 station(s)/9 FIR(s); other_specialised=2 station(s)/10 FIR(s); general_purpose=15 station(s)/54 FIR(s); 9 FIR(s) with no resolvable incident year, 0 case(s) at an unknown station"
+  ],
+  "actual_answer": "Growth: caseload is rising fastest at the 15 general-purpose station(s) — 7 FIRs in 2024 to 39 in 2026, against 3 to 5 at the 2 single-crime-type station(s) — though even so, 9 of 73 FIRs (~12.3%) are carried by just 2 of 19 stations, the ones set up for a single type of crime.\n\n9 of 73 FIRs (~12.3%) are filed at the 2 of 19 stations set up for one specific type of crime:\n  - سائبر کرائم سرکل، اسلام آباد (PS-ISB-CYBER): 5 FIRs\n  - سائبر کرائم سرکل، راولپنڈی (PS-RWP-CYBER): 4 FIRs\nThose 2 stations are 11% of the stations and carry ~12.3% of the caseload.\n\n2 further station(s) are specialised, but by complainant class or jurisdiction rather than by crime type, so they are NOT counted above (10 FIRs): خواتین تھانہ، فیصل آباد (5); موٹروے پولیس اسٹیشن ایم ٹو، لاہور (5).\nThe remaining 15 are general-purpose stations, carrying 54 FIRs.\n\nCaseload by incident year (2024 vs 2026):\n  - set up for one specific type of crime: 3 in 2024, 5 in 2026\n  - specialised, but by complainant class or jurisdiction rather than by crime type: 3 in 2024, 7 in 2026\n  - general-purpose: 7 in 2024, 39 in 2026\nThe 2024 baseline is 13 FIRs across all 19 stations, so a per-station growth RATE is not a responsible figure to quote on this corpus — the counts behind each rate are single digits. The share of caseload above is the claim the data supports.\n\nBasis: this system has no station-type field. The grouping is derived from each station's own recorded name, and every station is listed above so the classification can be checked. A name carrying no specialisation marker is counted as general-purpose.\n9 FIR(s) carry no resolvable incident year and are counted in the caseload totals but not in the year split.\n\n_The natural-language summary could not be verified as an accurate paraphrase; showing the raw computed aggregate instead._",
+  "route": "XAGG",
+  "sub_agent": "Large-Scale Aggregate",
+  "subquery_routes": [],
+  "status": "done",
+  "cutover_classification_failed": false,
+  "error": null
+ },
+ {
+  "id": "M4",
+  "run": 1,
+  "text": "ایک طرف یہ دیکھیں کہ لوگوں پر کن دفعات میں مقدمے بن رہے ہیں، اور دوسری طرف یہ کہ وہ مقدمے عدالت میں کہاں تک پہنچے — کیا دونوں سے کیس لوڈ کی سنگینی کا ایک ہی اندازہ ہوتا ہے؟",
+  "elapsed_s": 8.8,
+  "fallbacks": 0,
+  "model": "local",
+  "subagent_select": [],
+  "semantic_select": [],
+  "log_lines": [
+   "2026-09-15 17:59:46,903 [INFO] src.pipeline.xagg: XAGG criminal_record_court_crosscheck: 33 criminal record(s), 1 settled / 32 in progress; 1 cross-checked against a court outcome, 1 consistent",
+   "2026-09-15 17:59:47,000 [INFO] src.pipeline.xagg: XAGG statute_court_stage_join: 73 case(s) carry a recorded section across 36 distinct statute(s); 33 criminal record(s), 1 settled / 32 in progress; 4 record(s) join to a case in this corpus; agree=False"
+  ],
+  "actual_answer": "No, the two perspectives do not give the same impression of case load severity.  \n\n**Charges under FIR sections** show that 73 cases are actively being prosecuted under various statutes (e.g., PPC §34, Arms Ordinance 1965 §13, etc.), reflecting the full scope of current charges. This includes all ongoing cases, regardless of their court status.  \n\n**Court progress** reveals that of 33 criminal records, only 1 (3%) has reached a verdict (conviction), while 32 are still \"under trial\" or in other pre-verdict stages. Convictions, which indicate resolved cases, represent a tiny fraction of the total caseload.  \n\nThe overlap between the two views (4 cases) confirms that even where records match, the conviction rate is extremely low. Since the FIR/section counts include **all active cases** (including those not yet resolved), they paint a broader picture of current severity, while conviction counts lag far behind. Thus, the two views diverge: the charge-based data reflects the full breadth of ongoing cases, while the court-outcome data underrepresents severity due to the low conviction rate.  \n\n[Document 1]",
+  "route": "XAGG",
+  "sub_agent": "Large-Scale Aggregate",
+  "subquery_routes": [],
+  "status": "done",
+  "cutover_classification_failed": false,
+  "error": null
+ },
+ {
+  "id": "M5",
+  "run": 1,
+  "text": "ہتھیار عام طور پر کس نوعیت کے مقدمات میں سامنے آتے ہیں، اور کیا 2024 کے مقابلے میں اب یہ نوعیت بدل گئی ہے؟",
+  "elapsed_s": 11.2,
+  "fallbacks": 0,
+  "model": "local",
+  "subagent_select": [],
+  "semantic_select": [],
+  "log_lines": [
+   "2026-09-15 17:59:56,699 [INFO] src.pipeline.xagg: XAGG weapon_statute_cooccurrence: 32 weapon case(s), 2 year bucket(s), 0 with no resolvable incident date"
+  ],
+  "actual_answer": "In 2024, recovered weapons were primarily linked to **Arms Ordinance 1965 §13**, **PPC §34**, and **PPC §392**, with all 13 cases involving **30 بور پستول** (30-bore pistol) as the weapon type [Document 1].  \n\nBy 2026, the legal charges expanded to include **CNSA 1997 §9(c)** and **PPC §302** alongside weapons-law charges, in addition to existing sections like **PPC §34** and **PPC §392**. Weapon types also diversified: **30 بور پستول** (17 cases) remained common, but **خالی خول (فائرنگ کا شاہد)** (empty casing, firearm evidence), **جائے وقوعہ سے برآمد** (seized at the scene), and **عام لکڑی کی چھڑی، ایک عدد** (one ordinary wooden stick) were also recovered [Document 1].  \n\nThus, compared to 2024, the **legal charges** and **weapon types** associated with recovered weapons have broadened in 2026.",
+  "route": "XAGG",
+  "sub_agent": "Large-Scale Aggregate",
+  "subquery_routes": [],
+  "status": "done",
+  "cutover_classification_failed": false,
+  "error": null
+ },
+ {
+  "id": "M7",
+  "run": 1,
+  "text": "Kya log 2026 mein waqiaat ki police ko itni hi jaldi ittila de rahe hain jitni 2024 mein dete the?",
+  "elapsed_s": 5.8,
+  "fallbacks": 0,
+  "model": "local",
+  "subagent_select": [],
+  "semantic_select": [],
+  "log_lines": [
+   "2026-09-15 18:00:08,752 [INFO] src.pipeline.xagg: XAGG incident_to_report_minutes_by_year: 2 year bucket(s) [2024=15.0min/n=13, 2026=1401.3min/n=51], 0 row(s) excluded for a missing/unparseable/out-of-order timestamp"
+  ],
+  "actual_answer": "No, people are not reporting incidents to the police as quickly in 2026 as they did in 2024. According to [Document 1], the mean time from incident to report was **15.0 minutes** across **13 FIRs** in 2024, compared to **1401.3 minutes (~23.4 hours)** across **51 FIRs** in 2026. The document explicitly states that reporting is slower in 2026 than in 2024.",
+  "route": "XAGG",
+  "sub_agent": "Large-Scale Aggregate",
+  "subquery_routes": [],
+  "status": "done",
+  "cutover_classification_failed": false,
+  "error": null
+ },
+ {
+  "id": "G1",
+  "run": 1,
+  "text": "Acting as a crime analyst, review our current caseload and flag anything that looks unusual or worth monitoring.",
+  "elapsed_s": 125.0,
+  "fallbacks": 0,
+  "model": "local",
+  "subagent_select": [
+   "Meta-Analysis via trigger | Acting as a crime analyst, review our current caseload and flag anything that looks unusual or worth monitoring."
+  ],
+  "semantic_select": [],
+  "log_lines": [
+   "2026-09-15 18:00:38,596 [INFO] src.pipeline.harness.supervisor: SUBAGENT-SELECT Meta-Analysis via trigger | Acting as a crime analyst, review our current caseload and flag anything that looks unusual or worth monitoring.",
+   "2026-09-15 18:00:38,596 [INFO] src.pipeline.harness.agents.meta_analysis: Meta-Analysis: deterministic decomposition plan 'caseload_review' matched.",
+   "2026-09-15 18:00:38,782 [INFO] src.pipeline.xagg: XAGG offender_age_profile: 17 of 92 distinct accused carry an age (19 of 94 accused entries); range 24-49, mean 31.5; filters=none",
+   "2026-09-15 18:00:39,408 [INFO] src.pipeline.xagg: XAGG accused_relationship_breakdown: 24 relationship edge(s) across 10 FIR(s), 6 distinct value(s); dominant='اجنبی' 15; coverage 12 of 92 distinct accused",
+   "2026-09-15 18:00:49,597 [INFO] src.pipeline.xagg: XAGG seized_property_disposition: 45 register entr(ies) across 28 FIR(s), 9 distinct disposition(s); forensic-lab dispatch 13 item(s) in 11 FIR(s) (16 mention forensic in any wording); heirs 7 item(s) in 7 FIR(s); 0 entr(ies) record no disposition",
+   "2026-09-15 18:00:59,847 [INFO] src.pipeline.xagg: XAGG incident_time_of_day: 64 of 73 incident(s) carry a datetime; 14 are date-only 00:00:00 and excluded; 50 usable -> {'night (00:00-05:59)': 1, 'morning (06:00-11:59)': 14, 'afternoon (12:00-17:59)': 16, 'evening (18:00-23:59)': 19}; peak='evening (18:00-23:59)'",
+   "2026-09-15 18:01:06,771 [INFO] src.pipeline.xagg: XAGG graph_recurrence: entity_type=Person, 4 recurring node(s); 4 with a date-ordered timeline, 2 with a criminal-record outcome; فیصل=2[2024-09-25..2026-03-06], طارق=2[2024-09-25..2026-03-06], شہزیب عرف شابی=2[2024-09-14..2026-03-03], عاصم رشید=2[2026-03-19..2026-03-23]"
+  ],
+  "actual_answer": "The current caseload reveals several patterns and anomalies warranting attention:  \n\n1. **Accused Demographics**: Of 92 distinct accused, **75 have no recorded age**, leaving age data available for only **17 individuals** (ages 24–49, mean 31.5) [Document 1]. This significant data gap limits analysis of age-related trends, though the subset with data suggests a younger demographic.  \n\n2. **Relationships Between Accused and Complainants**: In **10 FIRs**, the most frequent relationship is **اجنبی (stranger)**, recorded **15 times** across 22 distinct accused↔complainant pairs [Document 2]. This dominance of \"stranger\" relationships contrasts with other, less common ties (e.g., mother-in-law, co-worker), suggesting potential patterns in victim-offender dynamics or reporting biases.  \n\n3. **Seized Property Handling**: In **28 FIRs**, **13 items** were **dispatched to a forensic laboratory**, and **7 items** are **held for deceased heirs** [Document 3]. The specific handling of property (e.g., forensic analysis, heir distribution) may indicate crimes involving tangible evidence or unresolved inheritance issues, though further context is needed to assess significance.  \n\n4. **Incident Timing**: Of **50 incidents** with usable timestamps, **19 (38%)** occurred in the **evening (18:00–23:59)**, making it the busiest time band [Document 4]. This contrasts with the low count of **nighttime incidents** (1 case, ~2%), though 14 cases with timestamps of **00:00:00** (no clock time) were excluded from time-of-day analysis.  \n\n5. **Recurring Accused**: **Three accused** appear in **multiple FIRs**:  \n   - **فیصل** in **fir-202-26** and **fir-401-26**  \n   - **شہزیب عرف شابی** in **fir-214-26** and **fir-891-24**  \n   - **عاصم رشید** in **fir-64-26** and **fir-65-26** [Document 5].  \n   This recurrence may signal repeat involvement in crimes, though the total number of overlapping cases remains limited (2 per individual).  \n\nNotably, **no sub-answer provides coverage figures for all caseload records**, so findings are based on subsets of data. The dominance of \"stranger\" relationships, evening incident timing, and recurring accused individuals stand out as non-routine aspects requiring further investigation.",
+  "route": "XNETWORK",
+  "sub_agent": "Meta-Analysis",
+  "subquery_routes": [
+   "XAGG",
+   "XAGG",
+   "XAGG",
+   "XAGG",
+   "XAGG"
+  ],
+  "status": "done",
+  "cutover_classification_failed": false,
+  "error": null
+ },
+ {
+  "id": "G2",
+  "run": 1,
+  "text": "فرض کریں آپ کسی ایس ایچ او کو بریفنگ دے رہے ہیں کہ کون سے مقدمے دب کر یا نظر سے اوجھل ہو کر رہ سکتے ہیں — آپ کن چیزوں کی نشاندہی کریں گے؟",
+  "elapsed_s": 12.1,
+  "fallbacks": 0,
+  "model": "local",
+  "subagent_select": [],
+  "semantic_select": [],
+  "log_lines": [
+   "2026-09-15 18:02:21,729 [INFO] src.pipeline.xagg: XAGG cms_fir_linkage: 4 CMS complaint(s), 4 linked to a case, 0 unlinked",
+   "2026-09-15 18:02:21,729 [INFO] src.pipeline.xagg: XAGG case_completeness_scan: 73 case(s) scanned; 9 missing an incident date, 52 missing an investigation status, 188 of 259 zimni entries carry no type, 13 of 44 recorded departures precede their own report time, 0 of 4 walk-in complaints unlinked"
+  ],
+  "actual_answer": "When briefing an SHO about cases at risk of being stalled or overlooked, the following critical issues from [Document 1] should be highlighted:  \n\n1. **Missing Incident Dates in FIRs**: 9 of 73 FIRs (e.g., *fir-205-26*, *fir-467-26*) lack recorded incident dates, leaving timelines unanchored and investigations without a clear starting point.  \n\n2. **Untracked Investigation Status**: 52 of 73 FIRs have no recorded investigation status, making it impossible to track their progress or identify delays.  \n\n3. **Incomplete Diary Entries**: 188 of 259 roznamcha/zimni diary entries (~73%) omit entry types, disrupting the ability to sequence investigative steps within cases.  \n\n4. **Chronological Contradictions**: 13 FIRs (e.g., *fir-118-26*, *fir-458-26*) record officers’ departure from the station as earlier than the report time itself, creating irreconcilable contradictions that would fail court scrutiny.  \n\n5. **Fragmented Systems for Complaints and FIRs**: Walk-in complaints and FIRs reside in separate systems, linked only by an optional, unenforced shared tag (*CMS.case_tag_number = FIR.e_tag_number*). This risks complaints appearing unactioned even when linked FIRs exist (e.g., 4 of 4 resolved complaints today).  \n\nThese gaps in documentation and system integration create risks of stalled cases, misallocated resources, and potential legal vulnerabilities.\n\n_A cited claim ([Document 1]) could not be confirmed against its source: Claim cites figure(s)/identifier(s) not found in its source text: 1._",
+  "route": "XAGG",
+  "sub_agent": "Large-Scale Aggregate",
+  "subquery_routes": [],
+  "status": "done",
+  "cutover_classification_failed": false,
+  "error": null
+ },
+ {
+  "id": "G3",
+  "run": 1,
+  "text": "آپ عدالت کو حوالگی کے لیے ایک کیس فائل تیار کر رہے ہیں — ڈیٹا کی روشنی میں، کن چیزوں کے نامکمل قرار پانے کا سب سے زیادہ امکان ہے؟",
+  "elapsed_s": 11.6,
+  "fallbacks": 0,
+  "model": "local",
+  "subagent_select": [],
+  "semantic_select": [],
+  "log_lines": [
+   "2026-09-15 18:02:34,851 [INFO] src.pipeline.xagg: XAGG weapon_compliance_scan: 32 weapon(s); 30 unlicensed, 2 with no licence status recorded; 3 custody control(s) with no register column; 0 weapon(s) resolving to no case",
+   "2026-09-15 18:02:35,068 [INFO] src.pipeline.xagg: XAGG cms_fir_linkage: 4 CMS complaint(s), 4 linked to a case, 0 unlinked",
+   "2026-09-15 18:02:35,068 [INFO] src.pipeline.xagg: XAGG case_completeness_scan: 73 case(s) scanned; 9 missing an incident date, 52 missing an investigation status, 188 of 259 zimni entries carry no type, 13 of 44 recorded departures precede their own report time, 0 of 4 walk-in complaints unlinked",
+   "2026-09-15 18:02:35,068 [INFO] src.pipeline.xagg: XAGG court_readiness_scan: 94 accused edge(s), 82 with no recorded relationship; 2 of 32 weapon(s) with no licence status; 9 of 73 case(s) with no incident date"
+  ],
+  "actual_answer": "عدالت کو حوالگی کے لیے کیس فائل تیار کرتے ہوئے، ڈیٹا کی روشنی میں نامکمل ہونے کی سب سے زیادہ امکانات یہ ہیں:  \n1. **مُتَّہَم ↔ شکایت کنندہ کے تعلق** کی تفصیل 94 میں سے 82 مُتَّہَم کی درجہ وار درج کردہ ریکارڈ میں خالی ہے — عدالتیں عام طور پر دونوں فریقوں کے تعلق کے بارے میں پوچھتی ہیں۔  \n2. **2 سے 32 تاحقیقی ہتھیاروں کے ریکارڈ** میں ہتھیار کی لائسنس کی حیثیت درج نہیں ہے — یہ ہتھیار کی قانون کی خلاف ورزی کے کیس میں فیصلہ کن ہوتا ہے۔  \n3. **9 FIRs (پہلی اطلاعاتی رپورٹ)** میں واقعہ کی تاریخ درج نہیں ہے، اس لیے فائل کا وقتی تسلسل رپورٹ کی تاریخ سے شروع ہوتا ہے، واقعہ کی تاریخ سے نہیں۔  \nہر ایک میں ترمیم کی ضرورت ہو سکتی ہے، لیکن یہ کیس کی تاخیر کا سبب نہیں بنے گا۔ [Document 1]",
+  "route": "XAGG",
+  "sub_agent": "Large-Scale Aggregate",
+  "subquery_routes": [],
+  "status": "done",
+  "cutover_classification_failed": false,
+  "error": null
+ },
+ {
+  "id": "G5",
+  "run": 1,
+  "text": "Baramad shuda hathiyaron ki record keeping ko dekhte hue, kya koi aisi baat hai jo compliance ke lihaz se flag karne layak ho?",
+  "elapsed_s": 7.0,
+  "fallbacks": 0,
+  "model": "local",
+  "subagent_select": [],
+  "semantic_select": [],
+  "log_lines": [
+   "2026-09-15 18:02:47,381 [INFO] src.pipeline.xagg: XAGG weapon_compliance_scan: 32 weapon(s); 30 unlicensed, 2 with no licence status recorded; 3 custody control(s) with no register column; 0 weapon(s) resolving to no case"
+  ],
+  "actual_answer": "Reviewing the 32 weapon-register entries for compliance:\n  - 30 of 32 recovered weapons (~94%) are recorded WITHOUT a licence — a pattern too broad to treat case-by-case; it warrants a standing compliance check.\n  - 2 carry no licence status at all, so their compliance can't be confirmed either way.\n  - The register records WHAT was recovered and its condition, but has no field for packaging or sealing, photographs, chain of custody / handover — so for any entry, whether the item was handled to procedure cannot be verified from the record at all. This is a gap in the form, not in one officer's paperwork.\n  - Weapons attach to a case only by a SOFT match on the FIR code written into the register — plain text, no enforced key. All 32 resolve to a real case today, but a single mistyped code would silently orphan an item with nothing raising an error.\n\n_The natural-language summary could not be verified as an accurate paraphrase; showing the raw computed aggregate instead._",
+  "route": "XAGG",
+  "sub_agent": "Large-Scale Aggregate",
+  "subquery_routes": [],
+  "status": "done",
+  "cutover_classification_failed": false,
+  "error": null
+ },
+ {
+  "id": "G6",
+  "run": 1,
+  "text": "Yahan naye tainaat hone wale afsar ke liye ek mukhtasar orientation note likhein — unhein mojooda case load se kya tawaqqo rakhni chahiye?",
+  "elapsed_s": 221.8,
+  "fallbacks": 2,
+  "model": "cloud-fallback",
+  "subagent_select": [
+   "Meta-Analysis via trigger | Yahan naye tainaat hone wale afsar ke liye ek mukhtasar orientation note likhein — unhein mojooda case load se kya tawaq"
+  ],
+  "semantic_select": [],
+  "log_lines": [
+   "2026-09-15 18:02:56,768 [INFO] src.pipeline.semantic_dispatch: SEMANTIC-DISPATCH no-fire: best=graph_recurrence_weapon(0.007) runner_up=unsupported_officer(0.002) threshold=0.40 1.49s | Yahan naye tainaat hone wale afsar ke liye ek mukhtasar orientation note likhein — unhein mojooda case load se kya tawaq",
+   "2026-09-15 18:03:20,586 [INFO] src.pipeline.harness.supervisor: SUBAGENT-SELECT Meta-Analysis via trigger | Yahan naye tainaat hone wale afsar ke liye ek mukhtasar orientation note likhein — unhein mojooda case load se kya tawaq",
+   "2026-09-15 18:03:20,586 [INFO] src.pipeline.harness.agents.meta_analysis: Meta-Analysis: deterministic decomposition plan 'orientation_note' matched.",
+   "2026-09-15 18:03:20,658 [INFO] src.pipeline.xagg: XAGG district_breakdown: entity=Case, 9 district(s); فیصل آباد=19, لاہور=18, راولپنڈی=10, اسلام آباد=5, چنیوٹ=5, حیدر آباد=5, کراچی ایسٹ=5, کراچی وسطی=5, ملتان=1",
+   "2026-09-15 18:03:21,132 [INFO] src.pipeline.xagg: XAGG time_bucketed_breakdown: dimension=statute_by_year, 2 year bucket(s) [2024:cases=13,acts=26,sections=3, 2026:cases=51,acts=82,sections=31]",
+   "2026-09-15 18:03:30,906 [INFO] src.pipeline.xagg: XAGG arrest_rate: 11 of 73 FIR(s) record an arrest (1 in 6.6); 14 accused entr(y/ies) classified arrested, 2 explicitly not arrested, 1 arrested in an earlier case; bare-token reading 8 FIR(s) (1 in 9.1)",
+   "2026-09-15 18:03:44,452 [INFO] src.pipeline.xagg: XAGG incident_to_report_minutes_by_year: 2 year bucket(s) [2024=15.0min/n=13, 2026=1401.3min/n=51], 0 row(s) excluded for a missing/unparseable/out-of-order timestamp",
+   "2026-09-15 18:03:50,774 [INFO] src.pipeline.xagg: XAGG weapon_compliance_scan: 32 weapon(s); 30 unlicensed, 2 with no licence status recorded; 3 custody control(s) with no register column; 0 weapon(s) resolving to no case",
+   "2026-09-15 18:03:55,468 [INFO] src.pipeline.xagg: XAGG offender_age_profile: 17 of 92 distinct accused carry an age (19 of 94 accused entries); range 24-49, mean 31.5; filters=none",
+   "2026-09-15 18:04:46,071 [INFO] src.pipeline.xagg: XAGG accused_relationship_breakdown: 24 relationship edge(s) across 10 FIR(s), 6 distinct value(s); dominant='اجنبی' 15; coverage 12 of 92 distinct accused",
+   "2026-09-15 18:05:36,419 [WARNING] src.llm.client: Local LLM failed: . Falling back to groq...",
+   "2026-09-15 18:05:37,688 [INFO] src.pipeline.xagg: XAGG criminal_record_court_crosscheck: 33 criminal record(s), 1 settled / 32 in progress; 1 cross-checked against a court outcome, 1 consistent",
+   "2026-09-15 18:05:46,808 [WARNING] src.llm.client: Local LLM failed: . Falling back to groq..."
+  ],
+  "actual_answer": "For a new officer joining this caseload, here is a concise orientation note:  \n\n**District Concentration**: Cases are concentrated in **فیصل آباد** (19 cases) and **لاہور** (18 cases), with **راولپنڈی** (10 cases) and other districts (5 or fewer cases) contributing smaller shares [Document 1].  \n\n**Case Mix**: The caseload now includes **3.9× more FIRs** than in 2024, with a broader range of offenses: **murder**, **human trafficking**, **cybercrime**, **narcotics**, and **domestic violence**, alongside traditional crimes like **robbery** and **theft** [Document 2].  \n\n**Arrests**: Only **11 of 73 FIRs** record an arrest, meaning **62 FIRs** have no arrest (under investigation, absconding, or explicitly noted as not arrested) [Document 3].  \n\n**Reporting Delays**: The mean time from incident to report is **1401.3 minutes (~23.4 hours)** in 2026, compared to **15 minutes** in 2024 — a significant slowdown [Document 4].  \n\n**Weapon Licensing**: **30 cases** involve recovered weapons with **no licence recorded**, highlighting persistent issues with unlicensed firearms [Document 5].  \n\n**Accused Profile**: Of **92 accused**, only **17 have recorded ages** (24–49 years, mean 31.5); **75 accused have no age data**. The most common relationship between accused and complainant is **اجنبی** (stranger), recorded in **10 FIRs** [Documents 6 and 7].  \n\n**Court Progress**: Of **33 criminal records**, **32 are still in progress** (under trial, pending appeal, etc.), and only **1 case** has reached a verdict [Document 8].  \n\nThis caseload demands attention to modern offenses, delayed reporting, and low arrest rates, with a focus on unlicensed weapons and ongoing judicial processes.\n\n_The natural-language summary for this sub-question did not finish in time; showing the raw computed aggregate instead: How many cases in the criminal record system are still in progress in court, and how many have reached a verdict, across all cases?_",
+  "route": "XNETWORK",
+  "sub_agent": "Meta-Analysis",
+  "subquery_routes": [
+   "XAGG",
+   "XAGG",
+   "XAGG",
+   "XAGG",
+   "XAGG",
+   "XAGG",
+   "XAGG",
+   "XAGG"
+  ],
+  "status": "done",
+  "cutover_classification_failed": false,
+  "error": null
+ },
+ {
+  "id": "KB1",
+  "run": 1,
+  "text": "What legal requirement governs how a report of a crime becomes a formal FIR, and does our recordkeeping actually follow it?",
+  "elapsed_s": 88.0,
+  "fallbacks": 0,
+  "model": "local",
+  "subagent_select": [],
+  "semantic_select": [],
+  "log_lines": [
+   "2026-09-15 18:06:54,936 [INFO] src.pipeline.xagg: XAGG fir_register_completeness: 73 case(s); complainant 73/73; recording_officer 70/73; report_datetime 73/73; all three elements present on 70 case(s); 2 s.154 element(s) unmodelled in the schema"
+  ],
+  "actual_answer": "**Legal Requirement:**  \nUnder the Punjab Police Rules, the recording of a First Information Report (FIR) is governed by **Section 154 of the Criminal Procedure Code** and **Rule 24.5**. Specifically:  \n- **Section 154** mandates that every information about an offence must be recorded in writing by the police station officer-in-charge, with the substance of the information entered into the police station’s daily diary (Document 3).  \n- **Rule 24.5** requires the use of a printed **First Information Report Register** (Form 24.5(1)) with 500 pages, filled completely before a new register is started. Cases must bear annual serial numbers, and every five pages must be numbered identically and written via carbon copying (Document 1, Document 2).  \n\n**Recordkeeping Compliance:**  \nOur case records (Document 6) show:  \n- **Complainant details** are recorded in **all 73 cases**.  \n- The **officer who recorded the report** is missing in **3 cases** (fir-117-26, fir-954-26, fir-955-26).  \n- The **time the report was made** is recorded in **all 73 cases**.  \n- All three elements (complainant details, officer, time) are present together in **70 of 73 cases**, fulfilling the structural equivalent of Section 154’s requirement for a register entry.  \n- However, **two steps from Section 154** are not modeled in the schema: (1) the statement was read back to the informant, and (2) the informant signed it. The records **neither confirm nor contradict** these steps, as they are unmodelled (Document 6).  \n\n**Conclusion:**  \nWhile our records largely follow the structural requirements of Section 154 and Rule 24.5 (e.g., recording complainant details, time, and officer in most cases), they **lack fields** for critical steps (read-back and signature) explicitly required by the law. This omission means compliance with those specific legal provisions **cannot be confirmed** based on the current schema.",
+  "route": "RAG",
+  "sub_agent": "Semantic Search",
+  "subquery_routes": [],
+  "status": "done",
+  "cutover_classification_failed": false,
+  "error": null
+ },
+ {
+  "id": "KB2",
+  "run": 1,
+  "text": "Why doesn't our system keep a record of what a witness or an accused person actually said in a police interview — is that a data gap?",
+  "elapsed_s": 203.2,
+  "fallbacks": 0,
+  "model": "local",
+  "subagent_select": [],
+  "semantic_select": [],
+  "log_lines": [],
+  "actual_answer": "The system does record statements made by witnesses or accused persons during police interviews, but the process is governed by specific legal procedures outlined in the documents. Under **Section 164** of the Code of Criminal Procedure (Document 2), magistrates are empowered to record statements or confessions made during investigations, which may be used as evidence later. These statements are recorded in manners prescribed for evidence (Document 2, Section 164(2)). \n\nAdditionally, **Rule 25.18** of the Punjab Police Rules (Document 5) specifies that statements recorded under **Section 161** of the Code of Criminal Procedure (by investigating officers) are not included in the case diary but are instead recorded separately and attached to the case diary as continuation sheets. This ensures that such statements are formally documented but kept distinct from the main case diary.\n\nThus, the system does maintain records of statements, though they are handled through magistrates or separate procedural mechanisms rather than being directly integrated into the case diary. The documents do not indicate a \"data gap\" but rather a structured approach to recording and managing such information.",
+  "route": "RAG",
+  "sub_agent": "Semantic Search",
+  "subquery_routes": [],
+  "status": "done",
+  "cutover_classification_failed": false,
+  "error": null
+ },
+ {
+  "id": "KB3",
+  "run": 1,
+  "text": "Does the law expect the officer who first registers a case to be the same one who investigates it, or are those meant to be separate roles — and does that match what actually happens in our data?",
+  "elapsed_s": 319.9,
+  "fallbacks": 0,
+  "model": "local",
+  "subagent_select": [],
+  "semantic_select": [],
+  "log_lines": [
+   "2026-09-15 18:11:46,303 [INFO] src.pipeline.xagg: XAGG officer_role_pair_overlap: 144 assignment edge(s), 74 investigating / 70 recording; same officer on 68 of 74 pair(s) (91.9%), 6 split across 6 case(s), 3 investigating assignment(s) with no recording counterpart"
+  ],
+  "actual_answer": "No sufficiently relevant documents were found for this question after retrying with query refinements.",
+  "route": "RAG",
+  "sub_agent": "Semantic Search",
+  "subquery_routes": [],
+  "status": "error",
+  "cutover_classification_failed": false,
+  "error": null
+ },
+ {
+  "id": "KB4",
+  "run": 1,
+  "text": "جب پولیس کسی مقدمے سے متعلق اشیاء اپنی تحویل میں لیتی ہے، تو کیا اِس بارے میں کوئی باقاعدہ معیار موجود ہے کہ اُنہیں کیسے درج اور بالآخر کیسے تلف کیا جائے — اور کیا ہمارا پراپرٹی ریکارڈ اُس پر عمل کرتا ہے؟",
+  "elapsed_s": 108.6,
+  "fallbacks": 0,
+  "model": "local",
+  "subagent_select": [],
+  "semantic_select": [],
+  "log_lines": [
+   "2026-09-15 18:17:18,194 [INFO] src.pipeline.xagg: XAGG seized_property_disposition: 45 register entr(ies) across 28 FIR(s), 9 distinct disposition(s); forensic-lab dispatch 13 item(s) in 11 FIR(s) (16 mention forensic in any wording); heirs 7 item(s) in 7 FIR(s); 0 entr(ies) record no disposition"
+  ],
+  "actual_answer": "### Part 1: Governing Legal Requirements  \nThe **Punjab Police Rules** outline specific procedures for handling seized property:  \n- **Rule 22.16(1)** mandates that police seize property connected to criminal cases and take charge of unclaimed property under legal authority (e.g., Section 170 of the Code of Criminal Procedure).  \n- **Rule 27.16(1)** (Document 1) requires unclaimed property sent by police to be handed over to the sheriff \"as soon after arrival as possible,\" with a receipt taken in **Register No. 1**.  \n- **Rule 27.18(1)** (Document 2) mandates daily records of case property issued/returned from the prosecuting agency’s store-room.  \n- **Rule 22.68** (Document 4) specifies permanent record-keeping for certain registers, including Arms Act licenses and other property-related entries.  \n\nFor disposal:  \n- **Rule 27.16(4)** (Document 1) states that property in unresolved cases (accused at large) must be kept in a strong box or store-room for up to 50 years, after which it is handed to the sheriff for disposal.  \n\n---\n\n### Part 2: Case Records Compliance  \nAccording to **Document 7** (our case records summary):  \n- **Dispositions recorded**:  \n  - **14 items** in 13 FIRs were marked as **confiscated**.  \n  - **13 items** in 11 FIRs were **sent to forensic laboratories** (literal \"dispatched\" entries).  \n  - **7 items** in 7 FIRs are **held for return to heirs**.  \n  - **6 items** in 6 FIRs are **held for return to complainants**.  \n  - **1 item** was **confiscated and held post-forensic testing**.  \n  - **1 item** is **held as forensic evidence**.  \n  - **1 item** is **sealed in the property store**.  \n  - **1 item** is **sealed in the property store with forensic examination required**.  \n\n- **Non-compliance gaps**:  \n  - No entries indicate property being **destroyed** or **disposed of after 50 years** (as required by Rule 27.16(4)).  \n  - No mention of **strong box storage** for unresolved cases (Rule 27.16(4)).  \n  - **Register No. 1** (required for receipts of unclaimed property) is not explicitly referenced in the case records summary.  \n  - **Permanent record-keeping** (per Rule 22.68) is not confirmed in the summary.  \n\nIn conclusion, while some procedural steps (e.g., forensic dispatch, holding for heirs) are followed, critical requirements like long-term storage, destruction timelines, and specific register usage are **not reflected** in the case records.",
+  "route": "RAG",
+  "sub_agent": "Semantic Search",
+  "subquery_routes": [],
+  "status": "done",
+  "cutover_classification_failed": false,
+  "error": null
+ },
+ {
+  "id": "KB5",
+  "run": 1,
+  "text": "جب کسی مقدمے میں کسی عورت پر تشدد شامل ہو، تو کیا قانون عام مقدمے سے مختلف طریقۂ کار کا تقاضا کرتا ہے — اور اگر ہاں، تو کیا ہمارا ڈیٹا ظاہر کرتا ہے کہ وہ اضافی اقدامات واقعی کیے گئے؟",
+  "elapsed_s": 197.6,
+  "fallbacks": 0,
+  "model": "local",
+  "subagent_select": [],
+  "semantic_select": [],
+  "log_lines": [
+   "2026-09-15 18:18:56,805 [INFO] src.pipeline.xagg: XAGG dv_report_fir_match: 8 women-violence report(s), 4 matched to an FIR, 4 unconfirmed"
+  ],
+  "actual_answer": "### Part 1: Legal Requirements  \nUnder the **Anti-Rape (Investigation and Trial) Act, 2021**, specific procedures apply when a case involves a woman, including:  \n- **Immediate FIR registration** by a lady police officer (Document 2, section 4(1)).  \n- **Private statement recording** in the presence of the victim’s chosen person (Document 2, section 4(2)).  \n- **Designation of a female police officer** to assist in investigations and ensure her presence during critical procedures like medico-legal examinations (Document 1, section 3(d)).  \n- **Chain of custody maintenance** for evidence (Document 1, section 3(i)).  \n\nThese measures are explicitly mandated for cases under the Act, which includes sexual offences but **does not explicitly mention domestic violence**. However, the procedures may be **interpreted to apply broadly to cases involving women**, including domestic violence, depending on jurisdictional practice.  \n\n---\n\n### Part 2: Case Records Analysis  \nOur case records (Document 6) show:  \n- **8 domestic-violence reports**:  \n  - **4 cases** have a **forwarded FIR number** (e.g., `fir-97-26`, `fir-416-26`), indicating FIRs were registered.  \n  - **4 cases** **lack a forwarded FIR number**, suggesting no FIR was registered or linked.  \n- **No data** is provided on whether **female police officers were involved**, **ARCC liaison occurred**, or **chain-of-custody protocols** were followed.  \n\nThus, while **FIR registration** (a legal requirement) is partially documented, **no evidence** is present in the records to confirm compliance with other mandated measures (e.g., female officer involvement, ARCC coordination). The data is incomplete for assessing full adherence to the law.  \n\n---  \n**Conclusion**: The law requires special procedures for cases involving women, but our records only confirm FIR registration in half of the domestic-violence cases, with no information on other critical measures.",
+  "route": "RAG",
+  "sub_agent": "Semantic Search",
+  "subquery_routes": [],
+  "status": "done",
+  "cutover_classification_failed": false,
+  "error": null
+ },
+ {
+  "id": "KB6",
+  "run": 1,
+  "text": "Kya forensics guidelines mein is bare mein kuch makhsoos likha hai ke baramad shuda aslaha darj hone se pehle kaise handle kiya jaye, aur kya hamara weapon register yeh darj karta hai ke us par amal hua ya nahi?",
+  "elapsed_s": 78.9,
+  "fallbacks": 0,
+  "model": "local",
+  "subagent_select": [],
+  "semantic_select": [],
+  "log_lines": [
+   "2026-09-15 18:22:16,147 [INFO] src.pipeline.xagg: XAGG weapon_compliance_scan: 32 weapon(s); 30 unlicensed, 2 with no licence status recorded; 3 custody control(s) with no register column; 0 weapon(s) resolving to no case"
+  ],
+  "actual_answer": "### Part 1: Forensic Guidelines on Handling Recovered Weapons  \nThe **forensics guidelines** (Document 5) specify handling procedures for recovered weapons and evidence:  \n- Firearms must be packaged in a **hard box**, not cloth bags or paper envelopes. Layers of clothing with gunpowder residue (GSR) must be separated by **white paper sheets** (Document 5, first bullet).  \n- For trajectory analysis, **vehicles must not be washed** before examination, and suspected bullet holes must be **covered with white paper** (Document 5, third bullet).  \n- Seals must remain **intact** as per the docket (Document 5, fourth bullet).  \n- If a firearm is recovered from **liquid**, it must be submitted **with the same sample of liquid** (Document 5, fifth bullet).  \n\nThese steps outline **pre-recording handling protocols** for physical evidence.  \n\n---\n\n### Part 2: Does the Weapon Register Document Compliance with These Procedures?  \nThe **weapon register** (Document 7) **does not** record whether procedures like packaging, sealing, photography, or chain of custody were followed. Specifically:  \n- The register **lacks fields** for **packaging/sealing details**, **photographs**, or **chain of custody** (Document 7, third bullet).  \n- While the register records the **recovered weapon’s condition** and **FIR code** (for case linkage), it **cannot verify** if handling protocols were followed, as these details are **absent from the form** (Document 7, third bullet).  \n\nThis is a **gap in the register’s design**, not individual paperwork errors (Document 7).  \n\n---  \n**Conclusion**: Forensic guidelines mandate specific handling steps, but the weapon register does not document compliance with these steps.",
+  "route": "RAG",
+  "sub_agent": "Semantic Search",
+  "subquery_routes": [],
+  "status": "done",
+  "cutover_classification_failed": false,
+  "error": null
+ },
+ {
+  "id": "KB8",
+  "run": 1,
+  "text": "Agar kisi case ki tafteesh lambi ho jaye, to kya qanoon police ko iske mukammal hone se pehle adaalat ko kuch report karna zaroori karta hai — aur kya hamara case-tracking data batayega ke aisa hua ya nahi?",
+  "elapsed_s": 85.9,
+  "fallbacks": 0,
+  "model": "local",
+  "subagent_select": [],
+  "semantic_select": [],
+  "log_lines": [
+   "2026-09-15 18:23:37,548 [INFO] src.pipeline.xagg: XAGG chalaan_dispatch_count: 26 challan dispatch record(s) across 26 case(s), 15 carrying a dispatch timestamp; 20 chalaan_outcome record(s) across 20 case(s), 15 with a court-reached date; interim-report record type present=False"
+  ],
+  "actual_answer": "**Part 1: Legal Requirement**  \nUnder the **Code of Criminal Procedure (Pakistan)**, if an investigation is not completed within 14 days of the first information report (FIR), the officer in charge **must forward an interim report** to the Magistrate through the Public Prosecutor within three days of the expiration of the 14-day period. This is mandated by **section 172(i)** (Document 6).  \n\n**Part 2: Case-Tracking Data**  \nOur case-tracking data **does not record interim reports**. The data shows:  \n- **26 challans** sent to court, with **15 having dispatch timestamps** (Document 8).  \n- **No field** in the schema links a challan to the start of its investigation or tracks interim reports.  \n- The data **confirms cases reached court** but **cannot confirm whether interim reporting duties were met**, as no \"interim-report\" record type exists in the schema (Document 8).  \n\nThus, while the law requires interim reports for delayed investigations, our records **do not provide evidence** of whether this requirement was fulfilled.",
+  "route": "RAG",
+  "sub_agent": "Semantic Search",
+  "subquery_routes": [],
+  "status": "done",
+  "cutover_classification_failed": false,
+  "error": null
+ },
+ {
+  "id": "KB9",
+  "run": 1,
+  "text": "Jab koi shakhs mashkook halaat mein foat ho jaye, to police ko maut ki wajah ki baaqaida tehqeeqaat karni hoti hai — kya hamara system yeh kahin darj karta hai, khaas tor par jab hamare itne cases mein maut shamil hai?",
+  "elapsed_s": 317.4,
+  "fallbacks": 0,
+  "model": "local",
+  "subagent_select": [],
+  "semantic_select": [],
+  "log_lines": [
+   "2026-09-15 18:25:05,898 [INFO] src.pipeline.xagg: XAGG fir_section_case_count: 218 section entr(ies) over 73 FIR(s) and 36 distinct section(s); focus=302 -> 10 FIR(s); top=PPC §34=40, Arms Ordinance 1965 §13=29, PPC §392=21, CNSA 1997 §9(c)=12, PPC §420=11; filters=none",
+   "2026-09-15 18:25:05,963 [INFO] src.pipeline.xagg: XAGG seized_property_disposition: 45 register entr(ies) across 28 FIR(s), 9 distinct disposition(s); forensic-lab dispatch 13 item(s) in 11 FIR(s) (16 mention forensic in any wording); heirs 7 item(s) in 7 FIR(s); 0 entr(ies) record no disposition",
+   "2026-09-15 18:25:05,963 [INFO] src.pipeline.harness.tools.chained_aggregate: XAGG chained 'death_investigation_charging': fir_section_case_count -> take None=None -> seized_property_disposition narrowed to all case(s); 0.13s"
+  ],
+  "actual_answer": "No sufficiently relevant documents were found for this question after retrying with query refinements.",
+  "route": "RAG",
+  "sub_agent": "Semantic Search",
+  "subquery_routes": [],
+  "status": "error",
+  "cutover_classification_failed": false,
+  "error": null
+ }
+]
