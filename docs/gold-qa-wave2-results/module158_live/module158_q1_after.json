@@ -1,0 +1,83 @@
+[
+ {
+  "id": "Q1",
+  "run": 1,
+  "text": "How is the most frequently cited offence pattern distributed across districts?",
+  "elapsed_s": 90.8,
+  "fallbacks": 0,
+  "model": "local",
+  "subagent_select": [
+   "Meta-Analysis via plan=most_cited_section_by_district | How is the most frequently cited offence pattern distributed across districts?"
+  ],
+  "semantic_select": [],
+  "log_lines": [
+   "2026-09-15 16:55:07,851 [INFO] src.pipeline.harness.supervisor: SUBAGENT-SELECT Meta-Analysis via plan=most_cited_section_by_district | How is the most frequently cited offence pattern distributed across districts?",
+   "2026-09-15 16:55:07,852 [INFO] src.pipeline.harness.agents.meta_analysis: Meta-Analysis: deterministic decomposition plan 'most_cited_section_by_district' matched.",
+   "2026-09-15 16:55:08,281 [INFO] src.pipeline.xagg: XAGG fir_section_case_count: 218 section entr(ies) over 73 FIR(s) and 36 distinct section(s); focus=none -> n/a FIR(s); top=PPC §34=40, Arms Ordinance 1965 §13=29, PPC §392=21, CNSA 1997 §9(c)=12, PPC §420=11; filters=none",
+   "2026-09-15 16:55:08,447 [INFO] src.pipeline.xagg: XAGG district_breakdown: entity=Case, 8 district(s); فیصل آباد=12, لاہور=10, راولپنڈی=4, کراچی ایسٹ=4, چنیوٹ=3, حیدر آباد=3, اسلام آباد=2, کراچی وسطی=2",
+   "2026-09-15 16:55:08,447 [INFO] src.pipeline.harness.tools.chained_aggregate: XAGG chained 'Which section is cited by the most FIRs, and how are the FIRs citing it distributed across districts?': fir_section_case_count -> take sections.0.section_code='34' -> district_breakdown narrowed to 40 case(s); 0.59s",
+   "2026-09-15 16:55:08,447 [INFO] src.pipeline.harness.agents.meta_analysis: Meta-Analysis: chained step 'Which section is cited by the most FIRs, and how are the FIRs citing it distribu' answered by fir_section_case_count -> district_breakdown in 0.59s."
+  ],
+  "actual_answer": "The most frequently cited offence pattern is under **PPC §34**, which appears in **40 FIR(s)** [Document 1]. Across districts, these 40 cases are distributed as follows:  \n- **فیصل آباد**: 12 case(s)  \n- **لاہور**: 10 case(s)  \n- **راولپنڈی**: 4 case(s)  \n- **کراچی ایسٹ**: 4 case(s)  \n- **چنیوٹ**: 3 case(s)  \n- **حیدر آباد**: 3 case(s)  \n- **اسلام آباد**: 2 case(s)  \n- **کراچی وسطی**: 2 case(s)  \n\nThis distribution is derived directly from the 40 cases under PPC §34 [Document 1].",
+  "route": "XAGG",
+  "sub_agent": "Meta-Analysis",
+  "subquery_routes": [],
+  "status": "done",
+  "cutover_classification_failed": false,
+  "error": null
+ },
+ {
+  "id": "Q1",
+  "run": 2,
+  "text": "How is the most frequently cited offence pattern distributed across districts?",
+  "elapsed_s": 88.8,
+  "fallbacks": 0,
+  "model": "local",
+  "subagent_select": [
+   "Meta-Analysis via plan=most_cited_section_by_district | How is the most frequently cited offence pattern distributed across districts?"
+  ],
+  "semantic_select": [],
+  "log_lines": [
+   "2026-09-15 16:56:41,891 [INFO] src.pipeline.harness.supervisor: SUBAGENT-SELECT Meta-Analysis via plan=most_cited_section_by_district | How is the most frequently cited offence pattern distributed across districts?",
+   "2026-09-15 16:56:41,891 [INFO] src.pipeline.harness.agents.meta_analysis: Meta-Analysis: deterministic decomposition plan 'most_cited_section_by_district' matched.",
+   "2026-09-15 16:56:41,997 [INFO] src.pipeline.xagg: XAGG fir_section_case_count: 218 section entr(ies) over 73 FIR(s) and 36 distinct section(s); focus=none -> n/a FIR(s); top=PPC §34=40, Arms Ordinance 1965 §13=29, PPC §392=21, CNSA 1997 §9(c)=12, PPC §420=11; filters=none",
+   "2026-09-15 16:56:42,135 [INFO] src.pipeline.xagg: XAGG district_breakdown: entity=Case, 8 district(s); فیصل آباد=12, لاہور=10, راولپنڈی=4, کراچی ایسٹ=4, چنیوٹ=3, حیدر آباد=3, اسلام آباد=2, کراچی وسطی=2",
+   "2026-09-15 16:56:42,136 [INFO] src.pipeline.harness.tools.chained_aggregate: XAGG chained 'Which section is cited by the most FIRs, and how are the FIRs citing it distributed across districts?': fir_section_case_count -> take sections.0.section_code='34' -> district_breakdown narrowed to 40 case(s); 0.24s",
+   "2026-09-15 16:56:42,136 [INFO] src.pipeline.harness.agents.meta_analysis: Meta-Analysis: chained step 'Which section is cited by the most FIRs, and how are the FIRs citing it distribu' answered by fir_section_case_count -> district_breakdown in 0.24s."
+  ],
+  "actual_answer": "The most frequently cited offence pattern is under **PPC §34**, which appears in **40 FIR(s)** [Document 1]. Across districts, these 40 cases are distributed as follows:  \n- **فیصل آباد**: 12 case(s)  \n- **لاہور**: 10 case(s)  \n- **راولپنڈی**: 4 case(s)  \n- **کراچی ایسٹ**: 4 case(s)  \n- **چنیوٹ**: 3 case(s)  \n- **حیدر آباد**: 3 case(s)  \n- **اسلام آباد**: 2 case(s)  \n- **کراچی وسطی**: 2 case(s)  \n\nThis distribution is derived directly from the 40 cases under PPC §34 [Document 1].",
+  "route": "XAGG",
+  "sub_agent": "Meta-Analysis",
+  "subquery_routes": [],
+  "status": "done",
+  "cutover_classification_failed": false,
+  "error": null
+ },
+ {
+  "id": "Q1",
+  "run": 3,
+  "text": "How is the most frequently cited offence pattern distributed across districts?",
+  "elapsed_s": 92.8,
+  "fallbacks": 0,
+  "model": "local",
+  "subagent_select": [
+   "Meta-Analysis via plan=most_cited_section_by_district | How is the most frequently cited offence pattern distributed across districts?"
+  ],
+  "semantic_select": [],
+  "log_lines": [
+   "2026-09-15 16:58:22,954 [INFO] src.pipeline.harness.supervisor: SUBAGENT-SELECT Meta-Analysis via plan=most_cited_section_by_district | How is the most frequently cited offence pattern distributed across districts?",
+   "2026-09-15 16:58:22,955 [INFO] src.pipeline.harness.agents.meta_analysis: Meta-Analysis: deterministic decomposition plan 'most_cited_section_by_district' matched.",
+   "2026-09-15 16:58:23,043 [INFO] src.pipeline.xagg: XAGG fir_section_case_count: 218 section entr(ies) over 73 FIR(s) and 36 distinct section(s); focus=none -> n/a FIR(s); top=PPC §34=40, Arms Ordinance 1965 §13=29, PPC §392=21, CNSA 1997 §9(c)=12, PPC §420=11; filters=none",
+   "2026-09-15 16:58:23,187 [INFO] src.pipeline.xagg: XAGG district_breakdown: entity=Case, 8 district(s); فیصل آباد=12, لاہور=10, راولپنڈی=4, کراچی ایسٹ=4, چنیوٹ=3, حیدر آباد=3, اسلام آباد=2, کراچی وسطی=2",
+   "2026-09-15 16:58:23,188 [INFO] src.pipeline.harness.tools.chained_aggregate: XAGG chained 'Which section is cited by the most FIRs, and how are the FIRs citing it distributed across districts?': fir_section_case_count -> take sections.0.section_code='34' -> district_breakdown narrowed to 40 case(s); 0.23s",
+   "2026-09-15 16:58:23,188 [INFO] src.pipeline.harness.agents.meta_analysis: Meta-Analysis: chained step 'Which section is cited by the most FIRs, and how are the FIRs citing it distribu' answered by fir_section_case_count -> district_breakdown in 0.23s."
+  ],
+  "actual_answer": "The most frequently cited offence pattern is under **PPC §34**, which appears in **40 FIR(s)** [Document 1]. Across districts, these 40 cases are distributed as follows:  \n- **فیصل آباد**: 12 case(s)  \n- **لاہور**: 10 case(s)  \n- **راولپنڈی**: 4 case(s)  \n- **کراچی ایسٹ**: 4 case(s)  \n- **چنیوٹ**: 3 case(s)  \n- **حیدر آباد**: 3 case(s)  \n- **اسلام آباد**: 2 case(s)  \n- **کراچی وسطی**: 2 case(s)  \n\nThis distribution is derived directly from the 40 cases under PPC §34 [Document 1].",
+  "route": "XAGG",
+  "sub_agent": "Meta-Analysis",
+  "subquery_routes": [],
+  "status": "done",
+  "cutover_classification_failed": false,
+  "error": null
+ }
+]

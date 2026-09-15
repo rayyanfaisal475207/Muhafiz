@@ -236,7 +236,11 @@ class ConversationContext(BaseModel):
 # §0 — Evidence
 # ═══════════════════════════════════════════════════════════════════════
 
-SourceTool = Literal["RAG", "GRAPH", "GRAPH_HYBRID", "XGRAPH", "XAGG", "XNETWORK", "SQL", "WEB"]
+# [Gold-QA fix — Module 178] "LLM_QUERY": the generated-graph-query fallback
+# (src/pipeline/llm_query_fallback.py). Its label says "unverified" on
+# purpose — the display contract is how the UI tells a reader the figures
+# did not come from an audited aggregate.
+SourceTool = Literal["RAG", "GRAPH", "GRAPH_HYBRID", "XGRAPH", "XAGG", "XNETWORK", "SQL", "WEB", "LLM_QUERY"]
 
 ConfidenceStatus = Literal["computed", "not_computed", "check_failed"]
 
@@ -537,6 +541,7 @@ SOURCE_TOOL_DISPLAY_LABELS: dict[SourceTool, str] = {
     "XNETWORK": "cross-case pattern synthesis",
     "SQL": "penal-code reference lookup",
     "WEB": "external web search",
+    "LLM_QUERY": "generated graph query (unverified)",
 }
 
 
