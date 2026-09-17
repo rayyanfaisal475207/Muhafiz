@@ -47,6 +47,14 @@ async def get_session_history(session_id: str, current_user: User = Depends(get_
         raise HTTPException(status_code=403, detail="Not authorized to access this session.")
         
     history = await gateway.get_session_history(session_id)
+    # Opening a conversation counts as using it: bump `updated_at` so the
+    # sidebar (ordered by that column) surfaces it at the top, matching how
+    # every other chat UI behaves. Best-effort — a failure here must never
+    # cost the user the history they asked for.
+    try:
+        await gateway.touch_session(session_id)
+    except Exception as exc:
+        logger.warning("Failed to touch session %s on access: %s", session_id, exc)
     return {"history": history}
 
 @router.delete("/{session_id}")
@@ -118,7 +126,24 @@ async def export_session(
     
     if format == "pdf":
         from src.generation.pdf_builder import build_pdf
-        filepath, _ = build_pdf(payload)
+
+        # build_pdf() dispatches on each section's "type" key
+        # ({"type": "heading"|"paragraph"|"table"}) and silently skips
+        # anything it does not recognise. The `sections` built above carry no
+        # "type" at all -- they use the {"heading", "paragraphs"} shape the
+        # Markdown branch below consumes -- so every section fell through the
+        # dispatch and the exported PDF contained nothing but its title.
+        # Found live: exporting a chat downloaded a blank page.
+        #
+        # Translate into build_pdf's own schema here rather than changing
+        # `sections`, so the Markdown branch keeps the shape it expects.
+        pdf_sections: list[dict] = []
+        for sec in sections:
+            pdf_sections.append({"type": "heading", "level": 2, "content": sec["heading"]})
+            for para in sec["paragraphs"]:
+                pdf_sections.append({"type": "paragraph", "content": para})
+
+        filepath, _ = build_pdf({"title": title, "sections": pdf_sections})
         return FileResponse(path=filepath, filename=f"{title}.pdf", media_type="application/pdf")
         
     elif format == "md":

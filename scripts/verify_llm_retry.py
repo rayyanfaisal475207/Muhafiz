@@ -10,6 +10,12 @@ Run:  ./.venv/Scripts/python.exe verify_llm_retry.py
 """
 import asyncio
 import logging
+import os
+import sys
+
+# Running this file directly puts scripts/ on sys.path, not the repo root,
+# so `from src import ...` fails. Match the other scripts in this folder.
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
 import httpx
 
