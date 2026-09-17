@@ -11,6 +11,7 @@ import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { ChatPanel } from '../components/chat/ChatPanel';
 import { CitationPanel } from '../components/chat/CitationPanel';
 import { useChatStore } from '../store/chatStore';
+import { useSessionStore } from '../store/sessionStore';
 import type { Source } from '../types';
 
 import { LAST_SESSION_KEY } from '../lib/constants';
@@ -32,6 +33,10 @@ export function ChatPage() {
       // Persist this session so a refresh on '/' can restore it
       localStorage.setItem(LAST_SESSION_KEY, id);
       loadSession(id);
+      // Opening a chat counts as using it — mirror the backend's own
+      // `touch_session` on read so the sidebar reorders immediately
+      // instead of only after the next fetch.
+      useSessionStore.getState().touchSessionOptimistic(id);
     } else if ((location.state as { fresh?: boolean } | null)?.fresh) {
       // Explicit "New Chat" from the sidebar (or a case/project switch, which
       // reuses this same mechanism): the store was already reset by the

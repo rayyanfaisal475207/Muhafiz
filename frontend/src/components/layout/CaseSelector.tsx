@@ -114,6 +114,20 @@ export function CaseSelector({ cases, activeCaseId, allCasesLabel, onSelect }: P
 
   return (
     <div ref={containerRef} className="relative">
+      {/* This has been a type-to-filter combobox all along, but it was
+          styled exactly like the plain <select> above it and so read as a
+          dropdown — people scrolled it instead of typing. The magnifier
+          and the always-on "type to search" placeholder are the only
+          affordances that say the field accepts text. */}
+      <span
+        className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2"
+        style={{ color: 'var(--text-faint)' }}
+        aria-hidden="true"
+      >
+        <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-4.35-4.35M11 19a8 8 0 100-16 8 8 0 000 16z" />
+        </svg>
+      </span>
       <input
         ref={inputRef}
         role="combobox"
@@ -122,9 +136,10 @@ export function CaseSelector({ cases, activeCaseId, allCasesLabel, onSelect }: P
         aria-label="Case"
         aria-autocomplete="list"
         autoComplete="off"
-        className="w-full bg-[var(--bg-surface)] border border-[var(--border)] rounded-sm px-2.5 py-1.5 text-sm text-[var(--text-primary)] transition-colors hover:border-[var(--border-hover)] focus:outline-none focus:border-[var(--accent)]"
+        className="w-full bg-[var(--bg-surface)] border border-[var(--border)] rounded-sm pl-8 pr-2.5 py-1.5 text-sm text-[var(--text-primary)] transition-colors hover:border-[var(--border-hover)] focus:outline-none focus:border-[var(--accent)]"
         value={isOpen ? query : closedDisplayValue}
-        placeholder={isOpen ? 'Search cases…' : undefined}
+        placeholder={isOpen ? 'Type to search cases…' : undefined}
+        title="Type to search cases"
         onFocus={open}
         onChange={(e) => setQuery(e.target.value)}
         onKeyDown={handleKeyDown}

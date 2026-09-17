@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeAll, vi } from 'vitest'
 import { render, screen, waitFor, within } from '@testing-library/react'
+import { MemoryRouter } from 'react-router-dom'
 import userEvent from '@testing-library/user-event'
 import { useState } from 'react'
 import { ChatPanel } from '../components/chat/ChatPanel'
@@ -57,7 +58,7 @@ function setup() {
 describe('Chat layout — citation overlay, not a reserved column', () => {
   it('renders no PipelinePanel/citation column when nothing is active', () => {
     setup()
-    render(<ChatPageLike />)
+    render(<MemoryRouter><ChatPageLike /></MemoryRouter>)
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
     expect(screen.queryByText('Pipeline Trace')).not.toBeInTheDocument()
     expect(screen.queryByText('Retrieved Docs')).not.toBeInTheDocument()
@@ -65,7 +66,7 @@ describe('Chat layout — citation overlay, not a reserved column', () => {
 
   it('clicking a citation chip opens the overlay dialog', async () => {
     setup()
-    render(<ChatPageLike />)
+    render(<MemoryRouter><ChatPageLike /></MemoryRouter>)
     await userEvent.click(screen.getByTitle('FIR-1001-26.pdf'))
     const dialog = screen.getByRole('dialog')
     expect(within(dialog).getByText('FIR-1001-26.pdf')).toBeInTheDocument()
@@ -73,7 +74,7 @@ describe('Chat layout — citation overlay, not a reserved column', () => {
 
   it('closing the overlay (Escape) unmounts it and returns focus to the chip', async () => {
     setup()
-    render(<ChatPageLike />)
+    render(<MemoryRouter><ChatPageLike /></MemoryRouter>)
     const chip = screen.getByTitle('FIR-1001-26.pdf')
     await userEvent.click(chip)
     expect(screen.getByRole('dialog')).toBeInTheDocument()

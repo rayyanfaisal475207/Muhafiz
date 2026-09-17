@@ -131,6 +131,12 @@ function extractDegradationTrace(events: PipelineEvent[]): DegradationTrace | un
 
 interface ChatState {
   sessionId: string;
+  /** True from the moment a session switch starts until its history has
+   * landed. Without it ChatPanel could not tell "this conversation is
+   * genuinely empty" (show the empty state) from "its messages are still
+   * in flight" (show nothing), so every switch flashed the empty state
+   * and its suggestion cards before the real content replaced them. */
+  isLoadingSession: boolean;
   messages: ChatMessage[];
   currentSteps: PipelineStep[];
   currentEvents: PipelineEvent[];
@@ -183,6 +189,7 @@ function abortActiveStream() {
 
 export const useChatStore = create<ChatState>((set, get) => ({
   sessionId: generateSessionId(),
+  isLoadingSession: false,
   messages: [],
   currentSteps: buildInitialSteps(),
   currentEvents: [],
@@ -198,6 +205,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
     abortActiveStream();
     set({
       sessionId: generateSessionId(),
+      isLoadingSession: false,
       messages: [],
       currentSteps: buildInitialSteps(),
       currentEvents: [],
@@ -219,6 +227,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
     try {
       set({
         sessionId: id,
+        isLoadingSession: true,
         isStreaming: false,
         messages: [],
         currentSteps: buildInitialSteps(),
@@ -249,7 +258,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
         // message) is deliberately distinct from an empty trace.
         degradationTrace: h.degradation_trace ?? undefined,
       }));
-      set({ messages });
+      set({ messages, isLoadingSession: false });
 
       // Attachments stay with the conversation, so restore them alongside it.
       try {
@@ -261,7 +270,9 @@ export const useChatStore = create<ChatState>((set, get) => ({
       }
     } catch (err) {
       if (get().sessionId === id) {
-        set({ error: 'Failed to load session history' });
+        // Clear the flag too: otherwise a failed load leaves ChatPanel
+        // rendering its "loading" blank forever, with the error invisible.
+        set({ error: 'Failed to load session history', isLoadingSession: false });
       }
     }
   },

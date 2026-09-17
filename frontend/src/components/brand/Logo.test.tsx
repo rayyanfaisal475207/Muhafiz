@@ -3,8 +3,8 @@ import { render, screen } from '@testing-library/react'
 import { LogoLockup } from './Logo'
 
 describe('LogoLockup', () => {
-  it('renders the Muhafiz wordmark', () => {
+  it('renders the MorseAI wordmark', () => {
     render(<LogoLockup />)
-    expect(screen.getByText('Muhafiz')).toBeInTheDocument()
+    expect(screen.getByText('MorseAI')).toBeInTheDocument()
   })
 })

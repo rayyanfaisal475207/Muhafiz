@@ -144,7 +144,7 @@ export const SettingsPage: React.FC = () => {
       <div className="max-w-3xl mx-auto p-8 pt-12">
         <h1 className="text-3xl font-bold text-[var(--text-primary)] mb-2">Profile & Settings</h1>
         <p className="text-[var(--text-secondary)] mb-4">
-          Tell Muhafiz about your context so it can personalize its answers automatically.
+          Tell MorseAI about your context so it can personalize its answers automatically.
         </p>
         <p className="text-sm text-[var(--text-muted)] mb-8 border-b border-[var(--border)] pb-4">
           Logged in as: <strong>{user?.email}</strong>
