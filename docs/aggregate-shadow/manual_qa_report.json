@@ -1,0 +1,2033 @@
+{
+  "generated_at": "2026-09-17T16:17:02+0500",
+  "registry_as_of": "2026-09-17T11:10:30.502936+00:00",
+  "caller_role": "supervisor",
+  "set": "Smoke QA Set",
+  "question_count": 15,
+  "note": "Smoke set. Not a QA corpus, not a pass rate. No ground truth is attached to these questions; correctness is recorded by the tester in MANUAL_QA_TEMPLATE.md.",
+  "records": [
+    {
+      "id": "smoke_01_simple_count",
+      "category": "simple count",
+      "question": "How many cases are registered?",
+      "expectation": "Structured only. No mandatory trigger; answer marked unverified.",
+      "aggregate_spec": {
+        "measure": "count",
+        "entity": "Case",
+        "grain": "ENTITY",
+        "distinct_key": "case_id",
+        "value_field": null,
+        "traversals": [],
+        "predicates": [],
+        "group_by": [],
+        "time_window": null,
+        "has_ratio": false,
+        "spec_hash": "46b205187d298bf7"
+      },
+      "aggregate_spec_full": {
+        "question_text": "How many cases are registered?",
+        "measure": "count",
+        "population": {
+          "entity": "Case",
+          "traversals": [],
+          "predicates": []
+        },
+        "grain": "ENTITY",
+        "scope": {
+          "kind": "cross_case",
+          "case_ids": null,
+          "user_role": "supervisor",
+          "user_id": "qa-runner"
+        },
+        "distinct_key": "case_id",
+        "value_field": null,
+        "group_by": [],
+        "ratio": null,
+        "compare": null,
+        "time_window": null,
+        "threshold": null,
+        "top_n": null,
+        "null_policy": "EXCLUDE_AND_REPORT",
+        "canonicalization": "BOTH_AND_COMPARE"
+      },
+      "validation": {
+        "verdict": "EXECUTABLE",
+        "ok": true,
+        "issues": []
+      },
+      "verification_level": "NONE",
+      "verification_detail": {
+        "level": "NONE",
+        "deterministic_level": "NONE",
+        "llm_recommendation": "NONE",
+        "llm_rationale": "",
+        "claims_independent": false,
+        "partial_reason": "",
+        "mandatory_triggers": [],
+        "advisory_triggers": [],
+        "triggers": []
+      },
+      "routes_executed": [
+        "structured"
+      ],
+      "structured_result": {
+        "status": "SUCCESS",
+        "shape": "scalar",
+        "value": 73,
+        "interpretation": "count",
+        "grain": "ENTITY",
+        "refusal_code": null,
+        "refusal_reason": null,
+        "warnings": [],
+        "coverage_verdict": "COMPLETE"
+      },
+      "age_result": null,
+      "semantic_result": null,
+      "reconciliation": {
+        "classification": "SINGLE_ROUTE_VALID",
+        "value": 73,
+        "interpretation": "count",
+        "grain": "ENTITY",
+        "agreeing_routes": [
+          "structured"
+        ],
+        "disagreeing_routes": [],
+        "refused_routes": [],
+        "semantic_support": null,
+        "invariant_violations": [],
+        "explanation": "Only the structured route computed a value; no independent computation was available to corroborate it.",
+        "diagnosis": null,
+        "requires_investigation": false
+      },
+      "final_answer": {
+        "status": "ANSWERED",
+        "value": 73,
+        "interpretation": "count",
+        "grain": "ENTITY",
+        "independently_verified": false,
+        "verification_note": "Not verified: no mandatory verification trigger applied.",
+        "refusal_code": null,
+        "refusal_reason": null
+      },
+      "warnings": [
+        "Not verified: no mandatory verification trigger applied to this question."
+      ],
+      "latency": {
+        "total_ms": 8301,
+        "generation": 8222,
+        "structured": 73
+      }
+    },
+    {
+      "id": "smoke_02_simple_count_stations",
+      "category": "simple count",
+      "question": "How many police stations are there?",
+      "expectation": "Structured only. Plain ENTITY count.",
+      "aggregate_spec": {
+        "measure": "count",
+        "entity": "PoliceStation",
+        "grain": "ENTITY",
+        "distinct_key": "station_id",
+        "value_field": null,
+        "traversals": [],
+        "predicates": [],
+        "group_by": [],
+        "time_window": null,
+        "has_ratio": false,
+        "spec_hash": "e300aade2c4718fb"
+      },
+      "aggregate_spec_full": {
+        "question_text": "How many police stations are there?",
+        "measure": "count",
+        "population": {
+          "entity": "PoliceStation",
+          "traversals": [],
+          "predicates": []
+        },
+        "grain": "ENTITY",
+        "scope": {
+          "kind": "cross_case",
+          "case_ids": null,
+          "user_role": "supervisor",
+          "user_id": "qa-runner"
+        },
+        "distinct_key": "station_id",
+        "value_field": null,
+        "group_by": [],
+        "ratio": null,
+        "compare": null,
+        "time_window": null,
+        "threshold": null,
+        "top_n": null,
+        "null_policy": "EXCLUDE_AND_REPORT",
+        "canonicalization": "BOTH_AND_COMPARE"
+      },
+      "validation": {
+        "verdict": "EXECUTABLE",
+        "ok": true,
+        "issues": []
+      },
+      "verification_level": "NONE",
+      "verification_detail": {
+        "level": "NONE",
+        "deterministic_level": "NONE",
+        "llm_recommendation": "NONE",
+        "llm_rationale": "The count of PoliceStation nodes is directly available from the schema card.",
+        "claims_independent": false,
+        "partial_reason": "",
+        "mandatory_triggers": [],
+        "advisory_triggers": [],
+        "triggers": []
+      },
+      "routes_executed": [
+        "structured"
+      ],
+      "structured_result": {
+        "status": "SUCCESS",
+        "shape": "scalar",
+        "value": 19,
+        "interpretation": "count",
+        "grain": "ENTITY",
+        "refusal_code": null,
+        "refusal_reason": null,
+        "warnings": [],
+        "coverage_verdict": "COMPLETE"
+      },
+      "age_result": null,
+      "semantic_result": null,
+      "reconciliation": {
+        "classification": "SINGLE_ROUTE_VALID",
+        "value": 19,
+        "interpretation": "count",
+        "grain": "ENTITY",
+        "agreeing_routes": [
+          "structured"
+        ],
+        "disagreeing_routes": [],
+        "refused_routes": [],
+        "semantic_support": null,
+        "invariant_violations": [],
+        "explanation": "Only the structured route computed a value; no independent computation was available to corroborate it.",
+        "diagnosis": null,
+        "requires_investigation": false
+      },
+      "final_answer": {
+        "status": "ANSWERED",
+        "value": 19,
+        "interpretation": "count",
+        "grain": "ENTITY",
+        "independently_verified": false,
+        "verification_note": "Not verified: no mandatory verification trigger applied.",
+        "refusal_code": null,
+        "refusal_reason": null
+      },
+      "warnings": [
+        "Not verified: no mandatory verification trigger applied to this question."
+      ],
+      "latency": {
+        "total_ms": 5525,
+        "generation": 5474,
+        "structured": 51
+      }
+    },
+    {
+      "id": "smoke_03_simple_count_documents",
+      "category": "simple count",
+      "question": "How many documents are in the system?",
+      "expectation": "Structured only, or a refusal if no such label exists.",
+      "aggregate_spec": {
+        "measure": "count",
+        "entity": "Document",
+        "grain": "ENTITY",
+        "distinct_key": "doc_id",
+        "value_field": null,
+        "traversals": [],
+        "predicates": [],
+        "group_by": [],
+        "time_window": null,
+        "has_ratio": false,
+        "spec_hash": "097e2d6405841e09"
+      },
+      "aggregate_spec_full": {
+        "question_text": "How many documents are in the system?",
+        "measure": "count",
+        "population": {
+          "entity": "Document",
+          "traversals": [],
+          "predicates": []
+        },
+        "grain": "ENTITY",
+        "scope": {
+          "kind": "cross_case",
+          "case_ids": null,
+          "user_role": "supervisor",
+          "user_id": "qa-runner"
+        },
+        "distinct_key": "doc_id",
+        "value_field": null,
+        "group_by": [],
+        "ratio": null,
+        "compare": null,
+        "time_window": null,
+        "threshold": null,
+        "top_n": null,
+        "null_policy": "EXCLUDE_AND_REPORT",
+        "canonicalization": "BOTH_AND_COMPARE"
+      },
+      "validation": {
+        "verdict": "EXECUTABLE",
+        "ok": true,
+        "issues": []
+      },
+      "verification_level": "NONE",
+      "verification_detail": {
+        "level": "NONE",
+        "deterministic_level": "NONE",
+        "llm_recommendation": null,
+        "llm_rationale": "",
+        "claims_independent": false,
+        "partial_reason": "",
+        "mandatory_triggers": [],
+        "advisory_triggers": [],
+        "triggers": []
+      },
+      "routes_executed": [
+        "structured"
+      ],
+      "structured_result": {
+        "status": "SUCCESS",
+        "shape": "scalar",
+        "value": 126,
+        "interpretation": "count",
+        "grain": "ENTITY",
+        "refusal_code": null,
+        "refusal_reason": null,
+        "warnings": [],
+        "coverage_verdict": "COMPLETE"
+      },
+      "age_result": null,
+      "semantic_result": null,
+      "reconciliation": {
+        "classification": "SINGLE_ROUTE_VALID",
+        "value": 126,
+        "interpretation": "count",
+        "grain": "ENTITY",
+        "agreeing_routes": [
+          "structured"
+        ],
+        "disagreeing_routes": [],
+        "refused_routes": [],
+        "semantic_support": null,
+        "invariant_violations": [],
+        "explanation": "Only the structured route computed a value; no independent computation was available to corroborate it.",
+        "diagnosis": null,
+        "requires_investigation": false
+      },
+      "final_answer": {
+        "status": "ANSWERED",
+        "value": 126,
+        "interpretation": "count",
+        "grain": "ENTITY",
+        "independently_verified": false,
+        "verification_note": "Not verified: no mandatory verification trigger applied.",
+        "refusal_code": null,
+        "refusal_reason": null
+      },
+      "warnings": [
+        "Not verified: no mandatory verification trigger applied to this question."
+      ],
+      "latency": {
+        "total_ms": 5117,
+        "generation": 5062,
+        "structured": 55
+      }
+    },
+    {
+      "id": "smoke_04_numeric_filter",
+      "category": "filters",
+      "question": "How many people are older than 30?",
+      "expectation": "Person.age is present on 19 of 430. Expect an answer carrying an INSUFFICIENT_DATA_COVERAGE warning, NOT a bare number.",
+      "aggregate_spec": {
+        "measure": "count_distinct",
+        "entity": "Person",
+        "grain": "ENTITY",
+        "distinct_key": "entity_id",
+        "value_field": null,
+        "traversals": [],
+        "predicates": [
+          {
+            "field": "age",
+            "op": "gt",
+            "value": 30
+          }
+        ],
+        "group_by": [],
+        "time_window": null,
+        "has_ratio": false,
+        "spec_hash": "0ff2331e581a90f6"
+      },
+      "aggregate_spec_full": {
+        "question_text": "How many people are older than 30?",
+        "measure": "count_distinct",
+        "population": {
+          "entity": "Person",
+          "traversals": [],
+          "predicates": [
+            {
+              "field": "age",
+              "op": "gt",
+              "value": 30
+            }
+          ]
+        },
+        "grain": "ENTITY",
+        "scope": {
+          "kind": "cross_case",
+          "case_ids": null,
+          "user_role": "supervisor",
+          "user_id": "qa-runner"
+        },
+        "distinct_key": "entity_id",
+        "value_field": null,
+        "group_by": [],
+        "ratio": null,
+        "compare": null,
+        "time_window": null,
+        "threshold": null,
+        "top_n": null,
+        "null_policy": "EXCLUDE_AND_REPORT",
+        "canonicalization": "BOTH_AND_COMPARE"
+      },
+      "validation": {
+        "verdict": "EXECUTABLE",
+        "ok": true,
+        "issues": []
+      },
+      "verification_level": "NONE",
+      "verification_detail": {
+        "level": "NONE",
+        "deterministic_level": "NONE",
+        "llm_recommendation": null,
+        "llm_rationale": "",
+        "claims_independent": false,
+        "partial_reason": "",
+        "mandatory_triggers": [],
+        "advisory_triggers": [
+          "A2_sparse_field"
+        ],
+        "triggers": [
+          {
+            "code": "A2_sparse_field",
+            "mandatory": false,
+            "reason": "A referenced property is present on under half the population.",
+            "detail": "age present on 19/430 (4%)"
+          }
+        ]
+      },
+      "routes_executed": [
+        "structured"
+      ],
+      "structured_result": {
+        "status": "SUCCESS",
+        "shape": "scalar",
+        "value": 10,
+        "interpretation": "count_distinct",
+        "grain": "ENTITY",
+        "refusal_code": null,
+        "refusal_reason": null,
+        "warnings": [],
+        "coverage_verdict": "COMPLETE"
+      },
+      "age_result": null,
+      "semantic_result": null,
+      "reconciliation": {
+        "classification": "SINGLE_ROUTE_VALID",
+        "value": 10,
+        "interpretation": "count_distinct",
+        "grain": "ENTITY",
+        "agreeing_routes": [
+          "structured"
+        ],
+        "disagreeing_routes": [],
+        "refused_routes": [],
+        "semantic_support": null,
+        "invariant_violations": [],
+        "explanation": "Only the structured route computed a value; no independent computation was available to corroborate it.",
+        "diagnosis": null,
+        "requires_investigation": false
+      },
+      "final_answer": {
+        "status": "ANSWERED",
+        "value": 10,
+        "interpretation": "count_distinct",
+        "grain": "ENTITY",
+        "independently_verified": false,
+        "verification_note": "Not verified: no mandatory verification trigger applied.",
+        "refusal_code": null,
+        "refusal_reason": null
+      },
+      "warnings": [
+        "Not verified: no mandatory verification trigger applied to this question."
+      ],
+      "latency": {
+        "total_ms": 8150,
+        "generation": 8082,
+        "structured": 67
+      }
+    },
+    {
+      "id": "smoke_05_status_filter",
+      "category": "filters",
+      "question": "How many cases have an open status?",
+      "expectation": "A string-literal filter, so M3 should fire and all three routes run.",
+      "aggregate_spec": {
+        "measure": "count",
+        "entity": "Case",
+        "grain": "ENTITY",
+        "distinct_key": "case_id",
+        "value_field": null,
+        "traversals": [],
+        "predicates": [
+          {
+            "field": "status",
+            "op": "eq",
+            "value": "open"
+          }
+        ],
+        "group_by": [],
+        "time_window": null,
+        "has_ratio": false,
+        "spec_hash": "f46164b2d7adbd53"
+      },
+      "aggregate_spec_full": {
+        "question_text": "How many cases have an open status?",
+        "measure": "count",
+        "population": {
+          "entity": "Case",
+          "traversals": [],
+          "predicates": [
+            {
+              "field": "status",
+              "op": "eq",
+              "value": "open"
+            }
+          ]
+        },
+        "grain": "ENTITY",
+        "scope": {
+          "kind": "cross_case",
+          "case_ids": null,
+          "user_role": "supervisor",
+          "user_id": "qa-runner"
+        },
+        "distinct_key": "case_id",
+        "value_field": null,
+        "group_by": [],
+        "ratio": null,
+        "compare": null,
+        "time_window": null,
+        "threshold": null,
+        "top_n": null,
+        "null_policy": "EXCLUDE_AND_REPORT",
+        "canonicalization": "BOTH_AND_COMPARE"
+      },
+      "validation": {
+        "verdict": "UNSUPPORTED",
+        "ok": false,
+        "issues": [
+          {
+            "code": "unknown_field",
+            "message": "population: no field 'status' is available on Case.",
+            "field": "status"
+          }
+        ]
+      },
+      "verification_level": null,
+      "verification_detail": null,
+      "routes_executed": [],
+      "structured_result": null,
+      "age_result": null,
+      "semantic_result": null,
+      "reconciliation": null,
+      "final_answer": {
+        "status": "REFUSED",
+        "value": null,
+        "interpretation": null,
+        "grain": null,
+        "independently_verified": false,
+        "verification_note": "No verification decision was reached.",
+        "refusal_code": "spec_invalid",
+        "refusal_reason": "The question was interpreted as a query that cannot be run safely (unknown_field: population: no field 'status' is available on Case.)."
+      },
+      "warnings": [],
+      "latency": {
+        "total_ms": 19553,
+        "generation": 19552
+      }
+    },
+    {
+      "id": "smoke_06_traversal_distinct",
+      "category": "relationships",
+      "question": "How many distinct people are involved in cases?",
+      "expectation": "BELONGS_TO_CASE fans (449 edges over 208 people), so M2 fires and all three routes run. A value near 449 would indicate row inflation.",
+      "aggregate_spec": {
+        "measure": "count_distinct",
+        "entity": "Person",
+        "grain": "ENTITY",
+        "distinct_key": "entity_id",
+        "value_field": null,
+        "traversals": [
+          {
+            "rel": "BELONGS_TO_CASE",
+            "target": "Case",
+            "direction": "out",
+            "role_field": null,
+            "role_value": null
+          }
+        ],
+        "predicates": [],
+        "group_by": [],
+        "time_window": null,
+        "has_ratio": false,
+        "spec_hash": "c669c8c843ea2ab7"
+      },
+      "aggregate_spec_full": {
+        "question_text": "How many distinct people are involved in cases?",
+        "measure": "count_distinct",
+        "population": {
+          "entity": "Person",
+          "traversals": [
+            {
+              "rel": "BELONGS_TO_CASE",
+              "target": "Case",
+              "direction": "out",
+              "role_field": null,
+              "role_value": null
+            }
+          ],
+          "predicates": []
+        },
+        "grain": "ENTITY",
+        "scope": {
+          "kind": "cross_case",
+          "case_ids": null,
+          "user_role": "supervisor",
+          "user_id": "qa-runner"
+        },
+        "distinct_key": "entity_id",
+        "value_field": null,
+        "group_by": [],
+        "ratio": null,
+        "compare": null,
+        "time_window": null,
+        "threshold": null,
+        "top_n": null,
+        "null_policy": "EXCLUDE_AND_REPORT",
+        "canonicalization": "BOTH_AND_COMPARE"
+      },
+      "validation": {
+        "verdict": "EXECUTABLE",
+        "ok": true,
+        "issues": []
+      },
+      "verification_level": "FULL",
+      "verification_detail": {
+        "level": "FULL",
+        "deterministic_level": "FULL",
+        "llm_recommendation": "NONE",
+        "llm_rationale": "",
+        "claims_independent": true,
+        "partial_reason": "",
+        "mandatory_triggers": [
+          "M2_fanning_traversal"
+        ],
+        "advisory_triggers": [
+          "A1_traversal"
+        ],
+        "triggers": [
+          {
+            "code": "M2_fanning_traversal",
+            "mandatory": true,
+            "reason": "A traversal in this query can multiply rows, which is the measured cause of inflated counts (73->449, 73->2100).",
+            "detail": "BELONGS_TO_CASE->Case (up to 5 per row)"
+          },
+          {
+            "code": "A1_traversal",
+            "mandatory": false,
+            "reason": "Traversal present but not measured as fanning.",
+            "detail": "traversal_count=1"
+          }
+        ]
+      },
+      "routes_executed": [
+        "structured",
+        "age",
+        "semantic"
+      ],
+      "structured_result": {
+        "status": "SUCCESS",
+        "shape": "scalar",
+        "value": 208,
+        "interpretation": "count_distinct",
+        "grain": "ENTITY",
+        "refusal_code": null,
+        "refusal_reason": null,
+        "warnings": [],
+        "coverage_verdict": "COMPLETE"
+      },
+      "age_result": {
+        "status": "SUCCESS",
+        "shape": "scalar",
+        "value": 208,
+        "interpretation": "count_distinct",
+        "grain": "ENTITY",
+        "refusal_code": null,
+        "refusal_reason": null,
+        "warnings": []
+      },
+      "semantic_result": {
+        "status": "SUCCESS",
+        "shape": "evidence",
+        "value": null,
+        "interpretation": null,
+        "grain": null,
+        "refusal_code": null,
+        "refusal_reason": null,
+        "warnings": [],
+        "evidence_count": 8,
+        "semantic_interpretation": "8 passage(s) retrieved. Entities referenced: Case, Date, District, Document, Officer, Person. Relationships referenced: INVOLVED_IN. 0 passage(s) assert an absence of records."
+      },
+      "reconciliation": {
+        "classification": "AGREEMENT",
+        "value": 208,
+        "interpretation": "count_distinct",
+        "grain": "ENTITY",
+        "agreeing_routes": [
+          "structured",
+          "age_text2cypher"
+        ],
+        "disagreeing_routes": [],
+        "refused_routes": [],
+        "semantic_support": "SUPPORTS",
+        "invariant_violations": [],
+        "explanation": "Two structurally independent computation routes agree on 208 (count_distinct, ENTITY grain). Retrieved evidence supports the interpretation.",
+        "diagnosis": null,
+        "requires_investigation": false
+      },
+      "final_answer": {
+        "status": "ANSWERED",
+        "value": 208,
+        "interpretation": "count_distinct",
+        "grain": "ENTITY",
+        "independently_verified": true,
+        "verification_note": "Independently verified: a second route computed this and agreed.",
+        "refusal_code": null,
+        "refusal_reason": null
+      },
+      "warnings": [],
+      "latency": {
+        "total_ms": 62879,
+        "generation": 11870,
+        "structured": 123,
+        "age": 46351,
+        "semantic": 4530
+      }
+    },
+    {
+      "id": "smoke_07_role_filtered_traversal",
+      "category": "relationships",
+      "question": "How many distinct people were accused across all cases?",
+      "expectation": "Should traverse with a role filter. 92 distinct accused vs 94 accused edges is the grain distinction to watch.",
+      "aggregate_spec": {
+        "measure": "count_distinct",
+        "entity": "Person",
+        "grain": "ENTITY",
+        "distinct_key": "entity_id",
+        "value_field": null,
+        "traversals": [
+          {
+            "rel": "BELONGS_TO_CASE",
+            "target": "Case",
+            "direction": "out",
+            "role_field": null,
+            "role_value": null
+          }
+        ],
+        "predicates": [],
+        "group_by": [],
+        "time_window": null,
+        "has_ratio": false,
+        "spec_hash": "c669c8c843ea2ab7"
+      },
+      "aggregate_spec_full": {
+        "question_text": "How many distinct people were accused across all cases?",
+        "measure": "count_distinct",
+        "population": {
+          "entity": "Person",
+          "traversals": [
+            {
+              "rel": "BELONGS_TO_CASE",
+              "target": "Case",
+              "direction": "out",
+              "role_field": null,
+              "role_value": null
+            }
+          ],
+          "predicates": []
+        },
+        "grain": "ENTITY",
+        "scope": {
+          "kind": "cross_case",
+          "case_ids": null,
+          "user_role": "supervisor",
+          "user_id": "qa-runner"
+        },
+        "distinct_key": "entity_id",
+        "value_field": null,
+        "group_by": [],
+        "ratio": null,
+        "compare": null,
+        "time_window": null,
+        "threshold": null,
+        "top_n": null,
+        "null_policy": "EXCLUDE_AND_REPORT",
+        "canonicalization": "BOTH_AND_COMPARE"
+      },
+      "validation": {
+        "verdict": "EXECUTABLE",
+        "ok": true,
+        "issues": []
+      },
+      "verification_level": "FULL",
+      "verification_detail": {
+        "level": "FULL",
+        "deterministic_level": "FULL",
+        "llm_recommendation": "PARTIAL",
+        "llm_rationale": "The schema does not explicitly define a property or relationship indicating 'accused' status; 'BELONGS_TO_CASE' may include non-accused individuals (e.g., witnesses).",
+        "claims_independent": true,
+        "partial_reason": "",
+        "mandatory_triggers": [
+          "M2_fanning_traversal"
+        ],
+        "advisory_triggers": [
+          "A1_traversal"
+        ],
+        "triggers": [
+          {
+            "code": "M2_fanning_traversal",
+            "mandatory": true,
+            "reason": "A traversal in this query can multiply rows, which is the measured cause of inflated counts (73->449, 73->2100).",
+            "detail": "BELONGS_TO_CASE->Case (up to 5 per row)"
+          },
+          {
+            "code": "A1_traversal",
+            "mandatory": false,
+            "reason": "Traversal present but not measured as fanning.",
+            "detail": "traversal_count=1"
+          }
+        ]
+      },
+      "routes_executed": [
+        "structured",
+        "age",
+        "semantic"
+      ],
+      "structured_result": {
+        "status": "SUCCESS",
+        "shape": "scalar",
+        "value": 208,
+        "interpretation": "count_distinct",
+        "grain": "ENTITY",
+        "refusal_code": null,
+        "refusal_reason": null,
+        "warnings": [],
+        "coverage_verdict": "COMPLETE"
+      },
+      "age_result": {
+        "status": "SUCCESS",
+        "shape": "scalar",
+        "value": 208,
+        "interpretation": "count_distinct",
+        "grain": "ENTITY",
+        "refusal_code": null,
+        "refusal_reason": null,
+        "warnings": []
+      },
+      "semantic_result": {
+        "status": "SUCCESS",
+        "shape": "evidence",
+        "value": null,
+        "interpretation": null,
+        "grain": null,
+        "refusal_code": null,
+        "refusal_reason": null,
+        "warnings": [],
+        "evidence_count": 8,
+        "semantic_interpretation": "8 passage(s) retrieved. Entities referenced: Case, Date, District, Person. Relationships referenced: none identified. 0 passage(s) assert an absence of records."
+      },
+      "reconciliation": {
+        "classification": "AGREEMENT",
+        "value": 208,
+        "interpretation": "count_distinct",
+        "grain": "ENTITY",
+        "agreeing_routes": [
+          "structured",
+          "age_text2cypher"
+        ],
+        "disagreeing_routes": [],
+        "refused_routes": [],
+        "semantic_support": "SUPPORTS",
+        "invariant_violations": [],
+        "explanation": "Two structurally independent computation routes agree on 208 (count_distinct, ENTITY grain). Retrieved evidence supports the interpretation.",
+        "diagnosis": null,
+        "requires_investigation": false
+      },
+      "final_answer": {
+        "status": "ANSWERED",
+        "value": 208,
+        "interpretation": "count_distinct",
+        "grain": "ENTITY",
+        "independently_verified": true,
+        "verification_note": "Independently verified: a second route computed this and agreed.",
+        "refusal_code": null,
+        "refusal_reason": null
+      },
+      "warnings": [],
+      "latency": {
+        "total_ms": 61578,
+        "generation": 22022,
+        "structured": 130,
+        "age": 38200,
+        "semantic": 1227
+      }
+    },
+    {
+      "id": "smoke_08_relationship_grain",
+      "category": "relationships",
+      "question": "How many accusations were recorded in total?",
+      "expectation": "RELATIONSHIP grain counts edges, not people. M4 should fire on the non-ENTITY grain.",
+      "aggregate_spec": {
+        "measure": "count",
+        "entity": "Person",
+        "grain": "RELATIONSHIP",
+        "distinct_key": null,
+        "value_field": null,
+        "traversals": [
+          {
+            "rel": "ACCUSED",
+            "target": "Case",
+            "direction": "out",
+            "role_field": null,
+            "role_value": null
+          }
+        ],
+        "predicates": [],
+        "group_by": [],
+        "time_window": null,
+        "has_ratio": false,
+        "spec_hash": "4f7f0d8db22734fd"
+      },
+      "aggregate_spec_full": {
+        "question_text": "How many accusations were recorded in total?",
+        "measure": "count",
+        "population": {
+          "entity": "Person",
+          "traversals": [
+            {
+              "rel": "ACCUSED",
+              "target": "Case",
+              "direction": "out",
+              "role_field": null,
+              "role_value": null
+            }
+          ],
+          "predicates": []
+        },
+        "grain": "RELATIONSHIP",
+        "scope": {
+          "kind": "cross_case",
+          "case_ids": null,
+          "user_role": "supervisor",
+          "user_id": "qa-runner"
+        },
+        "distinct_key": null,
+        "value_field": null,
+        "group_by": [],
+        "ratio": null,
+        "compare": null,
+        "time_window": null,
+        "threshold": null,
+        "top_n": null,
+        "null_policy": "EXCLUDE_AND_REPORT",
+        "canonicalization": "BOTH_AND_COMPARE"
+      },
+      "validation": {
+        "verdict": "UNSUPPORTED",
+        "ok": false,
+        "issues": [
+          {
+            "code": "unknown_relationship",
+            "message": "population: no ACCUSED relationship observed between Person and Case (direction=out).",
+            "field": "ACCUSED"
+          }
+        ]
+      },
+      "verification_level": null,
+      "verification_detail": null,
+      "routes_executed": [],
+      "structured_result": null,
+      "age_result": null,
+      "semantic_result": null,
+      "reconciliation": null,
+      "final_answer": {
+        "status": "REFUSED",
+        "value": null,
+        "interpretation": null,
+        "grain": null,
+        "independently_verified": false,
+        "verification_note": "No verification decision was reached.",
+        "refusal_code": "spec_invalid",
+        "refusal_reason": "The question was interpreted as a query that cannot be run safely (unknown_relationship: population: no ACCUSED relationship observed between Person and Case (direction=out).)."
+      },
+      "warnings": [],
+      "latency": {
+        "total_ms": 9107,
+        "generation": 9107
+      }
+    },
+    {
+      "id": "smoke_09_multi_source_filtered",
+      "category": "multi-source",
+      "question": "How many cases from 2024 involve more than one officer?",
+      "expectation": "Graph population plus a Postgres-authoritative date. M1 fires; PARTIAL, because AGE cannot evaluate the window.",
+      "aggregate_spec": {
+        "measure": "count_distinct",
+        "entity": "Case",
+        "grain": "ENTITY",
+        "distinct_key": "case_id",
+        "value_field": null,
+        "traversals": [
+          {
+            "rel": "ASSIGNED_TO",
+            "target": "Officer",
+            "direction": "in",
+            "role_field": null,
+            "role_value": null
+          }
+        ],
+        "predicates": [
+          {
+            "rel": "ASSIGNED_TO",
+            "target": "Officer",
+            "op": "gt",
+            "value": 1,
+            "count_grain": "ENTITY",
+            "direction": "in",
+            "role_field": null,
+            "role_value": null
+          }
+        ],
+        "group_by": [],
+        "time_window": {
+          "field": "incident_date",
+          "start": "2024-01-01",
+          "end": "2024-12-31"
+        },
+        "has_ratio": false,
+        "spec_hash": "f71fd5631293a39b"
+      },
+      "aggregate_spec_full": {
+        "question_text": "How many cases from 2024 involve more than one officer?",
+        "measure": "count_distinct",
+        "population": {
+          "entity": "Case",
+          "traversals": [
+            {
+              "rel": "ASSIGNED_TO",
+              "target": "Officer",
+              "direction": "in",
+              "role_field": null,
+              "role_value": null
+            }
+          ],
+          "predicates": [
+            {
+              "rel": "ASSIGNED_TO",
+              "target": "Officer",
+              "op": "gt",
+              "value": 1,
+              "count_grain": "ENTITY",
+              "direction": "in",
+              "role_field": null,
+              "role_value": null
+            }
+          ]
+        },
+        "grain": "ENTITY",
+        "scope": {
+          "kind": "cross_case",
+          "case_ids": null,
+          "user_role": "supervisor",
+          "user_id": "qa-runner"
+        },
+        "distinct_key": "case_id",
+        "value_field": null,
+        "group_by": [],
+        "ratio": null,
+        "compare": null,
+        "time_window": {
+          "field": "incident_date",
+          "start": "2024-01-01",
+          "end": "2024-12-31"
+        },
+        "threshold": null,
+        "top_n": null,
+        "null_policy": "EXCLUDE_AND_REPORT",
+        "canonicalization": "BOTH_AND_COMPARE"
+      },
+      "validation": {
+        "verdict": "EXECUTABLE",
+        "ok": true,
+        "issues": []
+      },
+      "verification_level": "PARTIAL",
+      "verification_detail": {
+        "level": "PARTIAL",
+        "deterministic_level": "PARTIAL",
+        "llm_recommendation": "PARTIAL",
+        "llm_rationale": "The time window is applied to 'incident_date' on the Incident node, which is linked to the Case via the BELONGS_TO_CASE relationship. This assumes that the Case's date is determined by the Incident's date.",
+        "claims_independent": false,
+        "partial_reason": "The time restriction is Postgres-authoritative; the graph cannot evaluate it, so an AGE figure would answer a different question.",
+        "mandatory_triggers": [
+          "M1_multi_source",
+          "M2_fanning_traversal"
+        ],
+        "advisory_triggers": [
+          "A1_traversal"
+        ],
+        "triggers": [
+          {
+            "code": "M1_multi_source",
+            "mandatory": true,
+            "reason": "The answer is assembled from more than one authority, so no single route saw the whole computation.",
+            "detail": "sources=['graph', 'postgres']"
+          },
+          {
+            "code": "M2_fanning_traversal",
+            "mandatory": true,
+            "reason": "A traversal in this query can multiply rows, which is the measured cause of inflated counts (73->449, 73->2100).",
+            "detail": "ASSIGNED_TO->Officer (up to 3 per row)"
+          },
+          {
+            "code": "A1_traversal",
+            "mandatory": false,
+            "reason": "Traversal present but not measured as fanning.",
+            "detail": "traversal_count=1"
+          }
+        ]
+      },
+      "routes_executed": [
+        "structured",
+        "semantic"
+      ],
+      "structured_result": {
+        "status": "REFUSED",
+        "shape": "none",
+        "value": null,
+        "interpretation": null,
+        "grain": null,
+        "refusal_code": "gate_failed",
+        "refusal_reason": "Required gate(s) failed: MULTI_SOURCE_FILTERED_DISTINCT_COUNT: FAILED STABLE_JOIN_KEYS, SET_COMPOSITION_COMPLETE",
+        "warnings": []
+      },
+      "age_result": null,
+      "semantic_result": {
+        "status": "SUCCESS",
+        "shape": "evidence",
+        "value": null,
+        "interpretation": null,
+        "grain": null,
+        "refusal_code": null,
+        "refusal_reason": null,
+        "warnings": [],
+        "evidence_count": 8,
+        "semantic_interpretation": "8 passage(s) retrieved. Entities referenced: Case, Date, District, Officer, Person. Relationships referenced: PART_OF. 0 passage(s) assert an absence of records."
+      },
+      "reconciliation": {
+        "classification": "REFUSED",
+        "value": null,
+        "interpretation": null,
+        "grain": null,
+        "agreeing_routes": [],
+        "disagreeing_routes": [],
+        "refused_routes": [
+          "structured"
+        ],
+        "semantic_support": "SUPPORTS",
+        "invariant_violations": [],
+        "explanation": "No computation route produced a value (structured: gate_failed). The semantic route corroborates interpretation only and cannot supply an aggregate.",
+        "diagnosis": null,
+        "requires_investigation": false
+      },
+      "final_answer": {
+        "status": "REFUSED",
+        "value": null,
+        "interpretation": null,
+        "grain": null,
+        "independently_verified": false,
+        "verification_note": "Not independently verified. The time restriction is Postgres-authoritative; the graph cannot evaluate it, so an AGE figure would answer a different question.",
+        "refusal_code": "gate_failed",
+        "refusal_reason": "Required gate(s) failed: MULTI_SOURCE_FILTERED_DISTINCT_COUNT: FAILED STABLE_JOIN_KEYS, SET_COMPOSITION_COMPLETE"
+      },
+      "warnings": [],
+      "latency": {
+        "total_ms": 64643,
+        "generation": 59564,
+        "structured": 3648,
+        "semantic": 1430
+      }
+    },
+    {
+      "id": "smoke_10_temporal_2024",
+      "category": "temporal",
+      "question": "How many cases were registered in 2024?",
+      "expectation": "M1 fires. PARTIAL: AGE does not run, semantic does, and the answer must say it is not independently verified.",
+      "aggregate_spec": {
+        "measure": "count",
+        "entity": "Case",
+        "grain": "ENTITY",
+        "distinct_key": "case_id",
+        "value_field": null,
+        "traversals": [],
+        "predicates": [],
+        "group_by": [],
+        "time_window": {
+          "field": "incident_date",
+          "start": "2024-01-01",
+          "end": "2024-12-31"
+        },
+        "has_ratio": false,
+        "spec_hash": "575dd72c59e8ae64"
+      },
+      "aggregate_spec_full": {
+        "question_text": "How many cases were registered in 2024?",
+        "measure": "count",
+        "population": {
+          "entity": "Case",
+          "traversals": [],
+          "predicates": []
+        },
+        "grain": "ENTITY",
+        "scope": {
+          "kind": "cross_case",
+          "case_ids": null,
+          "user_role": "supervisor",
+          "user_id": "qa-runner"
+        },
+        "distinct_key": "case_id",
+        "value_field": null,
+        "group_by": [],
+        "ratio": null,
+        "compare": null,
+        "time_window": {
+          "field": "incident_date",
+          "start": "2024-01-01",
+          "end": "2024-12-31"
+        },
+        "threshold": null,
+        "top_n": null,
+        "null_policy": "EXCLUDE_AND_REPORT",
+        "canonicalization": "BOTH_AND_COMPARE"
+      },
+      "validation": {
+        "verdict": "EXECUTABLE",
+        "ok": true,
+        "issues": []
+      },
+      "verification_level": "PARTIAL",
+      "verification_detail": {
+        "level": "PARTIAL",
+        "deterministic_level": "PARTIAL",
+        "llm_recommendation": "FULL",
+        "llm_rationale": "The 'Case' entity lacks a date field to filter by 2024; the 'incident_date' field exists on 'Incident' but not on 'Case'.",
+        "claims_independent": false,
+        "partial_reason": "The time restriction is Postgres-authoritative; the graph cannot evaluate it, so an AGE figure would answer a different question.",
+        "mandatory_triggers": [
+          "M1_multi_source"
+        ],
+        "advisory_triggers": [],
+        "triggers": [
+          {
+            "code": "M1_multi_source",
+            "mandatory": true,
+            "reason": "The answer is assembled from more than one authority, so no single route saw the whole computation.",
+            "detail": "sources=['graph', 'postgres']"
+          }
+        ]
+      },
+      "routes_executed": [
+        "structured",
+        "semantic"
+      ],
+      "structured_result": {
+        "status": "SUCCESS",
+        "shape": "scalar",
+        "value": 13,
+        "interpretation": "count",
+        "grain": "ENTITY",
+        "refusal_code": null,
+        "refusal_reason": null,
+        "warnings": []
+      },
+      "age_result": null,
+      "semantic_result": {
+        "status": "SUCCESS",
+        "shape": "evidence",
+        "value": null,
+        "interpretation": null,
+        "grain": null,
+        "refusal_code": null,
+        "refusal_reason": null,
+        "warnings": [],
+        "evidence_count": 8,
+        "semantic_interpretation": "8 passage(s) retrieved. Entities referenced: Case, Date, Person. Relationships referenced: none identified. 0 passage(s) assert an absence of records."
+      },
+      "reconciliation": {
+        "classification": "SINGLE_ROUTE_VALID",
+        "value": 13,
+        "interpretation": "count",
+        "grain": "ENTITY",
+        "agreeing_routes": [
+          "structured"
+        ],
+        "disagreeing_routes": [],
+        "refused_routes": [],
+        "semantic_support": "SUPPORTS",
+        "invariant_violations": [],
+        "explanation": "Only the structured route computed a value; no independent computation was available to corroborate it.",
+        "diagnosis": null,
+        "requires_investigation": false
+      },
+      "final_answer": {
+        "status": "ANSWERED",
+        "value": 13,
+        "interpretation": "count",
+        "grain": "ENTITY",
+        "independently_verified": false,
+        "verification_note": "Not independently verified. The time restriction is Postgres-authoritative; the graph cannot evaluate it, so an AGE figure would answer a different question.",
+        "refusal_code": null,
+        "refusal_reason": null
+      },
+      "warnings": [
+        "Not independently verified: The time restriction is Postgres-authoritative; the graph cannot evaluate it, so an AGE figure would answer a different question."
+      ],
+      "latency": {
+        "total_ms": 15082,
+        "generation": 13965,
+        "structured": 87,
+        "semantic": 1030
+      }
+    },
+    {
+      "id": "smoke_11_temporal_future",
+      "category": "temporal",
+      "question": "How many cases were registered in 2026?",
+      "expectation": "Same shape as smoke_10. Phase 6 measured a 73-vs-51 disagreement on this shape, where 51 was correct.",
+      "aggregate_spec": {
+        "measure": "count",
+        "entity": "Case",
+        "grain": "ENTITY",
+        "distinct_key": "case_id",
+        "value_field": null,
+        "traversals": [],
+        "predicates": [],
+        "group_by": [],
+        "time_window": null,
+        "has_ratio": false,
+        "spec_hash": "46b205187d298bf7"
+      },
+      "aggregate_spec_full": {
+        "question_text": "How many cases were registered in 2026?",
+        "measure": "count",
+        "population": {
+          "entity": "Case",
+          "traversals": [],
+          "predicates": []
+        },
+        "grain": "ENTITY",
+        "scope": {
+          "kind": "cross_case",
+          "case_ids": null,
+          "user_role": "supervisor",
+          "user_id": "qa-runner"
+        },
+        "distinct_key": "case_id",
+        "value_field": null,
+        "group_by": [],
+        "ratio": null,
+        "compare": null,
+        "time_window": null,
+        "threshold": null,
+        "top_n": null,
+        "null_policy": "EXCLUDE_AND_REPORT",
+        "canonicalization": "BOTH_AND_COMPARE"
+      },
+      "validation": {
+        "verdict": "EXECUTABLE",
+        "ok": true,
+        "issues": []
+      },
+      "verification_level": "PARTIAL",
+      "verification_detail": {
+        "level": "PARTIAL",
+        "deterministic_level": "NONE",
+        "llm_recommendation": "PARTIAL",
+        "llm_rationale": "The Case entity lacks a date field to filter by year; the DATE FIELDS list includes 'incident_date' but it is not present on the Case node.",
+        "claims_independent": false,
+        "partial_reason": "Corroboration only; no second computation of this measure.",
+        "mandatory_triggers": [],
+        "advisory_triggers": [],
+        "triggers": []
+      },
+      "routes_executed": [
+        "structured",
+        "semantic"
+      ],
+      "structured_result": {
+        "status": "SUCCESS",
+        "shape": "scalar",
+        "value": 73,
+        "interpretation": "count",
+        "grain": "ENTITY",
+        "refusal_code": null,
+        "refusal_reason": null,
+        "warnings": [],
+        "coverage_verdict": "COMPLETE"
+      },
+      "age_result": null,
+      "semantic_result": {
+        "status": "SUCCESS",
+        "shape": "evidence",
+        "value": null,
+        "interpretation": null,
+        "grain": null,
+        "refusal_code": null,
+        "refusal_reason": null,
+        "warnings": [],
+        "evidence_count": 8,
+        "semantic_interpretation": "8 passage(s) retrieved. Entities referenced: Case, Date, Incident, Person. Relationships referenced: none identified. 0 passage(s) assert an absence of records."
+      },
+      "reconciliation": {
+        "classification": "SINGLE_ROUTE_VALID",
+        "value": 73,
+        "interpretation": "count",
+        "grain": "ENTITY",
+        "agreeing_routes": [
+          "structured"
+        ],
+        "disagreeing_routes": [],
+        "refused_routes": [],
+        "semantic_support": "SUPPORTS",
+        "invariant_violations": [],
+        "explanation": "Only the structured route computed a value; no independent computation was available to corroborate it.",
+        "diagnosis": null,
+        "requires_investigation": false
+      },
+      "final_answer": {
+        "status": "ANSWERED",
+        "value": 73,
+        "interpretation": "count",
+        "grain": "ENTITY",
+        "independently_verified": false,
+        "verification_note": "Not independently verified. Corroboration only; no second computation of this measure.",
+        "refusal_code": null,
+        "refusal_reason": null
+      },
+      "warnings": [
+        "Not independently verified: Corroboration only; no second computation of this measure."
+      ],
+      "latency": {
+        "total_ms": 50346,
+        "generation": 49061,
+        "structured": 58,
+        "semantic": 1227
+      }
+    },
+    {
+      "id": "smoke_12_value_literal_urdu",
+      "category": "value literal",
+      "question": "How many unlicensed weapons are there?",
+      "expectation": "The data holds 'بغیر لائسنس', not 'unlicensed'. M3 fires. A value of 0 means the model guessed an English literal — the exact defect M3 exists to catch.",
+      "aggregate_spec": {
+        "measure": "count_distinct",
+        "entity": "Weapon",
+        "grain": "ENTITY",
+        "distinct_key": "entity_id",
+        "value_field": null,
+        "traversals": [],
+        "predicates": [
+          {
+            "field": "license_status",
+            "op": "eq",
+            "value": "بغیر لائسنس"
+          }
+        ],
+        "group_by": [],
+        "time_window": null,
+        "has_ratio": false,
+        "spec_hash": "be2f78a5694f2f05"
+      },
+      "aggregate_spec_full": {
+        "question_text": "How many unlicensed weapons are there?",
+        "measure": "count_distinct",
+        "population": {
+          "entity": "Weapon",
+          "traversals": [],
+          "predicates": [
+            {
+              "field": "license_status",
+              "op": "eq",
+              "value": "بغیر لائسنس"
+            }
+          ]
+        },
+        "grain": "ENTITY",
+        "scope": {
+          "kind": "cross_case",
+          "case_ids": null,
+          "user_role": "supervisor",
+          "user_id": "qa-runner"
+        },
+        "distinct_key": "entity_id",
+        "value_field": null,
+        "group_by": [],
+        "ratio": null,
+        "compare": null,
+        "time_window": null,
+        "threshold": null,
+        "top_n": null,
+        "null_policy": "EXCLUDE_AND_REPORT",
+        "canonicalization": "BOTH_AND_COMPARE"
+      },
+      "validation": {
+        "verdict": "EXECUTABLE",
+        "ok": true,
+        "issues": []
+      },
+      "verification_level": "FULL",
+      "verification_detail": {
+        "level": "FULL",
+        "deterministic_level": "FULL",
+        "llm_recommendation": null,
+        "llm_rationale": "",
+        "claims_independent": true,
+        "partial_reason": "",
+        "mandatory_triggers": [
+          "M3_value_literal"
+        ],
+        "advisory_triggers": [],
+        "triggers": [
+          {
+            "code": "M3_value_literal",
+            "mandatory": true,
+            "reason": "A filter matches a chosen string literal. A wrong literal returns a clean, plausible, entirely wrong number.",
+            "detail": "license_status eq 'بغیر لائسنس'"
+          }
+        ]
+      },
+      "routes_executed": [
+        "structured",
+        "age",
+        "semantic"
+      ],
+      "structured_result": {
+        "status": "SUCCESS",
+        "shape": "scalar",
+        "value": 30,
+        "interpretation": "count_distinct",
+        "grain": "ENTITY",
+        "refusal_code": null,
+        "refusal_reason": null,
+        "warnings": [],
+        "coverage_verdict": "COMPLETE"
+      },
+      "age_result": {
+        "status": "SUCCESS",
+        "shape": "scalar",
+        "value": 30,
+        "interpretation": "count",
+        "grain": "ENTITY",
+        "refusal_code": null,
+        "refusal_reason": null,
+        "warnings": []
+      },
+      "semantic_result": {
+        "status": "SUCCESS",
+        "shape": "evidence",
+        "value": null,
+        "interpretation": null,
+        "grain": null,
+        "refusal_code": null,
+        "refusal_reason": null,
+        "warnings": [],
+        "evidence_count": 8,
+        "semantic_interpretation": "8 passage(s) retrieved. Entities referenced: Case, District, Officer, Person, Weapon. Relationships referenced: none identified. 0 passage(s) assert an absence of records."
+      },
+      "reconciliation": {
+        "classification": "AGREEMENT",
+        "value": 30,
+        "interpretation": "count_distinct",
+        "grain": "ENTITY",
+        "agreeing_routes": [
+          "structured",
+          "age_text2cypher"
+        ],
+        "disagreeing_routes": [],
+        "refused_routes": [],
+        "semantic_support": "SUPPORTS",
+        "invariant_violations": [],
+        "explanation": "Two structurally independent computation routes agree on 30 (count_distinct, ENTITY grain). Retrieved evidence supports the interpretation.",
+        "diagnosis": null,
+        "requires_investigation": false
+      },
+      "final_answer": {
+        "status": "ANSWERED",
+        "value": 30,
+        "interpretation": "count_distinct",
+        "grain": "ENTITY",
+        "independently_verified": true,
+        "verification_note": "Independently verified: a second route computed this and agreed.",
+        "refusal_code": null,
+        "refusal_reason": null
+      },
+      "warnings": [],
+      "latency": {
+        "total_ms": 20992,
+        "generation": 8153,
+        "structured": 58,
+        "age": 11658,
+        "semantic": 1122
+      }
+    },
+    {
+      "id": "smoke_13_value_literal_record_type",
+      "category": "value literal",
+      "question": "How many malkhana records are there?",
+      "expectation": "The literal is 'malkhana_register'. M3 fires; all three routes run.",
+      "aggregate_spec": {
+        "measure": "count",
+        "entity": "StructuredRecord",
+        "grain": "RECORD",
+        "distinct_key": "record_id",
+        "value_field": null,
+        "traversals": [],
+        "predicates": [
+          {
+            "field": "record_type",
+            "op": "eq",
+            "value": "malkhana_register"
+          }
+        ],
+        "group_by": [],
+        "time_window": null,
+        "has_ratio": false,
+        "spec_hash": "ebec13e86a6ae3a3"
+      },
+      "aggregate_spec_full": {
+        "question_text": "How many malkhana records are there?",
+        "measure": "count",
+        "population": {
+          "entity": "StructuredRecord",
+          "traversals": [],
+          "predicates": [
+            {
+              "field": "record_type",
+              "op": "eq",
+              "value": "malkhana_register"
+            }
+          ]
+        },
+        "grain": "RECORD",
+        "scope": {
+          "kind": "cross_case",
+          "case_ids": null,
+          "user_role": "supervisor",
+          "user_id": "qa-runner"
+        },
+        "distinct_key": "record_id",
+        "value_field": null,
+        "group_by": [],
+        "ratio": null,
+        "compare": null,
+        "time_window": null,
+        "threshold": null,
+        "top_n": null,
+        "null_policy": "EXCLUDE_AND_REPORT",
+        "canonicalization": "BOTH_AND_COMPARE"
+      },
+      "validation": {
+        "verdict": "EXECUTABLE",
+        "ok": true,
+        "issues": []
+      },
+      "verification_level": "FULL",
+      "verification_detail": {
+        "level": "FULL",
+        "deterministic_level": "FULL",
+        "llm_recommendation": "NONE",
+        "llm_rationale": "",
+        "claims_independent": true,
+        "partial_reason": "",
+        "mandatory_triggers": [
+          "M3_value_literal",
+          "M4_non_entity_grain"
+        ],
+        "advisory_triggers": [],
+        "triggers": [
+          {
+            "code": "M3_value_literal",
+            "mandatory": true,
+            "reason": "A filter matches a chosen string literal. A wrong literal returns a clean, plausible, entirely wrong number.",
+            "detail": "record_type eq 'malkhana_register'"
+          },
+          {
+            "code": "M4_non_entity_grain",
+            "mandatory": true,
+            "reason": "Grain is RECORD, not ENTITY. A grain disagreement means the routes counted different kinds of thing, not different totals.",
+            "detail": "grain=RECORD"
+          }
+        ]
+      },
+      "routes_executed": [
+        "structured",
+        "age",
+        "semantic"
+      ],
+      "structured_result": {
+        "status": "SUCCESS",
+        "shape": "scalar",
+        "value": 45,
+        "interpretation": "count",
+        "grain": "RECORD",
+        "refusal_code": null,
+        "refusal_reason": null,
+        "warnings": [],
+        "coverage_verdict": "COMPLETE"
+      },
+      "age_result": {
+        "status": "SUCCESS",
+        "shape": "scalar",
+        "value": 45,
+        "interpretation": "count",
+        "grain": "ENTITY",
+        "refusal_code": null,
+        "refusal_reason": null,
+        "warnings": []
+      },
+      "semantic_result": {
+        "status": "SUCCESS",
+        "shape": "evidence",
+        "value": null,
+        "interpretation": null,
+        "grain": null,
+        "refusal_code": null,
+        "refusal_reason": null,
+        "warnings": [],
+        "evidence_count": 8,
+        "semantic_interpretation": "8 passage(s) retrieved. Entities referenced: Case, Date, District, Officer, Person. Relationships referenced: none identified. 0 passage(s) assert an absence of records."
+      },
+      "reconciliation": {
+        "classification": "SEMANTICALLY_DIFFERENT",
+        "value": null,
+        "interpretation": null,
+        "grain": null,
+        "agreeing_routes": [],
+        "disagreeing_routes": [
+          "structured",
+          "age_text2cypher"
+        ],
+        "refused_routes": [],
+        "semantic_support": "SUPPORTS",
+        "invariant_violations": [],
+        "explanation": "The routes computed different quantities, so their values are not comparable: structured produced count/RECORD = 45, age_text2cypher produced count/ENTITY = 45. Both may be arithmetically correct.",
+        "diagnosis": "grain differs: structured computed at RECORD, generated query declared ENTITY",
+        "requires_investigation": true
+      },
+      "final_answer": {
+        "status": "ANSWERED",
+        "value": 45,
+        "interpretation": "count",
+        "grain": "RECORD",
+        "independently_verified": false,
+        "verification_note": "Verification was required and did not confirm this figure; see the reconciliation result.",
+        "refusal_code": null,
+        "refusal_reason": null
+      },
+      "warnings": [],
+      "latency": {
+        "total_ms": 22618,
+        "generation": 11007,
+        "structured": 59,
+        "age": 10409,
+        "semantic": 1143
+      }
+    },
+    {
+      "id": "smoke_14_unsupported_median",
+      "category": "unsupported",
+      "question": "What is the median age of accused persons?",
+      "expectation": "AGE cannot compute a median, so PARTIAL at best. A refusal is also acceptable. What is NOT acceptable is a number described as verified.",
+      "aggregate_spec": {
+        "measure": "median",
+        "entity": "Person",
+        "grain": "ENTITY",
+        "distinct_key": "entity_id",
+        "value_field": "age",
+        "traversals": [
+          {
+            "rel": "BELONGS_TO_CASE",
+            "target": "Case",
+            "direction": "out",
+            "role_field": null,
+            "role_value": null
+          }
+        ],
+        "predicates": [],
+        "group_by": [],
+        "time_window": null,
+        "has_ratio": false,
+        "spec_hash": "098e3e95590e85e2"
+      },
+      "aggregate_spec_full": {
+        "question_text": "What is the median age of accused persons?",
+        "measure": "median",
+        "population": {
+          "entity": "Person",
+          "traversals": [
+            {
+              "rel": "BELONGS_TO_CASE",
+              "target": "Case",
+              "direction": "out",
+              "role_field": null,
+              "role_value": null
+            }
+          ],
+          "predicates": []
+        },
+        "grain": "ENTITY",
+        "scope": {
+          "kind": "cross_case",
+          "case_ids": null,
+          "user_role": "supervisor",
+          "user_id": "qa-runner"
+        },
+        "distinct_key": "entity_id",
+        "value_field": "age",
+        "group_by": [],
+        "ratio": null,
+        "compare": null,
+        "time_window": null,
+        "threshold": null,
+        "top_n": null,
+        "null_policy": "EXCLUDE_AND_REPORT",
+        "canonicalization": "BOTH_AND_COMPARE"
+      },
+      "validation": {
+        "verdict": "UNSUPPORTED",
+        "ok": false,
+        "issues": [
+          {
+            "code": "unsupported_operation",
+            "message": "median is not computable in AGE and the Python fetch path is not implemented; refused rather than raised at compile time.",
+            "field": "measure"
+          }
+        ]
+      },
+      "verification_level": null,
+      "verification_detail": null,
+      "routes_executed": [],
+      "structured_result": null,
+      "age_result": null,
+      "semantic_result": null,
+      "reconciliation": null,
+      "final_answer": {
+        "status": "REFUSED",
+        "value": null,
+        "interpretation": null,
+        "grain": null,
+        "independently_verified": false,
+        "verification_note": "No verification decision was reached.",
+        "refusal_code": "spec_invalid",
+        "refusal_reason": "The question was interpreted as a query that cannot be run safely (unsupported_operation: median is not computable in AGE and the Python fetch path is not implemented; refused rather than raised at compile time.)."
+      },
+      "warnings": [],
+      "latency": {
+        "total_ms": 13677,
+        "generation": 13676
+      }
+    },
+    {
+      "id": "smoke_15_unsupported_nonsense",
+      "category": "unsupported",
+      "question": "How many unicorns were seized last year?",
+      "expectation": "No such entity exists. Expect REFUSED with spec_invalid or spec_generation_failed. A number here would be a serious defect.",
+      "aggregate_spec": {
+        "measure": "count",
+        "entity": "Weapon",
+        "grain": "ENTITY",
+        "distinct_key": "entity_id",
+        "value_field": null,
+        "traversals": [],
+        "predicates": [
+          {
+            "field": "canonical_name",
+            "op": "eq",
+            "value": "unicorn"
+          }
+        ],
+        "group_by": [],
+        "time_window": null,
+        "has_ratio": false,
+        "spec_hash": "8f056dfce9145f70"
+      },
+      "aggregate_spec_full": {
+        "question_text": "How many unicorns were seized last year?",
+        "measure": "count",
+        "population": {
+          "entity": "Weapon",
+          "traversals": [],
+          "predicates": [
+            {
+              "field": "canonical_name",
+              "op": "eq",
+              "value": "unicorn"
+            }
+          ]
+        },
+        "grain": "ENTITY",
+        "scope": {
+          "kind": "cross_case",
+          "case_ids": null,
+          "user_role": "supervisor",
+          "user_id": "qa-runner"
+        },
+        "distinct_key": "entity_id",
+        "value_field": null,
+        "group_by": [],
+        "ratio": null,
+        "compare": null,
+        "time_window": null,
+        "threshold": null,
+        "top_n": null,
+        "null_policy": "EXCLUDE_AND_REPORT",
+        "canonicalization": "BOTH_AND_COMPARE"
+      },
+      "validation": {
+        "verdict": "EXECUTABLE",
+        "ok": true,
+        "issues": []
+      },
+      "verification_level": "FULL",
+      "verification_detail": {
+        "level": "FULL",
+        "deterministic_level": "FULL",
+        "llm_recommendation": "NONE",
+        "llm_rationale": "The term 'unicorn' does not appear in any property values or node labels in the provided schema.",
+        "claims_independent": true,
+        "partial_reason": "",
+        "mandatory_triggers": [
+          "M3_value_literal"
+        ],
+        "advisory_triggers": [],
+        "triggers": [
+          {
+            "code": "M3_value_literal",
+            "mandatory": true,
+            "reason": "A filter matches a chosen string literal. A wrong literal returns a clean, plausible, entirely wrong number.",
+            "detail": "canonical_name eq 'unicorn'"
+          }
+        ]
+      },
+      "routes_executed": [
+        "structured",
+        "age",
+        "semantic"
+      ],
+      "structured_result": {
+        "status": "SUCCESS",
+        "shape": "scalar",
+        "value": 0,
+        "interpretation": "count",
+        "grain": "ENTITY",
+        "refusal_code": null,
+        "refusal_reason": null,
+        "warnings": [
+          "INSUFFICIENT_DATA_COVERAGE: This result is based on incomplete data coverage and may not represent the full relevant population.",
+          "Only 0 record(s) qualify — too few to report a meaningful figure."
+        ],
+        "coverage_verdict": "INSUFFICIENT"
+      },
+      "age_result": {
+        "status": "REFUSED",
+        "shape": "none",
+        "value": null,
+        "interpretation": null,
+        "grain": null,
+        "refusal_code": "model_declined",
+        "refusal_reason": "Model declined to answer: The schema does not contain any entities, relationships, or properties related to 'unicorns' or seizure events involving unicorns. The available data includes addresses, officers, cases, incidents, weapons, and other real-world police evidence graph elements, but no mythical creatures.",
+        "warnings": []
+      },
+      "semantic_result": {
+        "status": "SUCCESS",
+        "shape": "evidence",
+        "value": null,
+        "interpretation": null,
+        "grain": null,
+        "refusal_code": null,
+        "refusal_reason": null,
+        "warnings": [],
+        "evidence_count": 8,
+        "semantic_interpretation": "8 passage(s) retrieved. Entities referenced: Case, Date, Officer, Person. Relationships referenced: none identified. 0 passage(s) assert an absence of records."
+      },
+      "reconciliation": {
+        "classification": "SINGLE_ROUTE_VALID",
+        "value": 0,
+        "interpretation": "count",
+        "grain": "ENTITY",
+        "agreeing_routes": [
+          "structured"
+        ],
+        "disagreeing_routes": [],
+        "refused_routes": [
+          "age_text2cypher"
+        ],
+        "semantic_support": "SUPPORTS",
+        "invariant_violations": [],
+        "explanation": "Only the structured route computed a value; no independent computation was available to corroborate it.",
+        "diagnosis": null,
+        "requires_investigation": false
+      },
+      "final_answer": {
+        "status": "ANSWERED",
+        "value": 0,
+        "interpretation": "count",
+        "grain": "ENTITY",
+        "independently_verified": false,
+        "verification_note": "Verification was required and did not confirm this figure; see the reconciliation result.",
+        "refusal_code": null,
+        "refusal_reason": null
+      },
+      "warnings": [
+        "INSUFFICIENT_DATA_COVERAGE: This result is based on incomplete data coverage and may not represent the full relevant population.",
+        "Only 0 record(s) qualify — too few to report a meaningful figure."
+      ],
+      "latency": {
+        "total_ms": 18906,
+        "generation": 10059,
+        "structured": 114,
+        "age": 7522,
+        "semantic": 1210
+      }
+    }
+  ]
+}

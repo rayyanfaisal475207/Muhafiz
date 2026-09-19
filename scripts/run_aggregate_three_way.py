@@ -178,7 +178,13 @@ async def main() -> int:
     if args.limit:
         cases = cases[: args.limit]
 
-    schema_card = route_age.build_schema_card(snapshot)
+    # Built ONCE and passed to every case: the value examples cost one read
+    # per candidate property, and Phase 6 measured why they are needed — the
+    # planner guessed English literals against Urdu data and returned 0
+    # where the truth was 30 and 45.
+    value_examples = await route_age.collect_value_examples(snapshot)
+    schema_card = route_age.build_schema_card(snapshot, value_examples)
+    print(f"  {len(value_examples)} property value-example sets collected")
     report: dict = {
         "registry_as_of": snapshot.as_of,
         "case_count": len(cases),
@@ -193,6 +199,11 @@ async def main() -> int:
 
     eval_counts: dict[str, int] = {}
     recon_counts: dict[str, int] = {}
+    profile_counts: dict[str, int] = {
+        "exact": 0, "escalated": 0, "corrected": 0, "stronger_compatible": 0,
+        "unknown": 0, "incompatible": 0, "no_selection": 0, "gate_failed": 0,
+    }
+    routing_counts: dict[str, int] = {"direct": 0, "composite": 0, "composite_ok": 0}
 
     print("=" * 78)
     print(f"PHASE 4 — THREE-WAY EVALUATION ({len(cases)} cases)")
@@ -204,8 +215,13 @@ async def main() -> int:
         )
         started = time.perf_counter()
 
-        structured = await route_structured.run(snapshot, request, spec=case.spec)
-
+        # PHASE 7C ORDERING. The AGE planner runs FIRST, because it is the
+        # component that selects a gate profile and the structured route
+        # needs that selection to measure it. The routes stay independent:
+        # only the profile id crosses, never a value, a spec or a
+        # population — and trusted code still derives the minimum required
+        # profile itself, so a weak or absent selection changes nothing
+        # about what is enforced.
         age = None
         if not args.no_age:
             try:
@@ -215,6 +231,14 @@ async def main() -> int:
                     routes.ROUTE_AGE, "route_crashed", str(exc),
                     status=routes.EXECUTION_ERROR,
                 )
+
+        selected_profile = None
+        if age is not None:
+            selected_profile = (age.provenance or {}).get("gate_profile_id")
+
+        structured = await route_structured.run(
+            snapshot, request, spec=case.spec, gate_profile_id=selected_profile,
+        )
 
         semantic = None
         if not args.no_semantic:
@@ -234,6 +258,40 @@ async def main() -> int:
         recon_counts[reconciliation.classification] = (
             recon_counts.get(reconciliation.classification, 0) + 1
         )
+
+        # Gate-profile and gate-evaluation evidence, lifted flat so the
+        # report can count selections without walking every provenance dict.
+        s_prov = (structured.provenance or {}) if structured else {}
+        gate_profile = s_prov.get("gate_profile") or {}
+        gate_evaluation = s_prov.get("gate_evaluation") or {}
+        composite = s_prov.get("composite") or {}
+        if gate_profile:
+            if not gate_profile.get("selected_profile_id"):
+                profile_counts["no_selection"] += 1
+            elif gate_profile.get("issue_code") == "unknown_gate_profile":
+                profile_counts["unknown"] += 1
+            elif gate_profile.get("issue_code") == "incompatible_gate_profile":
+                profile_counts["incompatible"] += 1
+            elif gate_profile.get("profile_corrected"):
+                profile_counts["corrected"] += 1
+            elif gate_profile.get("profile_escalated"):
+                profile_counts["escalated"] += 1
+            elif (
+                gate_profile.get("selected_profile_id")
+                != gate_profile.get("required_profile_id")
+            ):
+                profile_counts["stronger_compatible"] += 1
+            else:
+                profile_counts["exact"] += 1
+        if gate_evaluation and not gate_evaluation.get("overall_passed"):
+            profile_counts["gate_failed"] += 1
+        engine = s_prov.get("engine") or ""
+        if "composite" in engine:
+            routing_counts["composite"] += 1
+            if structured is not None and structured.ok:
+                routing_counts["composite_ok"] += 1
+        elif engine:
+            routing_counts["direct"] += 1
 
         report["cases"].append({
             "name": case.name,
@@ -262,6 +320,8 @@ async def main() -> int:
 
     report["evaluation_summary"] = eval_counts
     report["reconciliation_summary"] = recon_counts
+    report["gate_profile_summary"] = profile_counts
+    report["routing_summary"] = routing_counts
 
     print("\n" + "=" * 78)
     print("EVALUATION (routes vs INDEPENDENT ground truth)")
