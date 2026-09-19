@@ -92,25 +92,52 @@ THE RULES, IN ORDER OF PRECEDENCE:
    a Person node. A plan filtering a node on an edge property is INVALID,
    and vice versa.
 
-4. CHECK VALUES WHERE THE CARD LISTS THEM. Where the card shows the values a
-   property takes, a plan filtering on a value outside that set is INVALID.
-   A value that matches nothing returns a clean, plausible, entirely wrong
-   zero.
+4. VALUES ARE NOT YOURS TO JUDGE. You decide whether NAMES exist, never
+   whether the data happens to hold a particular value.
 
-5. VERIFY THE DIRECTION OF EVERY RELATIONSHIP. The card draws each one as
-   (Source)-[:TYPE]->(Target). A plan traversing it between two labels it
-   does not connect, in a direction the card does not draw, is INVALID.
+   The card's value lists are a TRUNCATED SAMPLE, not a closed set: at most
+   six values are shown even where more exist, the list is ordered by
+   frequency rather than coverage, and a property with many distinct values
+   carries no list at all. A value you cannot find in a list may still be in
+   the data, and its absence from the card is not evidence of anything.
+
+   More importantly, a filter on a value that genuinely occurs nowhere is a
+   LEGITIMATE query whose correct answer is zero. "Are there any unicorn
+   weapons?" is answered by returning 0, and coverage reporting downstream
+   says so plainly. Refusing it would destroy the system's ability to answer
+   "none". Never return INVALID because of a filter VALUE.
+
+5. DIRECTION IS TRAVERSAL, NOT STORAGE. The card draws each relationship in
+   the orientation it is STORED: (Source)-[:TYPE]->(Target). A plan's
+   `direction` says how that edge is WALKED:
+
+     "out"  follows the arrow, Source to Target
+     "in"   walks the SAME stored edge backwards, Target to Source
+
+   Walking backwards is normal, supported and common. "How many cases have a
+   weapon linked to them?" starts at Case and walks
+   (Weapon)-[:BELONGS_TO_CASE]->(Case) with direction "in". That plan is
+   VALID. Do not refuse a traversal because it runs against the arrow.
+
+   A traversal is INVALID only when NO edge of that type connects those two
+   labels in EITHER orientation.
 
 6. YOU ARE NOT JUDGING QUALITY. Do not comment on whether the plan is the
    best interpretation, whether the measure suits the question, or whether
    it could be simpler. Another check does that. You judge one thing:
    is every name in this plan real?
 
-WHEN IN DOUBT, REFUSE. If you cannot find a name on the card, it is absent.
-If you are unsure whether a property belongs to the label the plan attaches
-it to, that is INVALID. The cost of wrongly refusing is one unanswered
-question. The cost of wrongly approving is a fabricated number in a case
-file.
+WHEN IN DOUBT ABOUT A NAME, REFUSE. If you cannot find a label,
+relationship or property on the card, it is absent. If you are unsure whether
+a property belongs to the label the plan attaches it to, that is INVALID. The
+cost of wrongly refusing is one unanswered question; the cost of wrongly
+approving is a fabricated number in a case file.
+
+THAT DOUBT APPLIES TO NAMES ONLY. It is not a licence to refuse a plan whose
+names are all real because something else about it looks unusual — a filter
+value you cannot see in the data, a traversal walked backwards, an
+interpretation you would have made differently. Those are other checks' work.
+If every name in the plan is on the card, your verdict is VALID.
 
 Return ONLY this JSON object, no prose and no markdown fence:
 
@@ -173,6 +200,51 @@ def _validate_payload(payload: Any) -> bool:
     return _parse(payload) is not None
 
 
+def _render_traversals(spec: Any) -> str:
+    """Each hop as the concrete orientation it walks, not as a bare flag.
+
+    The spec carries `direction` as the string "in" or "out", which means
+    nothing without knowing that "in" walks a stored edge backwards. Handing
+    that flag to a judge and expecting it to infer the convention is how a
+    legitimate reverse traversal — "cases that have a weapon", walking
+    (Weapon)-[:BELONGS_TO_CASE]->(Case) from the Case end — got refused three
+    times out of three.
+
+    Rendering the resolved shape removes the inference. The judge still
+    decides whether the edge exists; it is simply no longer asked to work out
+    what the plan meant first.
+    """
+    population = getattr(spec, "population", None)
+    hops = tuple(getattr(population, "traversals", ()) or ())
+    if not hops:
+        return "  (none — this plan traverses no relationships)"
+
+    lines: list[str] = []
+    current = getattr(population, "entity", "?")
+    for i, hop in enumerate(hops, 1):
+        rel, target = hop.rel, hop.target
+        if hop.direction == "out":
+            drawn = f"({current})-[:{rel}]->({target})"
+            walked = f"{current} -[:{rel}]-> {target}"
+            note = "follows the stored arrow"
+        else:
+            drawn = f"({target})-[:{rel}]->({current})"
+            walked = f"{current} <-[:{rel}]- {target}"
+            note = (
+                "walks the stored edge BACKWARDS, which is normal and "
+                "supported"
+            )
+        lines.append(f"  hop {i}: {walked}")
+        lines.append(f"          stored as {drawn}; this plan {note}")
+        if hop.role_field:
+            lines.append(
+                f"          filtered on edge property {hop.role_field!r}"
+                + (f" = {hop.role_value!r}" if hop.role_value is not None else "")
+            )
+        current = target
+    return "\n".join(lines)
+
+
 async def judge(
     spec: Any,
     *,
@@ -200,6 +272,8 @@ async def judge(
         f"{schema_card}\n\n"
         f"QUESTION: {question}\n\n"
         f"QUERY PLAN:\n{spec_json}\n\n"
+        f"TRAVERSALS IN THIS PLAN, resolved to the orientation each one "
+        f"walks:\n{_render_traversals(spec)}\n\n"
         f"Return the JSON verdict."
     )
 
