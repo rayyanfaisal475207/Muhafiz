@@ -68,8 +68,18 @@ YOU ARE GIVEN:
      relationship, and the properties carried on those relationships. It was
      measured from the live database. It is COMPLETE. What is absent from
      the card does not exist.
-  2. A QUERY PLAN as JSON.
-  3. The QUESTION the plan claims to answer.
+  2. A REGISTRY REPORT: for every name this plan uses, what the live schema
+     holds for it, looked up for you. Lines reading NOT IN THE SCHEMA, NO
+     SUCH PROPERTY or NOT A PROPERTY OF are measured facts, not opinions —
+     the lookup was performed against the same data the card was built from.
+     Read this FIRST. It is the evidence; the card is there so you can check
+     it.
+  3. A QUERY PLAN as JSON, and the traversals it walks, resolved.
+  4. The QUESTION the plan claims to answer.
+
+THE REGISTRY REPORT DOES NOT DECIDE — YOU DO. It reports what was found; the
+verdict, and the violations you list, are yours. If the report and the card
+appear to disagree, say so in a violation rather than picking one silently.
 
 YOUR ONE JOB: decide whether the plan names ANYTHING the schema card does
 not contain.
@@ -200,6 +210,188 @@ def _validate_payload(payload: Any) -> bool:
     return _parse(payload) is not None
 
 
+#: How many sibling names to list when reporting one as absent. Enough to
+#: show the judge what the label DOES carry, short enough that the block
+#: stays a table rather than becoming a second schema card.
+_SIBLINGS_SHOWN = 12
+
+
+def _sorted_props(info: Any) -> list[str]:
+    props = getattr(info, "properties", None) or {}
+    return sorted(props)
+
+
+def _resolve_names(snapshot: Any, spec: Any) -> list[str]:
+    """One line per name the spec uses, and what the registry has for it.
+
+    WHY THIS EXISTS. The judge was handed a 13,600-character schema card and
+    asked to notice that one property was missing from it. Measured over 75
+    runs it missed eight, every one of them the same shape: a property or a
+    relationship that does not exist on the label the plan attached it to —
+    `arrest_status` on Person, `name` on Person, `Person-[:CITES]->Case`. The
+    name was absent from a document the judge had to search, and searching a
+    long document for an absence is the task models are worst at.
+
+    So trusted code does the LOOKUP and the judge keeps the RULING. Every
+    line below is a fact from the registry, stated plainly; none of them is a
+    verdict. The judge still decides, may still disagree, and is still the
+    only thing that can refuse. What changes is that it now reads a short
+    table instead of scanning a card.
+
+    This does not narrow the grammar. The generator may still emit any name
+    it likes; this only reports what the registry knows about the names it
+    emitted.
+    """
+    population = getattr(spec, "population", None)
+    if population is None:
+        return []
+
+    lines: list[str] = []
+    seen: set[tuple] = set()
+
+    def add(key: tuple, text: str) -> None:
+        if key not in seen:
+            seen.add(key)
+            lines.append(text)
+
+    # ── The measured entity ───────────────────────────────────────────
+    root = getattr(population, "entity", None)
+    if root:
+        info = snapshot.entity(root)
+        if info is None:
+            known = ", ".join(sorted(snapshot.known_labels())[:_SIBLINGS_SHOWN])
+            add(("label", root),
+                f"  label {root!r}: NOT IN THE SCHEMA. "
+                f"Labels that exist: {known}")
+        else:
+            add(("label", root),
+                f"  label {root!r}: exists, {info.total_n} nodes, "
+                f"key={info.distinct_key!r}")
+
+    # ── distinct_key, which must identify one unit of the counted label ─
+    dk = getattr(spec, "distinct_key", None)
+    if dk and root:
+        info = snapshot.entity(root)
+        if info is not None:
+            if dk == info.distinct_key:
+                add(("dk", root, dk),
+                    f"  distinct_key {dk!r} on {root}: this IS the measured key")
+            elif dk in (getattr(info, "properties", None) or {}):
+                add(("dk", root, dk),
+                    f"  distinct_key {dk!r} on {root}: the property exists but "
+                    f"the measured key is {info.distinct_key!r}")
+            else:
+                add(("dk", root, dk),
+                    f"  distinct_key {dk!r} on {root}: NO SUCH PROPERTY. "
+                    f"Measured key is {info.distinct_key!r}")
+
+    # ── Traversals, each resolved in the orientation it is walked ──────
+    current = root
+    for hop in tuple(getattr(population, "traversals", ()) or ()):
+        if hop.direction == "out":
+            info = snapshot.relationship(current, hop.rel, hop.target)
+            drawn = f"({current})-[:{hop.rel}]->({hop.target})"
+        else:
+            info = snapshot.relationship(hop.target, hop.rel, current)
+            drawn = f"({hop.target})-[:{hop.rel}]->({current})"
+        key = ("rel", current, hop.rel, hop.target, hop.direction)
+        if info is None:
+            # Name every orientation this relationship type DOES connect, so
+            # an absence is shown rather than merely asserted.
+            others = sorted(
+                f"({r.source_label})-[:{r.rel_type}]->({r.target_label})"
+                for r in snapshot.relationships.values()
+                if r.rel_type == hop.rel
+            )
+            detail = (
+                f"{hop.rel} connects: {', '.join(others[:6])}"
+                if others else f"no {hop.rel} relationship exists at all"
+            )
+            add(key,
+                f"  edge {drawn}: NOT IN THE SCHEMA. {detail}")
+        else:
+            add(key, f"  edge {drawn}: exists, {info.edge_n} edges")
+            if hop.role_field:
+                eprops = getattr(info, "properties", None) or {}
+                if hop.role_field in eprops:
+                    vals = snapshot.edge_property_values(
+                        info.source_label, info.rel_type, info.target_label,
+                        hop.role_field,
+                    )
+                    shown = (
+                        f" values: {', '.join(sorted(vals))}"
+                        if vals else " values: not enumerated"
+                    )
+                    add(("eprop", hop.rel, hop.role_field),
+                        f"  edge property {hop.role_field!r} on that edge: "
+                        f"exists.{shown}")
+                else:
+                    have = ", ".join(sorted(eprops)) or "none"
+                    add(("eprop", hop.rel, hop.role_field),
+                        f"  edge property {hop.role_field!r} on that edge: "
+                        f"NOT PRESENT. That edge carries: {have}")
+        current = hop.target
+
+    # ── Field predicates, checked against the label they attach to ────
+    # Attributed to the ROOT entity, not the terminal label of the walk,
+    # because that is what `validator._validate_population` does — it calls
+    # `_validate_predicate(snapshot, pop.entity, ...)`. Reporting a different
+    # owner here would hand the judge an ownership claim the rest of the
+    # system does not make, which is the exact confusion this block exists
+    # to remove.
+    for pred in tuple(getattr(population, "predicates", ()) or ()):
+        field = getattr(pred, "field", None)
+        if not field:
+            continue
+        info = snapshot.entity(root) if root else None
+        if info is None:
+            continue
+        props = getattr(info, "properties", None) or {}
+        key = ("field", root, field)
+        if field in props:
+            p = props[field]
+            add(key,
+                f"  property {field!r} on {root}: exists, present on "
+                f"{p.present_n}/{p.total_n}")
+        else:
+            have = ", ".join(_sorted_props(info)[:_SIBLINGS_SHOWN]) or "none"
+            add(key,
+                f"  property {field!r} on {root}: NOT A PROPERTY OF "
+                f"{root}. {root} carries: {have}")
+
+    # ── value_field and group_by, same ownership question ─────────────
+    for name, where in (
+        (getattr(spec, "value_field", None), "value_field"),
+        *[(g.field, "group_by") for g in (getattr(spec, "group_by", ()) or ())],
+    ):
+        if not name or not root:
+            continue
+        info = snapshot.entity(root)
+        if info is None:
+            continue
+        props = getattr(info, "properties", None) or {}
+        key = ("field", root, name)
+        if key in seen:
+            continue
+        if name in props:
+            add(key, f"  property {name!r} on {root} ({where}): exists")
+        else:
+            have = ", ".join(_sorted_props(info)[:_SIBLINGS_SHOWN]) or "none"
+            add(key,
+                f"  property {name!r} on {root} ({where}): NOT A PROPERTY "
+                f"OF {root}. {root} carries: {have}")
+
+    return lines
+
+
+def render_evidence(snapshot: Any, spec: Any) -> str:
+    """The evidence block placed directly above the plan."""
+    lines = _resolve_names(snapshot, spec)
+    if not lines:
+        return "  (this plan names nothing that can be resolved)"
+    return "\n".join(lines)
+
+
 def _render_traversals(spec: Any) -> str:
     """Each hop as the concrete orientation it walks, not as a bare flag.
 
@@ -250,6 +442,7 @@ async def judge(
     *,
     schema_card: str,
     question: str,
+    snapshot: Any = None,
     _call_llm_json: Any = None,
 ) -> JudgeVerdict:
     """Ask the judge whether `spec` names anything absent from the schema.
@@ -268,9 +461,17 @@ async def judge(
     except Exception as exc:  # noqa: BLE001 — a spec that will not serialise
         return JudgeVerdict(ok=False, error=f"spec not serialisable: {exc}")
 
+    # The registry report is built only when a snapshot is supplied, so a
+    # caller without one degrades to the card-only judge rather than failing.
+    evidence = (
+        f"REGISTRY REPORT — what the live schema holds for each name this "
+        f"plan uses:\n{render_evidence(snapshot, spec)}\n\n"
+        if snapshot is not None else ""
+    )
     user_message = (
         f"{schema_card}\n\n"
         f"QUESTION: {question}\n\n"
+        f"{evidence}"
         f"QUERY PLAN:\n{spec_json}\n\n"
         f"TRAVERSALS IN THIS PLAN, resolved to the orientation each one "
         f"walks:\n{_render_traversals(spec)}\n\n"

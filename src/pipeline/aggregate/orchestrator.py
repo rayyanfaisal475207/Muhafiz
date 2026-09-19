@@ -328,6 +328,7 @@ async def answer_question(
         started = time.perf_counter()
         verdict = await schema_judge.judge(
             spec, schema_card=schema_card or "", question=question,
+            snapshot=snapshot,
         )
         timings["schema_judge"] = (time.perf_counter() - started) * 1000.0
         if not verdict.ok:
