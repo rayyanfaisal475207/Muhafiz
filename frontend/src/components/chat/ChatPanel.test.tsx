@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeEach, beforeAll, vi } from 'vitest'
 import { render, screen, fireEvent, act } from '@testing-library/react'
+import { MemoryRouter } from 'react-router-dom'
 import { ChatPanel } from './ChatPanel'
 import { useAuthStore } from '../../store/authStore'
 import { useCaseStore } from '../../store/caseStore'
@@ -34,7 +35,7 @@ describe('ChatPanel — empty state reflects the actual retrieval scope', () => 
 
   it('investigator with no case sees the reference-lookup framing, unchanged', () => {
     setup('investigator')
-    render(<ChatPanel />)
+    render(<MemoryRouter><ChatPanel /></MemoryRouter>)
     expect(screen.getByText('Ask about police procedure')).toBeInTheDocument()
     expect(screen.getByText('What PPC section covers mobile phone theft?')).toBeInTheDocument()
   })
@@ -43,7 +44,7 @@ describe('ChatPanel — empty state reflects the actual retrieval scope', () => 
     '%s with no case sees the All Cases framing, not the generic one',
     (role) => {
       setup(role)
-      render(<ChatPanel />)
+      render(<MemoryRouter><ChatPanel /></MemoryRouter>)
       expect(screen.getByText('Ask across every case')).toBeInTheDocument()
       expect(
         screen.getByText('Which cases is a named suspect connected to across the database?'),
@@ -60,7 +61,7 @@ describe('ChatPanel — empty state reflects the actual retrieval scope', () => 
       cases: [{ case_id: 'fir-430-26', fir_number: '430/26' } as any],
       activeCaseId: 'fir-430-26',
     })
-    render(<ChatPanel />)
+    render(<MemoryRouter><ChatPanel /></MemoryRouter>)
     expect(screen.getByText('Ask about 430/26')).toBeInTheDocument()
     expect(
       screen.getByText('Has any person, vehicle, or phone number in this case appeared in another case?'),
@@ -98,7 +99,7 @@ const scrollToBottomState = (el: HTMLElement) => setScrollState(el, { scrollHeig
 describe('ChatPanel — "↓ New messages" pill', () => {
   it('never shows the pill while the user is at the bottom', () => {
     setupChat([{ id: 'm1', role: 'assistant', content: 'hello', isStreaming: true }])
-    const { container } = render(<ChatPanel />)
+    const { container } = render(<MemoryRouter><ChatPanel /></MemoryRouter>)
     const scrollEl = container.querySelector('.overflow-y-auto') as HTMLElement
     scrollToBottomState(scrollEl)
 
@@ -113,7 +114,7 @@ describe('ChatPanel — "↓ New messages" pill', () => {
 
   it('shows the pill once new content lands while the user is scrolled away during an active stream', () => {
     setupChat([{ id: 'm1', role: 'assistant', content: 'hello', isStreaming: true }])
-    const { container } = render(<ChatPanel />)
+    const { container } = render(<MemoryRouter><ChatPanel /></MemoryRouter>)
     const scrollEl = container.querySelector('.overflow-y-auto') as HTMLElement
     scrollAway(scrollEl)
 
@@ -131,7 +132,7 @@ describe('ChatPanel — "↓ New messages" pill', () => {
 
   it('clicking the pill scrolls to bottom and hides it', () => {
     setupChat([{ id: 'm1', role: 'assistant', content: 'hello', isStreaming: true }])
-    const { container } = render(<ChatPanel />)
+    const { container } = render(<MemoryRouter><ChatPanel /></MemoryRouter>)
     const scrollEl = container.querySelector('.overflow-y-auto') as HTMLElement
     scrollAway(scrollEl)
     act(() => {
@@ -147,7 +148,7 @@ describe('ChatPanel — "↓ New messages" pill', () => {
 
   it('hides again once the user scrolls back to the bottom themselves', () => {
     setupChat([{ id: 'm1', role: 'assistant', content: 'hello', isStreaming: true }])
-    const { container } = render(<ChatPanel />)
+    const { container } = render(<MemoryRouter><ChatPanel /></MemoryRouter>)
     const scrollEl = container.querySelector('.overflow-y-auto') as HTMLElement
     scrollAway(scrollEl)
     act(() => {

@@ -4,6 +4,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { useChatStore } from '../../store/chatStore';
+import { useSessionStore } from '../../store/sessionStore';
 import { useCaseStore } from '../../store/caseStore';
 import { useAuthStore } from '../../store/authStore';
 import { MessageBubble } from './MessageBubble';
@@ -11,6 +12,8 @@ import { ChatInput } from './ChatInput';
 import { LogoMark } from '../brand/Logo';
 import type { Source } from '../../types';
 import { ALL_CASES_ROLES } from '../../lib/constants';
+import { scopeLabel } from '../../lib/caseLabel';
+import { ChatHeaderActions } from './ChatHeaderActions';
 
 const GENERAL_SUGGESTIONS = [
   'What PPC section covers mobile phone theft?',
@@ -50,6 +53,15 @@ interface ChatPanelProps {
 
 export function ChatPanel({ onSourceClick }: ChatPanelProps) {
   const { messages, isStreaming, sendMessage, newSession, error, clearError } = useChatStore();
+  const sessionId = useChatStore((s) => s.sessionId);
+  const isLoadingSession = useChatStore((s) => s.isLoadingSession);
+  const sessions = useSessionStore((s) => s.sessions);
+  const { cases, activeCaseId } = useCaseStore();
+  const role = useAuthStore((s) => s.user?.role);
+  // The open conversation's own title, so a chat picked from the sidebar
+  // is identifiable at the top rather than only highlighted in the list.
+  const activeTitle = sessions.find((s) => s.session_id === sessionId)?.title || 'New Chat';
+  const headerScope = scopeLabel(activeCaseId, cases, role);
   const bottomRef = useRef<HTMLDivElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const stickToBottom = useRef(true);
@@ -110,37 +122,57 @@ export function ChatPanel({ onSourceClick }: ChatPanelProps) {
         className="flex items-center justify-between px-6 py-3 border-b shrink-0"
         style={{ borderColor: 'var(--border)' }}
       >
-        <div className="flex items-center gap-2">
-          <h1 className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>Chat</h1>
+        {/* Title line. "Chat" alone said nothing about WHICH conversation
+            or WHICH case you were in — with per-case histories in the
+            sidebar, the same question title can exist under several
+            cases, so the header names both the open conversation and the
+            case scope it is running against. */}
+        <div className="flex flex-col min-w-0 gap-0.5">
+          <h1 className="text-sm font-semibold truncate" style={{ color: 'var(--text-primary)' }}>
+            {activeTitle}
+          </h1>
+          <span className="text-[11px] truncate" style={{ color: 'var(--text-faint)' }}>
+            {headerScope}
+          </span>
         </div>
-        {isStreaming && (
-          <div className="flex items-center gap-1.5 text-[11px]" style={{ color: 'var(--accent)' }}>
-            <span
-              className="animate-pulse-dot w-1.5 h-1.5 rounded-pill inline-block"
-              style={{ background: 'var(--accent)' }}
-            />
-            Responding…
-          </div>
-        )}
+        <div className="flex items-center gap-2 shrink-0">
+          {isStreaming && (
+            <div className="flex items-center gap-1.5 text-[11px]" style={{ color: 'var(--accent)' }}>
+              <span
+                className="animate-pulse-dot w-1.5 h-1.5 rounded-pill inline-block"
+                style={{ background: 'var(--accent)' }}
+              />
+              Responding…
+            </div>
+          )}
+          <ChatHeaderActions />
+        </div>
       </div>
 
       {/* Messages — a comfortable measure, centered, like a document */}
       <div className="relative flex-1 min-h-0">
         <div ref={scrollRef} onScroll={handleScroll} className="h-full overflow-y-auto px-6 py-8">
           {messages.length === 0 ? (
-            <EmptyState />
+            // While a session switch is in flight `messages` is already
+            // cleared but the history has not arrived, so rendering
+            // EmptyState here flashed the suggestion cards for one frame on
+            // every click in Chat History. Hold the space instead.
+            isLoadingSession ? <div aria-busy="true" /> : <EmptyState />
           ) : (
-            <div className="flex flex-col gap-7 max-w-[46rem] mx-auto w-full">
-              {messages.map((msg, i) => (
-                // Staggered fade-in only on a bulk history load (see
-                // isBulkLoad above) — a live-appended message keeps its own
-                // per-message slide-in from MessageBubble unstaggered, so
-                // sending a message never feels delayed.
-                <div
-                  key={msg.id}
-                  className={isBulkLoad ? 'animate-fade-in' : undefined}
-                  style={isBulkLoad ? { animationDelay: `${Math.min(i, 12) * 35}ms` } : undefined}
-                >
+            <div
+              key={sessionId}
+              className={`flex flex-col gap-7 max-w-[46rem] mx-auto w-full${isBulkLoad ? ' animate-fade-in' : ''}`}
+            >
+              {messages.map((msg) => (
+                // The per-message stagger that used to live here ran a
+                // separate fade per bubble with delays up to ~420ms, so a
+                // restored conversation assembled itself visibly, piece by
+                // piece — read as a glitch rather than as polish once
+                // opening a chat became a common action. A live-appended
+                // message still keeps MessageBubble's own slide-in; only
+                // the bulk-load entrance changed, and it now happens once
+                // for the whole thread (see the wrapper below).
+                <div key={msg.id}>
                   <MessageBubble message={msg} onSourceClick={onSourceClick} />
                 </div>
               ))}
@@ -227,10 +259,10 @@ function EmptyState() {
       : 'Ask about police procedure';
 
   const subtext = activeCase
-    ? "Muhafiz searches this case's evidence, checks the entity graph, and answers with the source it came from."
+    ? "MorseAI searches this case's evidence, checks the entity graph, and answers with the source it came from."
     : hasAllCasesScope
-      ? 'Muhafiz searches every case’s evidence and the general reference material, following connections across cases, and answers with the source it came from.'
-      : 'Muhafiz searches the reference material, checks its own sources, and answers with the section it came from.';
+      ? 'MorseAI searches every case’s evidence and the general reference material, following connections across cases, and answers with the source it came from.'
+      : 'MorseAI searches the reference material, checks its own sources, and answers with the section it came from.';
 
   return (
     <div className="flex flex-col items-center justify-center h-full gap-7 text-center px-8">

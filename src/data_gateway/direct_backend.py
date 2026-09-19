@@ -184,6 +184,25 @@ class DirectGateway:
                 s.updated_at = datetime.utcnow()
                 await db.commit()
 
+    async def touch_session(self, session_id: str) -> None:
+        """
+        Bump a session's `updated_at` to now, without altering its content.
+
+        get_sessions_for_user() orders by `updated_at DESC`, but until now
+        only sending a message or renaming ever moved that column — simply
+        opening a conversation left it where it was, so the sidebar ordered
+        by "last written to" rather than "last used". Called on read of a
+        session's history so the list behaves the way every chat UI's does.
+        """
+        async with get_session() as db:
+            res = await db.execute(
+                select(Session).where(Session.session_id == uuid.UUID(str(session_id)))
+            )
+            s = res.scalars().first()
+            if s:
+                s.updated_at = datetime.utcnow()
+                await db.commit()
+
     async def delete_session(self, session_id: str) -> None:
         async with get_session() as db:
             res = await db.execute(select(Session).where(Session.session_id == uuid.UUID(str(session_id))))

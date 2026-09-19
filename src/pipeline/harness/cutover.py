@@ -89,7 +89,11 @@ import time
 from typing import AsyncGenerator, Optional
 
 from src.data_gateway.base import DataGateway
+import logging
+
 from src.memory.conversation import async_load_history, async_save_history, format_history_for_prompt
+
+logger = logging.getLogger(__name__)
 from src.pipeline.harness.supervisor import Supervisor
 # Importing the agent modules is what registers each sub-agent into the
 # Supervisor's registry (see agents/__init__.py: registration happens at
@@ -539,6 +543,32 @@ async def run_cutover_query(
         yield {"step": "memory", "status": "done", "detail": "Saved to session"}
     except Exception as exc:
         yield {"step": "memory", "status": "error", "detail": f"Failed to save conversation memory: {exc}"}
+
+    # ── Session title ────────────────────────────────────────────────────
+    # orchestrator.py generates a semantic title on the first message of a
+    # conversation and emits `title_generation` (which the frontend's
+    # chatStore already listens for, updating the sidebar live). This path
+    # never did — so every harness-routed conversation, which since the
+    # cutover is nearly all of them, kept the provisional title main.py
+    # assigns at creation: the first six words of the question verbatim.
+    # That is why the sidebar filled up with near-identical rows.
+    #
+    # Runs AFTER the answer so the title can describe what the conversation
+    # turned out to be about rather than restating the question, and after
+    # the memory save so a title failure can never cost the user the
+    # conversation itself.
+    if not history:
+        try:
+            from src.pipeline.title_generator import generate_and_save_title
+
+            new_title = await generate_and_save_title(
+                session_id, user_message, assistant_answer=delivered_text
+            )
+            if new_title:
+                yield {"step": "title_generation", "status": "done", "detail": new_title}
+        except Exception as exc:
+            # Non-fatal: the provisional title stands.
+            logger.warning("Title generation failed for session %s: %s", session_id, exc)
 
     # ── Report Drafting — mirrors orchestrator.py's own `_generate_file()`
     # event: event("file_generation", "done", f"File ready: {file_name}",

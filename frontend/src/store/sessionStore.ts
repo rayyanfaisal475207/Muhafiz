@@ -25,6 +25,11 @@ interface SessionState {
   addSessionOptimistic: (session: Session, projectId?: string | null, caseId?: string | null) => void;
   // Optimistically update a session's title (called when title_generation event arrives)
   updateSessionTitleOptimistic: (id: string, title: string) => void;
+  // Move a session to the top of the list on open. The backend bumps
+  // `updated_at` when the history is read, but the list in memory was
+  // fetched before that write, so without this the row only jumps after a
+  // refetch.
+  touchSessionOptimistic: (id: string) => void;
   reset: () => void;
 }
 
@@ -90,6 +95,21 @@ export const useSessionStore = create<SessionState>((set, get) => ({
       sessions: get().sessions.map((s) =>
         s.session_id === id ? { ...s, title } : s
       ),
+    });
+  },
+
+  touchSessionOptimistic: (id: string) => {
+    const sessions = get().sessions;
+    const target = sessions.find((s) => s.session_id === id);
+    // Unknown id (e.g. a session outside the current case filter) — nothing
+    // to reorder, and inventing a row here would show a session the active
+    // filter deliberately excludes.
+    if (!target) return;
+    set({
+      sessions: [
+        { ...target, updated_at: new Date().toISOString() },
+        ...sessions.filter((s) => s.session_id !== id),
+      ],
     });
   },
 

@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { NavLink, useNavigate, useParams } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
 import { useAuthStore } from '../../store/authStore';
 import { useProjectStore } from '../../store/projectStore';
 import { ProjectSettingsModal } from './ProjectSettingsModal';
@@ -8,9 +8,8 @@ import { CaseSettingsModal } from './CaseSettingsModal';
 import { CaseSelector } from './CaseSelector';
 import { useSessionStore } from '../../store/sessionStore';
 import { useChatStore } from '../../store/chatStore';
-import { ThemeToggle } from './ThemeToggle';
-import { apiClient } from '../../lib/api';
 import { LAST_SESSION_KEY, SIDEBAR_COLLAPSED_KEY, ALL_CASES_ROLES } from '../../lib/constants';
+import { allCasesLabel, caseLabel, scopeLabel } from '../../lib/caseLabel';
 import { LogoLockup, LogoMark } from '../brand/Logo';
 
 // New Chat icon, kept alongside the (now button) control below.
@@ -36,17 +35,6 @@ function CollapseToggleIcon({ collapsed }: { collapsed: boolean }) {
   );
 }
 
-const navItems = [
-  {
-    to: '/settings',
-    label: 'Profile & Settings',
-    icon: (
-      <svg viewBox="0 0 20 20" fill="currentColor" className="w-5 h-5">
-        <path fillRule="evenodd" d="M11.49 3.17c-.38-1.56-2.6-1.56-2.98 0a1.532 1.532 0 01-2.286.948c-1.372-.836-2.942.734-2.106 2.106.54.886.061 2.042-.947 2.287-1.561.379-1.561 2.6 0 2.978a1.532 1.532 0 01.947 2.287c-.836 1.372.734 2.942 2.106 2.106a1.532 1.532 0 012.287.947c.379 1.561 2.6 1.561 2.978 0a1.533 1.533 0 012.287-.947c1.372.836 2.942-.734 2.106-2.106a1.533 1.533 0 01.947-2.287c1.561-.379 1.561-2.6 0-2.978a1.532 1.532 0 01-.947-2.287c.836-1.372-.734-2.942-2.106-2.106a1.532 1.532 0 01-2.287-.947zM10 13a3 3 0 100-6 3 3 0 000 6z" clipRule="evenodd" />
-      </svg>
-    ),
-  },
-];
 
 function groupSessions(sessions: any[]) {
   const today = new Date();
@@ -75,7 +63,7 @@ function groupSessions(sessions: any[]) {
 }
 
 export function Sidebar() {
-  const { logout, isAuthenticated, user } = useAuthStore();
+  const { isAuthenticated, user } = useAuthStore();
   const { sessions, deleteSession, renameSession, error: sessionsError, isLoading: sessionsLoading } = useSessionStore();
   const newSession = useChatStore((s) => s.newSession);
   const { projects, activeProjectId, fetchProjects, setActiveProject, error: projectsError, isLoading: projectsLoading } = useProjectStore();
@@ -156,6 +144,18 @@ export function Sidebar() {
 
   const groups = groupSessions(sessions);
 
+  // Scope shown above Chat History, and the per-row badges below it.
+  const allCasesText = allCasesLabel(user?.role);
+  const historyScope = scopeLabel(activeCaseId, cases, user?.role);
+  const caseLabelFor = (id: string) => {
+    const found = cases.find((c) => c.case_id === id);
+    return found ? caseLabel(found) : id;
+  };
+  // With a case selected the list is already one case's history, so a badge
+  // on every row would repeat the heading. It earns its place only when the
+  // list can actually span cases.
+  const showRowCase = !activeCaseId && sessions.some((x) => x.case_id);
+
   // Mirror the composer's "+" button: reset the chat store to a fresh session,
   // then land on a clean '/'. The `fresh` flag stops ChatPage from restoring
   // the last session (the bounce-back that made this button appear dead).
@@ -193,22 +193,6 @@ export function Sidebar() {
     setEditingId(null);
   };
 
-  const handleDownload = async (id: string, title: string) => {
-    try {
-      const res = await apiClient.get(`/sessions/${id}/export?format=pdf`, { responseType: 'blob' });
-      const url = window.URL.createObjectURL(new Blob([res.data]));
-      const link = document.createElement('a');
-      link.href = url;
-      link.setAttribute('download', `${title || 'chat-export'}.pdf`);
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      window.URL.revokeObjectURL(url);
-    } catch (e) {
-      console.error('Export failed', e);
-      setActionError('Failed to export session. Please try again.');
-    }
-  };
 
   return (
     <>
@@ -333,8 +317,16 @@ export function Sidebar() {
           useful, an icon can't stand in for them. */}
       {!collapsed && (
       <div className="flex-1 overflow-y-auto px-3">
-        <div className="text-[11px] font-semibold uppercase tracking-wider mb-2 pl-3" style={{ color: 'var(--text-faint)' }}>
-          Chat History
+        {/* fetchSessions() filters by the active project/case, so this list
+            is already scoped — it just never said so, leaving "is this all
+            cases or just this one?" unanswerable from the UI. */}
+        <div className="mb-2 pl-3">
+          <div className="text-[11px] font-semibold uppercase tracking-wider" style={{ color: 'var(--text-faint)' }}>
+            Chat History
+          </div>
+          <div className="text-[10.5px] truncate" style={{ color: 'var(--text-faint)' }}>
+            {historyScope}
+          </div>
         </div>
 
         {actionError && (
@@ -398,23 +390,23 @@ export function Sidebar() {
                           onClick={(e) => e.stopPropagation()}
                         />
                       ) : (
-                        <div className="truncate flex-1 pr-8">{s.title || 'New Chat'}</div>
+                        <div className="min-w-0 flex-1 pr-8">
+                          <div className="truncate">{s.title || 'New Chat'}</div>
+                          {/* Session titles come from the question text, so
+                              "What is this case about?" asked under three
+                              cases produced three indistinguishable rows.
+                              Only shown when the list spans cases. */}
+                          {showRowCase && (
+                            <div className="truncate text-[10px]" style={{ color: 'var(--text-faint)' }}>
+                              {s.case_id ? caseLabelFor(s.case_id) : allCasesText}
+                            </div>
+                          )}
+                        </div>
                       )}
 
                       {/* Action Icons */}
                       {!editingId && (
                         <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center opacity-0 group-hover:opacity-100 transition-opacity gap-1">
-                          <button
-                            className="p-1 rounded-xs text-[var(--text-muted)] hover:text-[var(--accent)] hover:bg-[var(--accent-soft)] transition-colors"
-                            title="Export as PDF"
-                            aria-label="Export as PDF"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handleDownload(s.session_id, s.title);
-                            }}
-                          >
-                            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
-                          </button>
                           <button
                             className="p-1 rounded-xs text-[var(--text-muted)] hover:text-[var(--accent)] hover:bg-[var(--accent-soft)] transition-colors"
                             title="Rename"
@@ -468,54 +460,10 @@ export function Sidebar() {
       )}
       {collapsed && <div className="flex-1" />}
 
-      {/* Account — Settings, theme, sign out grouped together at the bottom */}
-      <div className={`mt-auto pt-4 border-t border-[var(--border)] flex flex-col gap-1 ${collapsed ? 'px-2 items-center' : 'px-4'}`}>
-        {navItems.map((item) => (
-          <NavLink
-            key={item.to}
-            to={item.to}
-            end={item.to === '/'}
-            title={item.label}
-            aria-label={item.label}
-            className={({ isActive }) =>
-              collapsed
-                ? `flex items-center justify-center w-9 h-9 rounded-sm transition-colors ${
-                    isActive
-                      ? 'bg-[var(--accent-soft)] text-[var(--accent)]'
-                      : 'text-[var(--text-secondary)] hover:bg-[var(--bg-surface-3)] hover:text-[var(--text-primary)]'
-                  }`
-                : `flex items-center px-3 py-2 rounded-sm transition-colors text-sm font-medium ${
-                    isActive
-                      ? 'bg-[var(--accent-soft)] text-[var(--accent)]'
-                      : 'text-[var(--text-secondary)] hover:bg-[var(--bg-surface-3)] hover:text-[var(--text-primary)]'
-                  }`
-            }
-          >
-            <span className={collapsed ? '' : 'mr-3 opacity-70'}>{item.icon}</span>
-            {!collapsed && item.label}
-          </NavLink>
-        ))}
-        <ThemeToggle collapsed={collapsed} />
-        {/* Same destructive-action hover treatment "Delete session" already
-            uses above (hover:text-[var(--error)] hover:bg-[var(--error-soft)])
-            — Sign Out is the one other destructive action in this file and
-            had been left with neutral hover styling in both variants. */}
-        <button
-          onClick={() => logout()}
-          title="Sign Out"
-          aria-label="Sign Out"
-          className={
-            collapsed
-              ? 'flex items-center justify-center w-9 h-9 text-sm font-medium rounded-sm text-[var(--text-secondary)] hover:bg-[var(--error-soft)] hover:text-[var(--error)] transition-colors'
-              : 'flex items-center w-full px-3 py-2 text-sm font-medium rounded-sm text-[var(--text-secondary)] hover:bg-[var(--error-soft)] hover:text-[var(--error)] transition-colors'
-          }
-        >
-          <svg className={collapsed ? 'w-4 h-4' : 'w-4 h-4 mr-3'} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"></path>
-          </svg>
-          {!collapsed && 'Sign Out'}
-        </button>
-      </div>
+      {/* Account controls (settings, theme, sign out) now live in the chat
+          header's menu — see ChatHeaderActions. Keeping them here too made
+          the sidebar carry navigation, case scope, history AND account in
+          one column, which is what this move was meant to relieve. */}
     </aside>
     <ProjectSettingsModal isOpen={isProjectModalOpen} onClose={() => setIsProjectModalOpen(false)} editProject={null} />
     <CaseSettingsModal isOpen={isCaseModalOpen} onClose={() => setIsCaseModalOpen(false)} />

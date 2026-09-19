@@ -51,7 +51,9 @@ describe('Sidebar — store errors and swallowed action failures are now visible
     // The row's three action icons are Export/Rename/Delete, in that order;
     // Delete is the only one with no `title` attribute.
     const row = screen.getByText('Test session').closest('.group') as HTMLElement
-    const trashButton = row.querySelectorAll('button')[2]
+    // Export moved to the chat header (ChatHeaderActions), so the row's
+    // hover actions are now [rename, delete] rather than [export, rename, delete].
+    const trashButton = row.querySelectorAll('button')[1]
     fireEvent.click(trashButton)
     fireEvent.click(screen.getByText('Confirm'))
 
@@ -106,7 +108,7 @@ describe('Sidebar — collapse/expand (Module 3, FRONTEND_UX_MATURITY_IMPLEMENTA
     expect(screen.getByText('New Chat')).toBeInTheDocument()
   })
 
-  it('collapsing hides the Workspace/Case/history sections but keeps New Chat and Sign Out reachable as tooltip-labeled icons', () => {
+  it('collapsing hides the Workspace/Case/history sections but keeps New Chat reachable as a tooltip-labeled icon', () => {
     renderSidebar()
     fireEvent.click(screen.getByLabelText('Collapse sidebar'))
 
@@ -117,9 +119,11 @@ describe('Sidebar — collapse/expand (Module 3, FRONTEND_UX_MATURITY_IMPLEMENTA
     expect(screen.queryByText('New Chat')).not.toBeInTheDocument()
     expect(screen.getByLabelText('New Chat')).toBeInTheDocument()
     expect(screen.getByLabelText('New Chat')).toHaveAttribute('title', 'New Chat')
-    expect(screen.getByLabelText('Sign Out')).toBeInTheDocument()
-    expect(screen.getByLabelText('Sign Out')).toHaveAttribute('title', 'Sign Out')
-    expect(screen.getByLabelText('Profile & Settings')).toBeInTheDocument()
+    // Sign Out and Profile & Settings deliberately no longer live in the
+    // sidebar at all (collapsed or not) — they moved to the chat header's
+    // menu, see ChatHeaderActions.
+    expect(screen.queryByLabelText('Sign Out')).not.toBeInTheDocument()
+    expect(screen.queryByLabelText('Profile & Settings')).not.toBeInTheDocument()
   })
 
   it('re-expands on a second click, restoring the label-dependent sections', () => {
