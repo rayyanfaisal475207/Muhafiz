@@ -114,6 +114,8 @@ from src.pipeline.validation import caveats_for_validation, validate_answer
 from src.pipeline.verifier import (
     CITATION_FORMAT_DEGRADED_CAVEAT,
     CITATION_FORMAT_DEGRADED_KEY,
+    SCHEMA_ABSENCE_GROUNDED_CAVEAT,
+    SCHEMA_ABSENCE_GROUNDED_KEY,
     verify_grounding,
 )
 
@@ -457,6 +459,14 @@ async def semantic_search(
     # available; it is the claim-to-source mapping that is not.
     if verification.get(CITATION_FORMAT_DEGRADED_KEY):
         caveats.append(CITATION_FORMAT_DEGRADED_CAVEAT)
+    # [Gold-QA fix — Module 151] The Verifier served this answer because the
+    # only claims the judge could not find a document for state that our
+    # records hold NO field for something, and the platform's record
+    # inventory confirms it (verifier.py's "GROUNDING AN ABSENCE AGAINST
+    # THE RECORD INVENTORY" block). Never silent: the reader is told which
+    # kind of check grounded that statement.
+    if verification.get(SCHEMA_ABSENCE_GROUNDED_KEY):
+        caveats.append(SCHEMA_ABSENCE_GROUNDED_CAVEAT)
     if tool_result.evaluator_verdict == "unavailable":
         degraded_from.append("RAG")
         for caveat in tool_result.degradation_caveats:

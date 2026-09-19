@@ -1,0 +1,30 @@
+[
+  {
+    "id": "KB2-P1",
+    "gold_id": "KB2",
+    "language": "en",
+    "written": "2026-09-15, before any live run",
+    "text": "Our witness records only hold names, CNICs and addresses — why is there nowhere to store what the witness actually told the police? Is that something we should be capturing?"
+  },
+  {
+    "id": "KB2-RU",
+    "gold_id": "KB2",
+    "language": "roman_ur",
+    "written": "2026-09-15, before any live run",
+    "text": "Hamare system mein gawah ya mulzim ne police interview mein jo kaha, woh kahin mehfooz kyun nahi hota — kya yeh hamare data ki kami hai ya jaan boojh kar aisa hai?"
+  },
+  {
+    "id": "KB5-P1",
+    "gold_id": "KB5",
+    "language": "ur",
+    "written": "2026-09-15, before any live run",
+    "text": "خواتین کے خلاف تشدد کے مقدمات میں قانون جن خصوصی اقدامات کا پابند کرتا ہے، کیا ہمارے ریکارڈ میں یہ دیکھا جا سکتا ہے کہ وہ اقدامات ہوئے یا نہیں — اور کون سی چیز ہمارے ریکارڈ میں سرے سے درج ہی نہیں ہوتی؟"
+  },
+  {
+    "id": "KB9-P1",
+    "gold_id": "KB9",
+    "language": "roman_ur",
+    "written": "2026-09-15, before any live run",
+    "text": "Jab maut mashkook halaat mein ho to qanoon police se maut ki wajah ki tehqeeqaat maangta hai — kya hamare records mein is tehqeeqaat ke liye koi khana ya record maujood hai, jab ke hamare kai cases mein maut shamil hai?"
+  }
+]

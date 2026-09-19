@@ -27,7 +27,13 @@ import src.pipeline.router as router
 
 _ROOT = Path(__file__).resolve().parent.parent
 _GOLD32_PATH = _ROOT / "evaluation" / "Gold_QA_Dataset_Final32_With_Answers.json"
-_PROBE_PATH = _ROOT / "docs" / "gold-qa-wave2-results" / "module145_probe.json"
+# The NEWEST measurement of the shipped table. Module 145 wrote
+# module145_probe.json against its own 38-entry table; Module 161 added one
+# description and re-scored the whole 261-item corpus against the enlarged
+# table (evaluation/module161_semantic_probe.py). Every test below that
+# replays a measured decision reads the file that matches the live table —
+# `test_the_probe_records_zero_gold_moves_and_zero_hazard_fires` pins that.
+_PROBE_PATH = _ROOT / "docs" / "gold-qa-wave2-results" / "module161_probe_after.json"
 
 # The live query Module 145 was filed from, and the two Module 100 rewordings
 # the layer reaches. Text verbatim from module145_targets.json.
@@ -95,10 +101,18 @@ def _kinds_the_chain_returns() -> set[str]:
 
 
 def test_every_kind_the_chain_can_return_has_a_description():
+    """[Gold-QA fix — Module 161] One carve-out, declared by name in
+    `xagg._SEMANTIC_ONLY_AGGREGATE_KINDS`: a kind with NO phrase list, which
+    the chain therefore never returns and only a description can reach. It
+    must be described, must be dispatchable, and must not be a chain kind."""
     chain = _kinds_the_chain_returns()
     assert chain, "the AST scan found no return kinds"
     described = set(sd.CAPABILITY_DESCRIPTIONS) - {"xgraph_named_entity_network", "legal_norm_lookup"}
-    assert described == chain
+    semantic_only = xagg._SEMANTIC_ONLY_AGGREGATE_KINDS
+    assert semantic_only <= described
+    assert not (semantic_only & chain)
+    assert not (semantic_only & sd.NON_DISPATCHABLE_KINDS)
+    assert described - semantic_only == chain
 
 
 def test_absorbing_classes_mirror_xagg_generic_and_refusal_sets():

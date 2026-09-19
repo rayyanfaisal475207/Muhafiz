@@ -1,0 +1,1038 @@
+{
+ "D1::0": {
+  "text": "What is the total number of first information reports we currently hold?",
+  "gold_id": "D1",
+  "skipped": "not eligible",
+  "route": "XAGG",
+  "case_scope": "cross_case",
+  "sub_agent": "Large-Scale Aggregate",
+  "eligible_if_empty": false,
+  "dispatch_layers_missed": true
+ },
+ "D1::1": {
+  "text": "Is waqt hamare paas kul kitni FIR mojood hain?",
+  "gold_id": "D1",
+  "skipped": "not eligible",
+  "route": "XAGG",
+  "case_scope": "cross_case",
+  "sub_agent": "Large-Scale Aggregate",
+  "eligible_if_empty": false,
+  "dispatch_layers_missed": true
+ },
+ "D1::2": {
+  "route": "XNETWORK",
+  "case_scope": "cross_case",
+  "station": null,
+  "district": null,
+  "used_cutover": true,
+  "sub_agent": "Cross-Case Linkage",
+  "fallback_fired": true,
+  "fallback": [
+   {
+    "query": "MATCH (c:Case) RETURN count(c) AS total_firs",
+    "scoped_query": "MATCH (c:Case) RETURN count(c) AS total_firs LIMIT 200",
+    "rows": [
+     {
+      "total_firs": 73
+     }
+    ],
+    "model": "local:qwen3:14b",
+    "narration_model": "local:qwen3:14b",
+    "verifier": {
+     "grounded": true,
+     "off_topic": false,
+     "leaked_case_id": null,
+     "unsupported_claims": [],
+     "reason": "The claim about 73 FIRs is directly stated in Document 1's JSON data.",
+     "refusal_detected": false
+    },
+    "reason": null,
+    "served": true,
+    "status": "partial",
+    "elapsed_s": 34.0
+   }
+  ],
+  "fallback_events": [
+   {
+    "step": "llm_query_fallback",
+    "status": "active",
+    "detail": "Every aggregate and plan missed — asking the model for one read-only graph query"
+   },
+   {
+    "step": "llm_query_fallback",
+    "status": "done",
+    "detail": "generated query returned 1 row(s)",
+    "query": "MATCH (c:Case) RETURN count(c) AS total_firs LIMIT 200",
+    "rows": 1,
+    "model": "local:qwen3:14b",
+    "reasoning": "To find the total number of FIRs, count all nodes with the Case label which represent individual cases."
+   },
+   {
+    "step": "citation_validator",
+    "status": "done",
+    "detail": "unverified: figures come from a model-generated graph query, not an audited aggregate"
+   }
+  ],
+  "answer": "مجموعی طور پر 73 ایف آئی آر موجود ہیں [Document 1].  \n\nسپورٹنگ ریکارڈ:  \n- total_firs: 73 [Document 1].\n\n_UNVERIFIED: this answer comes from a graph query the language model wrote for this question, not from an audited aggregate. Read the query and the rows before relying on any figure in it._\n_Generated graph query (run as-is on a read-only role): MATCH (c:Case) RETURN count(c) AS total_firs LIMIT 200_",
+  "status": null,
+  "steps": [
+   "supervisor/active: Routing through the agent harness...",
+   "supervisor:dispatch/active: Classified query as route='XNETWORK' -> sub-agent='Cross-Case Linkage'",
+   "supervisor:dispatch/done: Cross-Case Linkage completed with status=empty",
+   "llm_query_fallback/active: Every aggregate and plan missed — asking the model for one read-only graph query",
+   "llm_query_fallback/done: generated query returned 1 row(s)",
+   "citation_validator/done: unverified: figures come from a model-generated graph query, not an audited aggregate",
+   "supervisor/done: Harness routing complete",
+   "response/done: Response generated (406 chars)",
+   "memory/done: Saved to session"
+  ],
+  "log": [
+   "LLM-QUERY-FALLBACK firing: route=XNETWORK sub_agent=Cross-Case Linkage status=empty | اِس وقت ہمارے پاس مجموعی طور پر کتنی ایف آئی آر موجود ہیں؟",
+   "LLM-QUERY-FALLBACK ran: 1 row(s) model=local:qwen3:14b | MATCH (c:Case) RETURN count(c) AS total_firs LIMIT 200"
+  ],
+  "elapsed_s": 37.9,
+  "text": "اِس وقت ہمارے پاس مجموعی طور پر کتنی ایف آئی آر موجود ہیں؟",
+  "role": "platform-admin",
+  "id": "D1::2",
+  "gold_id": "D1",
+  "language": "ur"
+ },
+ "S2::3": {
+  "text": "Which of our stations is responsible for the biggest share of files?",
+  "gold_id": "S2",
+  "skipped": "not eligible",
+  "route": "XAGG",
+  "case_scope": "cross_case",
+  "sub_agent": "Large-Scale Aggregate",
+  "eligible_if_empty": false,
+  "dispatch_layers_missed": true
+ },
+ "S2::4": {
+  "text": "Sab se zyada files kis thane ke zimme hain?",
+  "gold_id": "S2",
+  "skipped": "not eligible",
+  "route": "XAGG",
+  "case_scope": "cross_case",
+  "sub_agent": "Large-Scale Aggregate",
+  "eligible_if_empty": false,
+  "dispatch_layers_missed": true
+ },
+ "S2::5": {
+  "text": "سب سے زیادہ مقدمات کس تھانے کے ذمے ہیں؟",
+  "gold_id": "S2",
+  "skipped": "not eligible",
+  "route": "XAGG",
+  "case_scope": "cross_case",
+  "sub_agent": "Large-Scale Aggregate",
+  "eligible_if_empty": false,
+  "dispatch_layers_missed": true
+ },
+ "S3::6": {
+  "text": "Has any individual been taken into custody on more than one occasion?",
+  "gold_id": "S3",
+  "skipped": "not eligible",
+  "route": "XAGG",
+  "case_scope": "cross_case",
+  "sub_agent": "Large-Scale Aggregate",
+  "eligible_if_empty": false,
+  "dispatch_layers_missed": true
+ },
+ "S3::7": {
+  "route": "XGRAPH",
+  "case_scope": "cross_case",
+  "station": null,
+  "district": null,
+  "used_cutover": true,
+  "sub_agent": "Cross-Case Linkage",
+  "fallback_fired": true,
+  "fallback": [
+   {
+    "query": "MATCH (p:Person)-[:OCCURRED_ON {event_type: 'arrest'}]->(d:Date) GROUP BY p.entity_id HAVING COUNT(d) > 1 RETURN p.canonical_name AS name, COUNT(d) AS arrest_count",
+    "scoped_query": null,
+    "rows": null,
+    "model": "local:qwen3:14b",
+    "narration_model": null,
+    "verifier": null,
+    "reason": "rejected before the database — unknown identifier: GROUP",
+    "served": false,
+    "status": "abstained",
+    "elapsed_s": 16.4
+   }
+  ],
+  "fallback_events": [
+   {
+    "step": "llm_query_fallback",
+    "status": "active",
+    "detail": "Every aggregate and plan missed — asking the model for one read-only graph query"
+   },
+   {
+    "step": "llm_query_fallback",
+    "status": "error",
+    "detail": "rejected before the database — unknown identifier: GROUP",
+    "query": "MATCH (p:Person)-[:OCCURRED_ON {event_type: 'arrest'}]->(d:Date) GROUP BY p.entity_id HAVING COUNT(d) > 1 RETURN p.canonical_name AS name, COUNT(d) AS arrest_count",
+    "model": "local:qwen3:14b"
+   }
+  ],
+  "answer": "Generated-query fallback could not answer this: rejected before the database — unknown identifier: GROUP; Generated graph query (not run or failed): MATCH (p:Person)-[:OCCURRED_ON {event_type: 'arrest'}]->(d:Date) GROUP BY p.entity_id HAVING COUNT(d) > 1 RETURN p.canonical_name AS name, COUNT(d) AS arrest_count",
+  "status": "error",
+  "steps": [
+   "supervisor/active: Routing through the agent harness...",
+   "supervisor:dispatch/active: Classified query as route='XGRAPH' -> sub-agent='Cross-Case Linkage'",
+   "supervisor:dispatch/done: Cross-Case Linkage completed with status=empty",
+   "llm_query_fallback/active: Every aggregate and plan missed — asking the model for one read-only graph query",
+   "llm_query_fallback/error: rejected before the database — unknown identifier: GROUP",
+   "supervisor/done: Harness routing complete"
+  ],
+  "log": [
+   "LLM-QUERY-FALLBACK firing: route=XGRAPH sub_agent=Cross-Case Linkage status=empty | Kya kisi fard ko ek se ziyada dafa hirasat mein liya gaya hai?",
+   "LLM-QUERY-FALLBACK abstained: rejected before the database — unknown identifier: GROUP | q=Kya kisi fard ko ek se ziyada dafa hirasat mein liya gaya hai?"
+  ],
+  "elapsed_s": 59.8,
+  "text": "Kya kisi fard ko ek se ziyada dafa hirasat mein liya gaya hai?",
+  "role": "platform-admin",
+  "id": "S3::7",
+  "gold_id": "S3",
+  "language": "roman_ur"
+ },
+ "S3::8": {
+  "text": "کیا کوئی ایسا فرد ہے جسے ایک سے زائد مرتبہ حراست میں لیا گیا ہو؟",
+  "gold_id": "S3",
+  "skipped": "not eligible",
+  "route": "XAGG",
+  "case_scope": "cross_case",
+  "sub_agent": "Large-Scale Aggregate",
+  "eligible_if_empty": false,
+  "dispatch_layers_missed": true
+ },
+ "A1::9": {
+  "text": "Among the people named as accused, what is the split between men and women?",
+  "gold_id": "A1",
+  "skipped": "not eligible",
+  "route": "XAGG",
+  "case_scope": "cross_case",
+  "sub_agent": "Large-Scale Aggregate",
+  "eligible_if_empty": false,
+  "dispatch_layers_missed": false
+ },
+ "A1::10": {
+  "text": "Jin logon ko mulzim namzad kiya gaya hai, un mein kitne mard hain aur kitni khawateen?",
+  "gold_id": "A1",
+  "skipped": "not eligible",
+  "route": "XAGG",
+  "case_scope": "cross_case",
+  "sub_agent": "Large-Scale Aggregate",
+  "eligible_if_empty": false,
+  "dispatch_layers_missed": true
+ },
+ "A1::11": {
+  "text": "جن افراد کو ملزم ٹھہرایا گیا ہے، اُن میں کتنے مرد ہیں اور کتنی خواتین؟",
+  "gold_id": "A1",
+  "skipped": "not eligible",
+  "route": "XAGG",
+  "case_scope": "cross_case",
+  "sub_agent": "Large-Scale Aggregate",
+  "eligible_if_empty": false,
+  "dispatch_layers_missed": false
+ },
+ "A7::12": {
+  "text": "In how many files did the person reporting explain why they took time before approaching the station, instead of coming straight away?",
+  "gold_id": "A7",
+  "skipped": "not eligible",
+  "route": "XAGG",
+  "case_scope": "cross_case",
+  "sub_agent": "Large-Scale Aggregate",
+  "eligible_if_empty": false,
+  "dispatch_layers_missed": true
+ },
+ "A7::13": {
+  "text": "Kitni files mein shikayat karne wale ne yeh bataya ke unhein thane tak pohanchne mein der kyun hui?",
+  "gold_id": "A7",
+  "skipped": "not eligible",
+  "route": "XAGG",
+  "case_scope": "cross_case",
+  "sub_agent": "Large-Scale Aggregate",
+  "eligible_if_empty": false,
+  "dispatch_layers_missed": false
+ },
+ "A7::14": {
+  "text": "کتنی فائلوں میں شکایت کنندہ نے یہ وضاحت دی کہ اُسے تھانے پہنچنے میں تاخیر کیوں ہوئی؟",
+  "gold_id": "A7",
+  "skipped": "not eligible",
+  "route": "XAGG",
+  "case_scope": "cross_case",
+  "sub_agent": "Large-Scale Aggregate",
+  "eligible_if_empty": false,
+  "dispatch_layers_missed": false
+ },
+ "CP6::15": {
+  "text": "How many files are still sitting with nobody formally put in charge of the enquiry?",
+  "gold_id": "CP6",
+  "skipped": "not eligible",
+  "route": "XAGG",
+  "case_scope": "cross_case",
+  "sub_agent": "Large-Scale Aggregate",
+  "eligible_if_empty": false,
+  "dispatch_layers_missed": false
+ },
+ "CP6::16": {
+  "text": "Kitni files aisi hain jin ki tehqeeqat ke liye abhi tak kisi afsar ko baqaida zimma nahi diya gaya?",
+  "gold_id": "CP6",
+  "skipped": "not eligible",
+  "route": "XAGG",
+  "case_scope": "cross_case",
+  "sub_agent": "Large-Scale Aggregate",
+  "eligible_if_empty": false,
+  "dispatch_layers_missed": true
+ },
+ "CP6::17": {
+  "text": "کتنی فائلیں ایسی ہیں جن کی تحقیقات کے لیے اب تک کسی افسر کو باقاعدہ ذمہ نہیں سونپا گیا؟",
+  "gold_id": "CP6",
+  "skipped": "not eligible",
+  "route": "XAGG",
+  "case_scope": "cross_case",
+  "sub_agent": "Large-Scale Aggregate",
+  "eligible_if_empty": false,
+  "dispatch_layers_missed": false
+ },
+ "CR2::18": {
+  "text": "Do we have a person who already carried a case from before and has now turned up again as a suspect in a fresh file?",
+  "gold_id": "CR2",
+  "skipped": "not eligible",
+  "route": "XAGG",
+  "case_scope": "cross_case",
+  "sub_agent": "Large-Scale Aggregate",
+  "eligible_if_empty": false,
+  "dispatch_layers_missed": true
+ },
+ "CR2::19": {
+  "route": "XGRAPH",
+  "case_scope": "cross_case",
+  "station": null,
+  "district": null,
+  "used_cutover": true,
+  "sub_agent": "Cross-Case Linkage",
+  "fallback_fired": true,
+  "fallback": [
+   {
+    "query": "MATCH (p:Person)-[:INVOLVED_IN {role: 'accused'}]->(i:Incident)-[:PART_OF]->(c:Case) WITH p, collect(DISTINCT c.case_id) AS case_ids WHERE size(case_ids) > 1 RETURN p.canonical_name AS name, case_ids",
+    "scoped_query": "MATCH (p:Person)-[:INVOLVED_IN {role: 'accused'}]->(i:Incident)-[:PART_OF]->(c:Case) WITH p, collect(DISTINCT c.case_id) AS case_ids WHERE size(case_ids) > 1 RETURN p.canonical_name AS name, case_ids LIMIT 200",
+    "rows": [
+     {
+      "name": "شہزیب عرف شابی",
+      "case_ids": [
+       "fir-214-26",
+       "fir-891-24"
+      ]
+     },
+     {
+      "name": "عاصم رشید",
+      "case_ids": [
+       "fir-64-26",
+       "fir-65-26"
+      ]
+     }
+    ],
+    "model": "local:qwen3:14b",
+    "narration_model": "local:qwen3:14b",
+    "verifier": {
+     "grounded": true,
+     "off_topic": false,
+     "leaked_case_id": null,
+     "unsupported_claims": [],
+     "reason": "All claims about the two individuals' case IDs (fir-214-26, fir-891-24, fir-64-26, fir-65-26) are directly stated in Document 1. The absence of CNIC numbers is acknowledged without asserting unsupported presence/absence.",
+     "refusal_detected": false
+    },
+    "reason": null,
+    "served": true,
+    "status": "partial",
+    "elapsed_s": 57.9
+   }
+  ],
+  "fallback_events": [
+   {
+    "step": "llm_query_fallback",
+    "status": "active",
+    "detail": "Every aggregate and plan missed — asking the model for one read-only graph query"
+   },
+   {
+    "step": "llm_query_fallback",
+    "status": "done",
+    "detail": "generated query returned 2 row(s)",
+    "query": "MATCH (p:Person)-[:INVOLVED_IN {role: 'accused'}]->(i:Incident)-[:PART_OF]->(c:Case) WITH p, collect(DISTINCT c.case_id) AS case_ids WHERE size(case_ids) > 1 RETURN p.canonical_name AS name, case_ids LIMIT 200",
+    "rows": 2,
+    "model": "local:qwen3:14b",
+    "reasoning": "Identify persons accused in multiple cases by collecting their case_ids and filtering those with more than one distinct case."
+   },
+   {
+    "step": "citation_validator",
+    "status": "done",
+    "detail": "unverified: figures come from a model-generated graph query, not an audited aggregate"
+   }
+  ],
+  "answer": "ہاں، دو فردوں کے ریکارڈ ملے جن پر پہلے سے مقدمات درج ہیں اور اب دوبارہ فائل میں مُشتبہ کے طور پر سامنے آئے ہیں۔  \n- شہزیب عرف شابی، CNIC: [نہیں ملی]، مقدمات: fir-214-26، fir-891-24 [Document 1]  \n- عاصم رشید، CNIC: [نہیں ملی]، مقدمات: fir-64-26، fir-65-26 [Document 1]\n\n_UNVERIFIED: this answer comes from a graph query the language model wrote for this question, not from an audited aggregate. Read the query and the rows before relying on any figure in it._\n_Generated graph query (run as-is on a read-only role): MATCH (p:Person)-[:INVOLVED_IN {role: 'accused'}]->(i:Incident)-[:PART_OF]->(c:Case) WITH p, collect(DISTINCT c.case_id) AS case_ids WHERE size(case_ids) > 1 RETURN p.canonical_name AS name, case_ids LIMIT 200_",
+  "status": null,
+  "steps": [
+   "supervisor/active: Routing through the agent harness...",
+   "supervisor:dispatch/active: Classified query as route='XGRAPH' -> sub-agent='Cross-Case Linkage'",
+   "supervisor:dispatch/done: Cross-Case Linkage completed with status=empty",
+   "llm_query_fallback/active: Every aggregate and plan missed — asking the model for one read-only graph query",
+   "llm_query_fallback/done: generated query returned 2 row(s)",
+   "citation_validator/done: unverified: figures come from a model-generated graph query, not an audited aggregate",
+   "supervisor/done: Harness routing complete",
+   "response/done: Response generated (726 chars)",
+   "memory/done: Saved to session"
+  ],
+  "log": [
+   "LLM-QUERY-FALLBACK firing: route=XGRAPH sub_agent=Cross-Case Linkage status=empty | Kya koi aisa fard hai jis par pehle se ek muqadma mojood tha aur ab woh kisi nai file mein dobara mushtaba ke tor par sa",
+   "LLM-QUERY-FALLBACK ran: 2 row(s) model=local:qwen3:14b | MATCH (p:Person)-[:INVOLVED_IN {role: 'accused'}]->(i:Incident)-[:PART_OF]->(c:Case) WITH p, collect(DISTINCT c.case_id) AS case_ids WHERE size(case_ids) > 1 RETURN p.canonical_name AS name, case_ids LIMIT 200"
+  ],
+  "elapsed_s": 96.7,
+  "text": "Kya koi aisa fard hai jis par pehle se ek muqadma mojood tha aur ab woh kisi nai file mein dobara mushtaba ke tor par saamne aaya hai?",
+  "role": "platform-admin",
+  "id": "CR2::19",
+  "gold_id": "CR2",
+  "language": "roman_ur"
+ },
+ "CR2::20": {
+  "text": "کیا کوئی ایسا فرد ہے جس پر پہلے سے ایک مقدمہ موجود تھا اور اب وہ کسی نئی فائل میں دوبارہ مشتبہ کے طور پر سامنے آیا ہو؟",
+  "gold_id": "CR2",
+  "skipped": "not eligible",
+  "route": "XAGG",
+  "case_scope": "cross_case",
+  "sub_agent": "Large-Scale Aggregate",
+  "eligible_if_empty": false,
+  "dispatch_layers_missed": true
+ },
+ "CR3::21": {
+  "text": "Take the internet banking cheating matter that had two different complainants — were both handled and entered in the register in an identical fashion?",
+  "gold_id": "CR3",
+  "skipped": "not eligible",
+  "route": "RAG",
+  "case_scope": "within_case",
+  "sub_agent": "Semantic Search",
+  "eligible_if_empty": false,
+  "dispatch_layers_missed": true
+ },
+ "CR3::22": {
+  "text": "Woh internet banking dhoke ka muamla jismein do alag mutasireen thay — kya dono ko ek hi tarah se nipta kar record mein darj kiya gaya?",
+  "gold_id": "CR3",
+  "skipped": "not eligible",
+  "route": "XNETWORK",
+  "case_scope": "cross_case",
+  "sub_agent": "Meta-Analysis",
+  "eligible_if_empty": false,
+  "dispatch_layers_missed": false
+ },
+ "CR3::23": {
+  "route": "XNETWORK",
+  "case_scope": "cross_case",
+  "station": null,
+  "district": null,
+  "used_cutover": true,
+  "sub_agent": "Cross-Case Linkage",
+  "fallback_fired": false,
+  "fallback": [],
+  "fallback_events": [],
+  "answer": "The provided documents do not mention any case related to internet banking fraud, nor do they discuss how victims were recorded in relation to such a crime. Document 1 only describes a PPC case (fir-245-26) involving عائشہ بی بی, بلال حسین, and ندیم اختر, but it does not reference internet banking, fraud, or methods of recording victims. Therefore, no information is available to confirm or refute whether both victims were handled using the same method. [Document 1]\n\n**Confirmed connections**\n\n- This cluster centers on a single case, fir-245-26 (FIR 245/26), a PPC case handled at Thana Model Town, Lahore. عائشہ بی بی is the only named individual connected to this case, with بلال حسین and ندیم اختر also appearing in the case record. The available data states that عائشہ بی بی was co-mentioned with both بلال حسین and ندیم اختر in relation to this case.\n\n_A cited claim ([Document 1]) could not be confirmed against its source: The source describes case details and individuals involved but does not mention the content of 'Document 1' or any assertions made within it. The claim is a placeholder reference with no specific statement to evaluate._",
+  "status": null,
+  "steps": [
+   "supervisor/active: Routing through the agent harness...",
+   "supervisor:dispatch/active: Classified query as route='XNETWORK' -> sub-agent='Cross-Case Linkage'",
+   "supervisor:dispatch/done: Cross-Case Linkage completed with status=partial",
+   "supervisor/done: Harness routing complete",
+   "cross_case_finding/done: Found 1 cross-case connection(s)",
+   "citations/done: 1 citation(s)",
+   "response/done: Response generated (1154 chars)",
+   "memory/done: Saved to session"
+  ],
+  "log": [],
+  "elapsed_s": 80.0,
+  "text": "وہ انٹرنیٹ بینکنگ دھوکہ دہی کا معاملہ جس میں دو الگ متاثرین تھے — کیا دونوں کو ایک ہی طریقے سے نمٹا کر ریکارڈ میں درج کیا گیا؟",
+  "role": "platform-admin",
+  "id": "CR3::23",
+  "gold_id": "CR3",
+  "language": "ur"
+ },
+ "CR4::24": {
+  "route": "XGRAPH",
+  "case_scope": "cross_case",
+  "station": null,
+  "district": null,
+  "used_cutover": true,
+  "sub_agent": "Cross-Case Linkage",
+  "fallback_fired": false,
+  "fallback": [],
+  "fallback_events": [],
+  "answer": "Yes (with some uncertainty) — the same entity recurs across 6 case(s), a possible cross-case link: fir-202-26, fir-214-26, fir-401-26, fir-64-26, fir-65-26, fir-891-24 (graph traversal, depth 1 hop(s)). Chain confidence 50%. These cases are linked because the graph resolved a shared entity across them; that resolution is an inference from the records, not independent proof that every mention is the same individual.\n\n**Confirmed connections**\n\n- This cross-case traversal returned linked evidence across 6 case(s): fir-202-26, fir-214-26, fir-401-26, fir-64-26, fir-65-26, fir-891-24 (traversal depth 1 hop(s)).\n\n_No community cluster in the case corpus is closely related to this specific question (\"When a firearm sits in our evidence store, are we able to trace the person it came from and how their matter ended?\") (nearest cluster found was distance 0.168 against a relevance cutoff of 0.145). Rather than describing an unrelated cluster, no cross-case network finding is being reported here._",
+  "status": null,
+  "steps": [
+   "supervisor/active: Routing through the agent harness...",
+   "supervisor:dispatch/active: Classified query as route='XGRAPH' -> sub-agent='Cross-Case Linkage'",
+   "supervisor:dispatch/done: Cross-Case Linkage completed with status=partial",
+   "supervisor/done: Harness routing complete",
+   "cross_case_finding/done: Found 1 cross-case connection(s)",
+   "response/done: Response generated (1001 chars)",
+   "memory/done: Saved to session"
+  ],
+  "log": [],
+  "elapsed_s": 44.6,
+  "text": "When a firearm sits in our evidence store, are we able to trace the person it came from and how their matter ended?",
+  "role": "platform-admin",
+  "id": "CR4::24",
+  "gold_id": "CR4",
+  "language": "en"
+ },
+ "CR4::25": {
+  "route": "XGRAPH",
+  "case_scope": "cross_case",
+  "station": null,
+  "district": null,
+  "used_cutover": true,
+  "sub_agent": "Cross-Case Linkage",
+  "fallback_fired": true,
+  "fallback": [
+   {
+    "query": "MATCH (w:Weapon)-[:BELONGS_TO_CASE]->(c:Case)-[:PART_OF]->(i:Incident) MATCH (i)<-[:INVOLVED_IN]-(p:Person) MATCH (w)-[:APPEARS_IN]->(sr:StructuredRecord {record_type: 'malkhana_register'}) RETURN w.canonical_name AS weapon_name, p.canonical_name AS owner_name, sr.item_detail AS item_detail, sr.condition AS condition, sr.date_entered AS date_entered, c.case_id AS case_id LIMIT 50",
+    "scoped_query": null,
+    "rows": null,
+    "model": "local:qwen3:14b",
+    "narration_model": null,
+    "verifier": null,
+    "reason": "rejected before the database — no PART_OF edge runs Case -> Incident (it runs Incident -> Case)",
+    "served": false,
+    "status": "abstained",
+    "elapsed_s": 19.2
+   }
+  ],
+  "fallback_events": [
+   {
+    "step": "llm_query_fallback",
+    "status": "active",
+    "detail": "Every aggregate and plan missed — asking the model for one read-only graph query"
+   },
+   {
+    "step": "llm_query_fallback",
+    "status": "error",
+    "detail": "rejected before the database — no PART_OF edge runs Case -> Incident (it runs Incident -> Case)",
+    "query": "MATCH (w:Weapon)-[:BELONGS_TO_CASE]->(c:Case)-[:PART_OF]->(i:Incident) MATCH (i)<-[:INVOLVED_IN]-(p:Person) MATCH (w)-[:APPEARS_IN]->(sr:StructuredRecord {record_type: 'malkhana_register'}) RETURN w.canonical_name AS weapon_name, p.canonical_name AS owner_name, sr.item_detail AS item_detail, sr.condition AS condition, sr.date_entered AS date_entered, c.case_id AS case_id LIMIT 50",
+    "model": "local:qwen3:14b"
+   }
+  ],
+  "answer": "Generated-query fallback could not answer this: rejected before the database — no PART_OF edge runs Case -> Incident (it runs Incident -> Case); Generated graph query (not run or failed): MATCH (w:Weapon)-[:BELONGS_TO_CASE]->(c:Case)-[:PART_OF]->(i:Incident) MATCH (i)<-[:INVOLVED_IN]-(p:Person) MATCH (w)-[:APPEARS_IN]->(sr:StructuredRecord {record_type: 'malkhana_register'}) RETURN w.canonical_name AS weapon_name, p.canonical_name AS owner_name, sr.item_detail AS item_detail, sr.condition AS condition, sr.date_entered AS date_entered, c.case_id AS case_id LIMIT 50",
+  "status": "error",
+  "steps": [
+   "supervisor/active: Routing through the agent harness...",
+   "supervisor:dispatch/active: Classified query as route='XGRAPH' -> sub-agent='Cross-Case Linkage'",
+   "supervisor:dispatch/done: Cross-Case Linkage completed with status=empty",
+   "llm_query_fallback/active: Every aggregate and plan missed — asking the model for one read-only graph query",
+   "llm_query_fallback/error: rejected before the database — no PART_OF edge runs Case -> Incident (it runs Incident -> Case)",
+   "supervisor/done: Harness routing complete"
+  ],
+  "log": [
+   "LLM-QUERY-FALLBACK firing: route=XGRAPH sub_agent=Cross-Case Linkage status=empty | Jab koi hathiyar shahadat ke tor par hamare paas mehfooz ho, kya hum yeh maloom kar sakte hain ke woh kis se liya gaya a",
+   "LLM-QUERY-FALLBACK abstained: rejected before the database — no PART_OF edge runs Case -> Incident (it runs Incident -> Case) | q=Jab koi hathiyar shahadat ke tor par hamare paas mehfooz ho, kya hum yeh maloom kar sakte hain ke wo"
+  ],
+  "elapsed_s": 69.2,
+  "text": "Jab koi hathiyar shahadat ke tor par hamare paas mehfooz ho, kya hum yeh maloom kar sakte hain ke woh kis se liya gaya aur us ka anjam kya hua?",
+  "role": "platform-admin",
+  "id": "CR4::25",
+  "gold_id": "CR4",
+  "language": "roman_ur"
+ },
+ "CR4::26": {
+  "text": "جب کوئی ہتھیار بطور شہادت ہمارے پاس محفوظ ہو، تو کیا ہم یہ معلوم کر سکتے ہیں کہ وہ کس سے لیا گیا اور اُس کا انجام کیا ہوا؟",
+  "gold_id": "CR4",
+  "skipped": "not eligible",
+  "route": "XAGG",
+  "case_scope": "cross_case",
+  "sub_agent": "Large-Scale Aggregate",
+  "eligible_if_empty": false,
+  "dispatch_layers_missed": false
+ },
+ "CR6::27": {
+  "text": "When a member of the public walks in and lodges a grievance, does that get tied to a proper first information report, or do the two stay unconnected?",
+  "gold_id": "CR6",
+  "skipped": "not eligible",
+  "route": "RAG",
+  "case_scope": "within_case",
+  "sub_agent": "Semantic Search",
+  "eligible_if_empty": false,
+  "dispatch_layers_missed": true
+ },
+ "CR6::28": {
+  "text": "Agar koi shakhs thane pahunch kar apna masla darj karwaye, to kya us ka rabt kisi baqaida FIR se banta hai, ya woh alag hi para rehta hai?",
+  "gold_id": "CR6",
+  "skipped": "not eligible",
+  "route": "RAG",
+  "case_scope": "within_case",
+  "sub_agent": "Semantic Search",
+  "eligible_if_empty": false,
+  "dispatch_layers_missed": true
+ },
+ "CR6::29": {
+  "text": "اگر کوئی شخص تھانے پہنچ کر اپنا مسئلہ درج کرائے، تو کیا اُس کا ربط کسی باقاعدہ ایف آئی آر سے بنتا ہے، یا وہ الگ ہی پڑا رہتا ہے؟",
+  "gold_id": "CR6",
+  "skipped": "not eligible",
+  "route": "RAG",
+  "case_scope": "within_case",
+  "sub_agent": "Semantic Search",
+  "eligible_if_empty": false,
+  "dispatch_layers_missed": true
+ },
+ "CR7::30": {
+  "text": "Out of the entries in our offender-history store, how many matters have wrapped up and how many are still running — and where a case also has its own judicial entry, do the two line up?",
+  "gold_id": "CR7",
+  "skipped": "not eligible",
+  "route": "XAGG",
+  "case_scope": "cross_case",
+  "sub_agent": "Large-Scale Aggregate",
+  "eligible_if_empty": false,
+  "dispatch_layers_missed": true
+ },
+ "CR7::31": {
+  "text": "Hamare mujrimana record mein kitne muamlat nipat chuke hain aur kitne abhi chal rahe hain — aur jahan kisi muamle ka alag adalati indraj bhi mojood hai, kya dono aapas mein miltay hain?",
+  "gold_id": "CR7",
+  "skipped": "not eligible",
+  "route": "XAGG",
+  "case_scope": "cross_case",
+  "sub_agent": "Large-Scale Aggregate",
+  "eligible_if_empty": false,
+  "dispatch_layers_missed": false
+ },
+ "CR7::32": {
+  "text": "ہمارے مجرمانہ ریکارڈ میں کتنے معاملات نمٹ چکے ہیں اور کتنے ابھی چل رہے ہیں — اور جہاں کسی معاملے کا الگ عدالتی اندراج بھی موجود ہے، کیا دونوں آپس میں ملتے ہیں؟",
+  "gold_id": "CR7",
+  "skipped": "not eligible",
+  "route": "XAGG",
+  "case_scope": "cross_case",
+  "sub_agent": "Large-Scale Aggregate",
+  "eligible_if_empty": false,
+  "dispatch_layers_missed": false
+ },
+ "CR8::33": {
+  "text": "If a household-abuse grievance was noted as having turned into a proper matter, does the file itself bear that out?",
+  "gold_id": "CR8",
+  "skipped": "not eligible",
+  "route": "RAG",
+  "case_scope": "within_case",
+  "sub_agent": "Semantic Search",
+  "eligible_if_empty": false,
+  "dispatch_layers_missed": true
+ },
+ "CR8::34": {
+  "text": "Agar ghar ke andar tashaddud ki koi shikayat baqaida muamle mein badalne ke tor par likhi gai ho, to kya file khud is ki tasdeeq karti hai?",
+  "gold_id": "CR8",
+  "skipped": "not eligible",
+  "route": "RAG",
+  "case_scope": "within_case",
+  "sub_agent": "Semantic Search",
+  "eligible_if_empty": false,
+  "dispatch_layers_missed": false
+ },
+ "CR8::35": {
+  "text": "اگر گھر کے اندر تشدد کی کوئی شکایت باقاعدہ معاملے میں بدلنے کے طور پر لکھی گئی ہو، تو کیا فائل خود اِس کی تصدیق کرتی ہے؟",
+  "gold_id": "CR8",
+  "skipped": "not eligible",
+  "route": "RAG",
+  "case_scope": "within_case",
+  "sub_agent": "Semantic Search",
+  "eligible_if_empty": false,
+  "dispatch_layers_missed": false
+ },
+ "CS4::36": {
+  "route": "XGRAPH",
+  "case_scope": "cross_case",
+  "station": null,
+  "district": null,
+  "used_cutover": true,
+  "sub_agent": "Cross-Case Linkage",
+  "fallback_fired": false,
+  "fallback": [],
+  "fallback_events": [],
+  "answer": "Yes (with some uncertainty) — the same entity recurs across 6 case(s), a possible cross-case link: fir-202-26, fir-214-26, fir-401-26, fir-64-26, fir-65-26, fir-891-24 (graph traversal, depth 1 hop(s)). Chain confidence 50%. These cases are linked because the graph resolved a shared entity across them; that resolution is an inference from the records, not independent proof that every mention is the same individual.\n\n**Confirmed connections**\n\n- This cross-case traversal returned linked evidence across 6 case(s): fir-202-26, fir-214-26, fir-401-26, fir-64-26, fir-65-26, fir-891-24 (traversal depth 1 hop(s)).\n\n_No community cluster in the case corpus is closely related to this specific question (\"In the broader offender-history holdings, is there an individual who lines up with none of the files we ourselves entered?\") (nearest cluster found was distance 0.193 against a relevance cutoff of 0.145). Rather than describing an unrelated cluster, no cross-case network finding is being reported here._",
+  "status": null,
+  "steps": [
+   "supervisor/active: Routing through the agent harness...",
+   "supervisor:dispatch/active: Classified query as route='XGRAPH' -> sub-agent='Cross-Case Linkage'",
+   "supervisor:dispatch/done: Cross-Case Linkage completed with status=partial",
+   "supervisor/done: Harness routing complete",
+   "cross_case_finding/done: Found 1 cross-case connection(s)",
+   "response/done: Response generated (1008 chars)",
+   "memory/done: Saved to session"
+  ],
+  "log": [],
+  "elapsed_s": 60.6,
+  "text": "In the broader offender-history holdings, is there an individual who lines up with none of the files we ourselves entered?",
+  "role": "platform-admin",
+  "id": "CS4::36",
+  "gold_id": "CS4",
+  "language": "en"
+ },
+ "CS4::37": {
+  "text": "Bahar ke mujrimana record mein koi aisa fard hai jo hamari apni darj ki hui kisi bhi file se mel nahi khata?",
+  "gold_id": "CS4",
+  "skipped": "not eligible",
+  "route": "XAGG",
+  "case_scope": "cross_case",
+  "sub_agent": "Large-Scale Aggregate",
+  "eligible_if_empty": false,
+  "dispatch_layers_missed": true
+ },
+ "CS4::38": {
+  "text": "باہر کے مجرمانہ ریکارڈ میں کوئی ایسا فرد ہے جو ہماری اپنی درج کی ہوئی کسی بھی فائل سے میل نہیں کھاتا؟",
+  "gold_id": "CS4",
+  "skipped": "not eligible",
+  "route": "XAGG",
+  "case_scope": "cross_case",
+  "sub_agent": "Large-Scale Aggregate",
+  "eligible_if_empty": false,
+  "dispatch_layers_missed": false
+ },
+ "CP1::39": {
+  "text": "Relative to how many files it carries, which district seizes arms most often?",
+  "gold_id": "CP1",
+  "skipped": "not eligible",
+  "route": "XAGG",
+  "case_scope": "cross_case",
+  "sub_agent": "Large-Scale Aggregate",
+  "eligible_if_empty": false,
+  "dispatch_layers_missed": false
+ },
+ "CP1::40": {
+  "text": "Apni files ki tadaad ke hisab se kaunsa zila sab se ziyada asliha zabt karta hai?",
+  "gold_id": "CP1",
+  "skipped": "not eligible",
+  "route": "XAGG",
+  "case_scope": "cross_case",
+  "sub_agent": "Large-Scale Aggregate",
+  "eligible_if_empty": false,
+  "dispatch_layers_missed": false
+ },
+ "CP1::41": {
+  "text": "اپنی فائلوں کی تعداد کے حساب سے کون سا ضلع سب سے زیادہ اسلحہ ضبط کرتا ہے؟",
+  "gold_id": "CP1",
+  "skipped": "not eligible",
+  "route": "XAGG",
+  "case_scope": "cross_case",
+  "sub_agent": "Large-Scale Aggregate",
+  "eligible_if_empty": false,
+  "dispatch_layers_missed": false
+ },
+ "M1::42": {
+  "text": "Has the make-up of the matters we handle moved on from where it stood two or three years earlier?",
+  "gold_id": "M1",
+  "skipped": "not eligible",
+  "route": "XAGG",
+  "case_scope": "cross_case",
+  "sub_agent": "Large-Scale Aggregate",
+  "eligible_if_empty": false,
+  "dispatch_layers_missed": false
+ },
+ "M1::43": {
+  "text": "Do teen saal pehle jo muamlat hote thay, kya ab un ki qism badal chuki hai?",
+  "gold_id": "M1",
+  "skipped": "not eligible",
+  "route": "XAGG",
+  "case_scope": "cross_case",
+  "sub_agent": "Large-Scale Aggregate",
+  "eligible_if_empty": false,
+  "dispatch_layers_missed": true
+ },
+ "M1::44": {
+  "text": "دو تین سال پہلے جو معاملات ہوتے تھے، کیا اب اُن کی قسم بدل چکی ہے؟",
+  "gold_id": "M1",
+  "skipped": "not eligible",
+  "route": "XAGG",
+  "case_scope": "cross_case",
+  "sub_agent": "Large-Scale Aggregate",
+  "eligible_if_empty": false,
+  "dispatch_layers_missed": false
+ },
+ "M2::45": {
+  "text": "Where is the volume of files rising quicker — the ordinary stations, or the few dedicated to a single category of offence?",
+  "gold_id": "M2",
+  "skipped": "not eligible",
+  "route": "XAGG",
+  "case_scope": "cross_case",
+  "sub_agent": "Large-Scale Aggregate",
+  "eligible_if_empty": false,
+  "dispatch_layers_missed": false
+ },
+ "M2::46": {
+  "text": "Files ki tadaad kahan tezi se barh rahi hai — aam thanon par, ya un chand par jo sirf ek qism ke jurm ke liye banaye gaye hain?",
+  "gold_id": "M2",
+  "skipped": "not eligible",
+  "route": "XAGG",
+  "case_scope": "cross_case",
+  "sub_agent": "Large-Scale Aggregate",
+  "eligible_if_empty": false,
+  "dispatch_layers_missed": false
+ },
+ "M2::47": {
+  "text": "فائلوں کی تعداد کہاں تیزی سے بڑھ رہی ہے — عام تھانوں پر، یا اُن چند پر جو صرف ایک قسم کے جرم کے لیے بنائے گئے ہیں؟",
+  "gold_id": "M2",
+  "skipped": "not eligible",
+  "route": "XAGG",
+  "case_scope": "cross_case",
+  "sub_agent": "Large-Scale Aggregate",
+  "eligible_if_empty": false,
+  "dispatch_layers_missed": false
+ },
+ "M4::48": {
+  "text": "Look at which provisions people are being booked under on one hand, and how far those matters travelled through the judiciary on the other — do both give the same read on how heavy the load is?",
+  "gold_id": "M4",
+  "skipped": "not eligible",
+  "route": "XAGG",
+  "case_scope": "cross_case",
+  "sub_agent": "Large-Scale Aggregate",
+  "eligible_if_empty": false,
+  "dispatch_layers_missed": true
+ },
+ "M4::49": {
+  "text": "Ek taraf dekhein ke logon par kin qawaneen ke tehat parche kat rahe hain, aur doosri taraf yeh ke woh muamlat adalat mein kahan tak gaye — kya dono se bojh ki shiddat ka ek hi nateeja nikalta hai?",
+  "gold_id": "M4",
+  "skipped": "not eligible",
+  "route": "XAGG",
+  "case_scope": "cross_case",
+  "sub_agent": "Large-Scale Aggregate",
+  "eligible_if_empty": false,
+  "dispatch_layers_missed": false
+ },
+ "M4::50": {
+  "text": "ایک جانب دیکھیں کہ لوگوں پر کن قوانین کے تحت پرچے کٹ رہے ہیں، اور دوسری جانب یہ کہ وہ معاملات عدالت میں کہاں تک گئے — کیا دونوں سے بوجھ کی شدت کا ایک ہی نتیجہ نکلتا ہے؟",
+  "gold_id": "M4",
+  "skipped": "not eligible",
+  "route": "XAGG",
+  "case_scope": "cross_case",
+  "sub_agent": "Large-Scale Aggregate",
+  "eligible_if_empty": false,
+  "dispatch_layers_missed": false
+ },
+ "M5::51": {
+  "text": "Which categories of matter do arms usually turn up in, and is that picture different now from 2024?",
+  "gold_id": "M5",
+  "skipped": "not eligible",
+  "route": "XAGG",
+  "case_scope": "cross_case",
+  "sub_agent": "Large-Scale Aggregate",
+  "eligible_if_empty": false,
+  "dispatch_layers_missed": true
+ },
+ "M5::52": {
+  "text": "Hathiyar aam tor par kis qism ke muamlat mein nazar aate hain, aur kya ab yeh manzar 2024 se mukhtalif hai?",
+  "gold_id": "M5",
+  "skipped": "not eligible",
+  "route": "RAG",
+  "case_scope": "within_case",
+  "sub_agent": "Semantic Search",
+  "eligible_if_empty": false,
+  "dispatch_layers_missed": true
+ },
+ "M5::53": {
+  "text": "ہتھیار عام طور پر کس قسم کے معاملات میں نظر آتے ہیں، اور کیا اب یہ منظر 2024 سے مختلف ہے؟",
+  "gold_id": "M5",
+  "skipped": "not eligible",
+  "route": "RAG",
+  "case_scope": "within_case",
+  "sub_agent": "Semantic Search",
+  "eligible_if_empty": false,
+  "dispatch_layers_missed": true
+ },
+ "M7::54": {
+  "text": "Are members of the public reporting incidents to us as promptly in 2026 as they did back in 2024?",
+  "gold_id": "M7",
+  "skipped": "not eligible",
+  "route": "XAGG",
+  "case_scope": "cross_case",
+  "sub_agent": "Large-Scale Aggregate",
+  "eligible_if_empty": false,
+  "dispatch_layers_missed": false
+ },
+ "M7::55": {
+  "text": "Kya 2026 mein shahri hamein waqiaat ki khabar utni hi phurti se de rahe hain jitni woh 2024 mein dete thay?",
+  "gold_id": "M7",
+  "skipped": "not eligible",
+  "route": "XAGG",
+  "case_scope": "cross_case",
+  "sub_agent": "Large-Scale Aggregate",
+  "eligible_if_empty": false,
+  "dispatch_layers_missed": true
+ },
+ "M7::56": {
+  "text": "کیا 2026 میں شہری ہمیں واقعات کی خبر اُتنی ہی پھرتی سے دے رہے ہیں جتنی وہ 2024 میں دیتے تھے؟",
+  "gold_id": "M7",
+  "skipped": "not eligible",
+  "route": "XAGG",
+  "case_scope": "cross_case",
+  "sub_agent": "Large-Scale Aggregate",
+  "eligible_if_empty": false,
+  "dispatch_layers_missed": true
+ },
+ "G1::57": {
+  "route": "XNETWORK",
+  "case_scope": "cross_case",
+  "station": null,
+  "district": null,
+  "used_cutover": true,
+  "sub_agent": "Cross-Case Linkage",
+  "fallback_fired": true,
+  "fallback": [
+   {
+    "query": "MATCH (p:Person) WHERE p.merged_into IS NOT NULL RETURN count(DISTINCT p) AS merged_persons, 0 AS persons_without_cnic, 0 AS unlinked_incidents, 0 AS invalid_weapons, 0 AS unregistered_vehicles, 0 AS unassigned_officers, 0 AS inconsistent_dates, 0 AS unlinked_policestations, 0 AS missing_criminal_links UNION ALL MATCH (p:Person) WHERE p.cnic IS NULL RETURN 0 AS merged_persons, count(DISTINCT p) AS persons_without_cnic, 0 AS unlinked_incidents, 0 AS invalid_weapons, 0 AS unregistered_vehicles, 0 AS unassigned_officers, 0 AS inconsistent_dates, 0 AS unlinked_policestations, 0 AS missing_criminal_links UNION ALL MATCH (i:Incident) WHERE NOT (i)-[:PART_OF]->() RETURN 0 AS merged_persons, 0 AS persons_without_cnic, count(DISTINCT i) AS unlinked_incidents, 0 AS invalid_weapons, 0 AS unregistered_vehicles, 0 AS unassigned_officers, 0 AS inconsistent_dates, 0 AS unlinked_policestations, 0 AS missing_criminal_links UNION ALL MATCH (w:Weapon) WHERE NOT (w.license_status IN ['Valid', 'Expired', 'Pending']) RETURN 0 AS merged_persons, 0 AS persons_without_cnic, 0 AS unlinked_incidents, count(DISTINCT w) AS invalid_weapons, 0 AS unregistered_vehicles, 0 AS unassigned_officers, 0 AS inconsistent_dates, 0 AS unlinked_policestations, 0 AS missing_criminal_links UNION ALL MATCH (v:Vehicle) WHERE NOT (v)-[:REGISTERED_TO]->() RETURN 0 AS merged_persons, 0 AS persons_without_cnic, 0 AS unlinked_incidents, 0 AS invalid_weapons, count(DISTINCT v) AS unregistered_vehicles, 0 AS unassigned_officers, 0 AS inconsistent_dates, 0 AS unlinked_policestations, 0 AS missing_criminal_links UNION ALL MATCH (o:Officer) WHERE NOT (o)-[:ASSIGNED_TO]->() RETURN 0 AS merged_persons, 0 AS persons_without_cnic, 0 AS unlinked_incidents, 0 AS invalid_weapons, 0 AS unregistered_vehicles, count(DISTINCT o) AS unassigned_officers, 0 AS inconsistent_dates, 0 AS unlinked_policestations, 0 AS missing_criminal_links UNION ALL MATCH (i:Incident) WHERE i.report_datetime < i.incident_datetime RETURN 0 AS merged_persons, 0 AS persons_without_cnic, 0 AS unlinked_incidents, 0 AS invalid_weapons, 0 AS unregistered_vehicles, 0 AS unassigned_officers, count(DISTINCT i) AS inconsistent_dates, 0 AS unlinked_policestations, 0 AS missing_criminal_links UNION ALL MATCH (ps:PoliceStation) WHERE NOT (ps)-[:PART_OF]->() RETURN 0 AS merged_persons, 0 AS persons_without_cnic, 0 AS unlinked_incidents, 0 AS invalid_weapons, 0 AS unregistered_vehicles, 0 AS unassigned_officers, 0 AS inconsistent_dates, count(DISTINCT ps) AS unlinked_policestations, 0 AS missing_criminal_links UNION ALL MATCH (cr:StructuredRecord {record_type: 'criminal_record'}) WHERE NOT (cr)-[:BELONGS_TO_CASE]->() RETURN 0 AS merged_persons, 0 AS persons_without_cnic, 0 AS unlinked_incidents, 0 AS invalid_weapons, 0 AS unregistered_vehicles, 0 AS unassigned_officers, 0 AS inconsistent_dates, 0 AS unlinked_policestations, count(DISTINCT cr) AS missing_criminal_links",
+    "scoped_query": null,
+    "rows": null,
+    "model": "local:qwen3:14b",
+    "narration_model": null,
+    "verifier": null,
+    "reason": "rejected before the database — the generated query is longer than 2000 characters",
+    "served": false,
+    "status": "abstained",
+    "elapsed_s": 36.8
+   }
+  ],
+  "fallback_events": [
+   {
+    "step": "llm_query_fallback",
+    "status": "active",
+    "detail": "Every aggregate and plan missed — asking the model for one read-only graph query"
+   },
+   {
+    "step": "llm_query_fallback",
+    "status": "error",
+    "detail": "rejected before the database — the generated query is longer than 2000 characters",
+    "query": "MATCH (p:Person) WHERE p.merged_into IS NOT NULL RETURN count(DISTINCT p) AS merged_persons, 0 AS persons_without_cnic, 0 AS unlinked_incidents, 0 AS invalid_weapons, 0 AS unregistered_vehicles, 0 AS unassigned_officers, 0 AS inconsistent_dates, 0 AS unlinked_policestations, 0 AS missing_criminal_links UNION ALL MATCH (p:Person) WHERE p.cnic IS NULL RETURN 0 AS merged_persons, count(DISTINCT p) AS persons_without_cnic, 0 AS unlinked_incidents, 0 AS invalid_weapons, 0 AS unregistered_vehicles, 0 AS unassigned_officers, 0 AS inconsistent_dates, 0 AS unlinked_policestations, 0 AS missing_criminal_links UNION ALL MATCH (i:Incident) WHERE NOT (i)-[:PART_OF]->() RETURN 0 AS merged_persons, 0 AS persons_without_cnic, count(DISTINCT i) AS unlinked_incidents, 0 AS invalid_weapons, 0 AS unregistered_vehicles, 0 AS unassigned_officers, 0 AS inconsistent_dates, 0 AS unlinked_policestations, 0 AS missing_criminal_links UNION ALL MATCH (w:Weapon) WHERE NOT (w.license_status IN ['Valid', 'Expired', 'Pending']) RETURN 0 AS merged_persons, 0 AS persons_without_cnic, 0 AS unlinked_incidents, count(DISTINCT w) AS invalid_weapons, 0 AS unregistered_vehicles, 0 AS unassigned_officers, 0 AS inconsistent_dates, 0 AS unlinked_policestations, 0 AS missing_criminal_links UNION ALL MATCH (v:Vehicle) WHERE NOT (v)-[:REGISTERED_TO]->() RETURN 0 AS merged_persons, 0 AS persons_without_cnic, 0 AS unlinked_incidents, 0 AS invalid_weapons, count(DISTINCT v) AS unregistered_vehicles, 0 AS unassigned_officers, 0 AS inconsistent_dates, 0 AS unlinked_policestations, 0 AS missing_criminal_links UNION ALL MATCH (o:Officer) WHERE NOT (o)-[:ASSIGNED_TO]->() RETURN 0 AS merged_persons, 0 AS persons_without_cnic, 0 AS unlinked_incidents, 0 AS invalid_weapons, 0 AS unregistered_vehicles, count(DISTINCT o) AS unassigned_officers, 0 AS inconsistent_dates, 0 AS unlinked_policestations, 0 AS missing_criminal_links UNION ALL MATCH (i:Incident) WHERE i.report_datetime < i.incident_datetime RETURN 0 AS merged_persons, 0 AS persons_without_cnic, 0 AS unlinked_incidents, 0 AS invalid_weapons, 0 AS unregistered_vehicles, 0 AS unassigned_officers, count(DISTINCT i) AS inconsistent_dates, 0 AS unlinked_policestations, 0 AS missing_criminal_links UNION ALL MATCH (ps:PoliceStation) WHERE NOT (ps)-[:PART_OF]->() RETURN 0 AS merged_persons, 0 AS persons_without_cnic, 0 AS unlinked_incidents, 0 AS invalid_weapons, 0 AS unregistered_vehicles, 0 AS unassigned_officers, 0 AS inconsistent_dates, count(DISTINCT ps) AS unlinked_policestations, 0 AS missing_criminal_links UNION ALL MATCH (cr:StructuredRecord {record_type: 'criminal_record'}) WHERE NOT (cr)-[:BELONGS_TO_CASE]->() RETURN 0 AS merged_persons, 0 AS persons_without_cnic, 0 AS unlinked_incidents, 0 AS invalid_weapons, 0 AS unregistered_vehicles, 0 AS unassigned_officers, 0 AS inconsistent_dates, 0 AS unlinked_policestations, count(DISTINCT cr) AS missing_criminal_links",
+    "model": "local:qwen3:14b"
+   }
+  ],
+  "answer": "Generated-query fallback could not answer this: rejected before the database — the generated query is longer than 2000 characters; Generated graph query (not run or failed): MATCH (p:Person) WHERE p.merged_into IS NOT NULL RETURN count(DISTINCT p) AS merged_persons, 0 AS persons_without_cnic, 0 AS unlinked_incidents, 0 AS invalid_weapons, 0 AS unregistered_vehicles, 0 AS unassigned_officers, 0 AS inconsistent_dates, 0 AS unlinked_policestations, 0 AS missing_criminal_links UNION ALL MATCH (p:Person) WHERE p.cnic IS NULL RETURN 0 AS merged_persons, count(DISTINCT p) AS persons_without_cnic, 0 AS unlinked_incidents, 0 AS invalid_weapons, 0 AS unregistered_vehicles, 0 AS unassigned_officers, 0 AS inconsistent_dates, 0 AS unlinked_policestations, 0 AS missing_criminal_links UNION ALL MATCH (i:Incident) WHERE NOT (i)-[:PART_OF]->() RETURN 0 AS merged_persons, 0 AS persons_without_cnic, count(DISTINCT i) AS unlinked_incidents, 0 AS invalid_weapons, 0 AS unregistered_vehicles, 0 AS unassigned_officers, 0 AS inconsistent_dates, 0 AS unlinked_policestations, 0 AS missing_criminal_links UNION ALL MATCH (w:Weapon) WHERE NOT (w.license_status IN ['Valid', 'Expired', 'Pending']) RETURN 0 AS merged_persons, 0 AS persons_without_cnic, 0 AS unlinked_incidents, count(DISTINCT w) AS invalid_weapons, 0 AS unregistered_vehicles, 0 AS unassigned_officers, 0 AS inconsistent_dates, 0 AS unlinked_policestations, 0 AS missing_criminal_links UNION ALL MATCH (v:Vehicle) WHERE NOT (v)-[:REGISTERED_TO]->() RETURN 0 AS merged_persons, 0 AS persons_without_cnic, 0 AS unlinked_incidents, 0 AS invalid_weapons, count(DISTINCT v) AS unregistered_vehicles, 0 AS unassigned_officers, 0 AS inconsistent_dates, 0 AS unlinked_policestations, 0 AS missing_criminal_links UNION ALL MATCH (o:Officer) WHERE NOT (o)-[:ASSIGNED_TO]->() RETURN 0 AS merged_persons, 0 AS persons_without_cnic, 0 AS unlinked_incidents, 0 AS invalid_weapons, 0 AS unregistered_vehicles, count(DISTINCT o) AS unassigned_officers, 0 AS inconsistent_dates, 0 AS unlinked_policestations, 0 AS missing_criminal_links UNION ALL MATCH (i:Incident) WHERE i.report_datetime < i.incident_datetime RETURN 0 AS merged_persons, 0 AS persons_without_cnic, 0 AS unlinked_incidents, 0 AS invalid_weapons, 0 AS unregistered_vehicles, 0 AS unassigned_officers, count(DISTINCT i) AS inconsistent_dates, 0 AS unlinked_policestations, 0 AS missing_criminal_links UNION ALL MATCH (ps:PoliceStation) WHERE NOT (ps)-[:PART_OF]->() RETURN 0 AS merged_persons, 0 AS persons_without_cnic, 0 AS unlinked_incidents, 0 AS invalid_weapons, 0 AS unregistered_vehicles, 0 AS unassigned_officers, 0 AS inconsistent_dates, count(DISTINCT ps) AS unlinked_policestations, 0 AS missing_criminal_links UNION ALL MATCH (cr:StructuredRecord {record_type: 'criminal_record'}) WHERE NOT (cr)-[:BELONGS_TO_CASE]->() RETURN 0 AS merged_persons, 0 AS persons_without_cnic, 0 AS unlinked_incidents, 0 AS invalid_weapons, 0 AS unregistered_vehicles, 0 AS unassigned_officers, 0 AS inconsistent_dates, 0 AS unlinked_policestations, count(DISTINCT cr) AS missing_criminal_links",
+  "status": "error",
+  "steps": [
+   "supervisor/active: Routing through the agent harness...",
+   "supervisor:dispatch/active: Classified query as route='XNETWORK' -> sub-agent='Cross-Case Linkage'",
+   "supervisor:dispatch/done: Cross-Case Linkage completed with status=empty",
+   "llm_query_fallback/active: Every aggregate and plan missed — asking the model for one read-only graph query",
+   "llm_query_fallback/error: rejected before the database — the generated query is longer than 2000 characters",
+   "supervisor/done: Harness routing complete"
+  ],
+  "log": [
+   "LLM-QUERY-FALLBACK firing: route=XNETWORK sub_agent=Cross-Case Linkage status=empty | Put on an analyst's hat, go through what we are carrying at present and point out whatever stands out or needs watching.",
+   "LLM-QUERY-FALLBACK abstained: rejected before the database — the generated query is longer than 2000 characters | q=Put on an analyst's hat, go through what we are carrying at present and point out whatever stands ou"
+  ],
+  "elapsed_s": 82.9,
+  "text": "Put on an analyst's hat, go through what we are carrying at present and point out whatever stands out or needs watching.",
+  "role": "platform-admin",
+  "id": "G1::57",
+  "gold_id": "G1",
+  "language": "en"
+ },
+ "G1::58": {
+  "text": "Aik tajziya kar ki haisiyat se hamare mojooda bojh ka jaiza lein aur jo kuch ghair mamooli lage ya nigrani ka taqaza kare, us ki nishandahi karein.",
+  "gold_id": "G1",
+  "skipped": "not eligible",
+  "route": "RAG",
+  "case_scope": "within_case",
+  "sub_agent": "Semantic Search",
+  "eligible_if_empty": false,
+  "dispatch_layers_missed": false
+ },
+ "G1::59": {
+  "text": "ایک تجزیہ کار کی حیثیت سے ہمارے موجودہ بوجھ کا جائزہ لیں اور جو کچھ غیر معمولی لگے یا نگرانی کا تقاضا کرے، اُس کی نشاندہی کریں۔",
+  "gold_id": "G1",
+  "skipped": "not eligible",
+  "route": "RAG",
+  "case_scope": "within_case",
+  "sub_agent": "Semantic Search",
+  "eligible_if_empty": false,
+  "dispatch_layers_missed": false
+ },
+ "G2::60": {
+  "text": "Imagine you are updating a station head about matters at risk of slipping out of view — what would you draw attention to?",
+  "gold_id": "G2",
+  "skipped": "not eligible",
+  "route": "RAG",
+  "case_scope": "within_case",
+  "sub_agent": "Semantic Search",
+  "eligible_if_empty": false,
+  "dispatch_layers_missed": true
+ },
+ "G2::61": {
+  "text": "Farz karein aap kisi thana incharge ko is bare mein bata rahe hain ke kaunse muamlat nazar se ghayab ho sakte hain — aap kin baaton ki taraf tawajjo dilayenge?",
+  "gold_id": "G2",
+  "skipped": "not eligible",
+  "route": "RAG",
+  "case_scope": "within_case",
+  "sub_agent": "Semantic Search",
+  "eligible_if_empty": false,
+  "dispatch_layers_missed": true
+ },
+ "G2::62": {
+  "text": "فرض کریں آپ کسی تھانہ انچارج کو اِس بارے میں بتا رہے ہیں کہ کون سے معاملات نظر سے غائب ہو سکتے ہیں — آپ کن باتوں کی طرف توجہ دلائیں گے؟",
+  "gold_id": "G2",
+  "skipped": "not eligible",
+  "route": "RAG",
+  "case_scope": "within_case",
+  "sub_agent": "Semantic Search",
+  "eligible_if_empty": false,
+  "dispatch_layers_missed": true
+ },
+ "G3::63": {
+  "text": "You are putting a file together to send up to the judge — going by the data, which parts are most likely to come back as lacking?",
+  "gold_id": "G3",
+  "skipped": "not eligible",
+  "route": "XAGG",
+  "case_scope": "cross_case",
+  "sub_agent": "Large-Scale Aggregate",
+  "eligible_if_empty": false,
+  "dispatch_layers_missed": false
+ },
+ "G3::64": {
+  "text": "Aap adalat bhejne ke liye ek file tayyar kar rahe hain — data ke mutabiq, kaunse hisse sab se ziyada adhoore nikalne ka imkaan rakhte hain?",
+  "gold_id": "G3",
+  "skipped": "not eligible",
+  "route": "RAG",
+  "case_scope": "within_case",
+  "sub_agent": "Semantic Search",
+  "eligible_if_empty": false,
+  "dispatch_layers_missed": true
+ },
+ "G3::65": {
+  "text": "آپ عدالت بھیجنے کے لیے ایک فائل تیار کر رہے ہیں — ڈیٹا کے مطابق، کون سے حصے سب سے زیادہ ادھورے نکلنے کا امکان رکھتے ہیں؟",
+  "gold_id": "G3",
+  "skipped": "not eligible",
+  "route": "XAGG",
+  "case_scope": "cross_case",
+  "sub_agent": "Large-Scale Aggregate",
+  "eligible_if_empty": false,
+  "dispatch_layers_missed": false
+ },
+ "G5::66": {
+  "text": "Looking at how seized arms are being written up, is there anything a compliance review ought to pick up on?",
+  "gold_id": "G5",
+  "skipped": "not eligible",
+  "route": "RAG",
+  "case_scope": "within_case",
+  "sub_agent": "Semantic Search",
+  "eligible_if_empty": false,
+  "dispatch_layers_missed": true
+ },
+ "G5::67": {
+  "text": "Zabt shuda asliha jis tarah likha ja raha hai, us mein aisa kuch hai jo zabte ke jaize mein uthaya jana chahiye?",
+  "gold_id": "G5",
+  "skipped": "not eligible",
+  "route": "RAG",
+  "case_scope": "within_case",
+  "sub_agent": "Semantic Search",
+  "eligible_if_empty": false,
+  "dispatch_layers_missed": true
+ },
+ "G5::68": {
+  "text": "ضبط شدہ اسلحہ جس طرح لکھا جا رہا ہے، اُس میں ایسا کچھ ہے جو ضابطے کے جائزے میں اُٹھایا جانا چاہیے؟",
+  "gold_id": "G5",
+  "skipped": "not eligible",
+  "route": "RAG",
+  "case_scope": "within_case",
+  "sub_agent": "Semantic Search",
+  "eligible_if_empty": false,
+  "dispatch_layers_missed": true
+ }
+}

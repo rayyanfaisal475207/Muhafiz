@@ -110,6 +110,22 @@ RERANKER_URL: str = os.getenv("RERANKER_URL", "")
 # and an operator can turn it off to prove a live route was phrase-driven.
 SEMANTIC_DISPATCH_ENABLED: bool = os.getenv("SEMANTIC_DISPATCH_ENABLED", "true").strip().lower() not in ("0", "false", "no", "off")
 
+# [Gold-QA fix — Module 178] LLM-generated graph queries as the LAST
+# fallback for a cross-case question that no aggregate answers and no plan
+# composes (src/pipeline/llm_query_fallback.py). OFF by default: the module's
+# own measurement (docs/gold-qa-wave2-results/MODULE178_RESULT.md §6) is what
+# decides whether a deployment turns it on — a generated query can run clean
+# and return a plausible wrong number that nobody can audit afterwards, and
+# this system's figures go into case files. The mechanism ships; the default
+# is the finding. When on, it still fires only after keyword dispatch,
+# semantic dispatch, sub-agent selection and plan matching have ALL missed.
+LLM_QUERY_FALLBACK_ENABLED: bool = os.getenv("LLM_QUERY_FALLBACK_ENABLED", "false").strip().lower() in ("1", "true", "yes", "on")
+# Bounds (Module 178, bound 4): the most rows a generated query may return
+# and the longest it may run. Both are ceilings the module clamps to, not
+# defaults the model is asked to respect.
+LLM_QUERY_FALLBACK_ROW_CAP: int = int(os.getenv("LLM_QUERY_FALLBACK_ROW_CAP", "200"))
+LLM_QUERY_FALLBACK_TIMEOUT_S: float = float(os.getenv("LLM_QUERY_FALLBACK_TIMEOUT_S", "15"))
+
 # Graph Scale & Schema Expansion, Milestone A3: the model server's /embed
 # route takes one text per request (no batch parameter — a {"texts": [...]}
 # payload 422s, per src/retrieval/embedder.py's own comment), so "batched"
@@ -215,6 +231,13 @@ MAX_RETRIES: int = int(os.getenv("MAX_RETRIES", "1"))
 # MAX_RETRIES itself is untouched: a near-miss still gets every retry.
 # Off switch only — for bisecting a regression back to this gate.
 RETRY_GATE_ENABLED: bool = os.getenv("RETRY_GATE_ENABLED", "true").lower() in ("1", "true", "yes")
+# [Gold-QA fix — Module 151] Off switch for the verifier's schema-absence
+# grounding (verifier.py's "GROUNDING AN ABSENCE AGAINST THE RECORD
+# INVENTORY" block). Off = the pre-Module-151 verifier, byte for byte: a
+# correct "our records have no field for X" is rejected as unsupported.
+SCHEMA_ABSENCE_GROUNDING_ENABLED: bool = (
+    os.getenv("SCHEMA_ABSENCE_GROUNDING_ENABLED", "true").lower() in ("1", "true", "yes")
+)
 TOP_K_RETRIEVAL: int = int(os.getenv("TOP_K_RETRIEVAL", "10"))
 TOP_K_RERANK: int = int(os.getenv("TOP_K_RERANK", "5"))
 

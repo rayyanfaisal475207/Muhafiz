@@ -60,7 +60,7 @@ import logging
 import time
 from collections import OrderedDict
 from dataclasses import dataclass
-from typing import Optional
+from typing import Callable, Optional
 
 from src import config
 
@@ -113,6 +113,12 @@ CAPABILITY_DESCRIPTIONS: dict[str, str] = {
     "cms_fir_linkage": (
         "whether walk-in complaints filed at a police station are linked to a "
         "formal FIR or stay separate from the case record"
+    ),
+    "applicant_accused_overlap": (
+        "whether any member of the public who applied for a police service or "
+        "filed a complaint with the police, for example at a Khidmat Markaz "
+        "or through the complaint system, is also named as an accused or "
+        "suspect in an FIR, matched by CNIC"
     ),
     "court_readiness_scan": (
         "preparing a case file for handover to court: which fields a prosecutor "
@@ -313,12 +319,25 @@ def rank_scores(scores: dict[str, float]) -> SemanticMatch:
 # be made in seconds must fall through, not wait.
 
 async def _score_descriptions(query_text: str) -> dict[str, float]:
+    return await score_descriptions(query_text, CAPABILITY_DESCRIPTIONS)
+
+
+# [Gold-QA fix — Module 158/164] The scorer, parameterised by the table so
+# a second gate (the supervisor's sub-agent selection,
+# `harness/subagent_selection.py`) shares one client and one contract
+# instead of copying this. `_score_descriptions()` above is Module 145's
+# original entry point, unchanged in behaviour.
+async def score_descriptions(
+    query_text: str, descriptions: dict[str, str]
+) -> dict[str, float]:
+    """One `/rerank` request scoring `query_text` against every description;
+    returns {kind: score} with every kind present, or raises."""
     import httpx
 
     if not config.RERANKER_URL:
         raise RuntimeError("RERANKER_URL is not configured")
-    kinds = list(CAPABILITY_DESCRIPTIONS)
-    documents = [CAPABILITY_DESCRIPTIONS[k] for k in kinds]
+    kinds = list(descriptions)
+    documents = [descriptions[k] for k in kinds]
     async with httpx.AsyncClient(timeout=_SCORE_TIMEOUT_S) as client:
         response = await client.post(
             config.RERANKER_URL,
@@ -337,6 +356,117 @@ async def _score_descriptions(query_text: str) -> dict[str, float]:
             f"reranker returned {len(scores)} of {len(kinds)} descriptions"
         )
     return scores
+
+
+# ── [Gold-QA fix — Module 158/164] A reusable gate ───────────────────────────
+#
+# The state machine below (`_decisions`/`_disabled_until`/`prepare`/`lookup`)
+# is Module 145's and is left exactly as shipped. `SemanticGate` is the same
+# machine as an object — one table, one dispatchable set, one threshold, one
+# log tag, its own cache and cooldown — so the supervisor's sub-agent
+# selection can be a second INSTANCE rather than a second copy. Module 145's
+# module-level functions are deliberately NOT migrated onto it: that would be
+# a refactor of measured code for no behavioural gain, and the two gates
+# should fail independently (a dead tunnel costs each one failed call).
+
+class SemanticGate:
+    """Score a question against a fixed description table with the
+    cross-encoder, once per text; cache the decision; fire when the best
+    description is dispatchable and clears `threshold`.
+
+    `prepare()` is async and never raises; `lookup()` is sync and pure —
+    the same split, for the same reason, as the module docstring above."""
+
+    def __init__(
+        self,
+        *,
+        tag: str,
+        descriptions: dict[str, str],
+        dispatchable: frozenset[str],
+        threshold: float,
+        enabled: Callable[[], bool],
+        score_timeout_s: float = _SCORE_TIMEOUT_S,
+        cooldown_s: float = _COOLDOWN_S,
+        cache_size: int = _CACHE_SIZE,
+    ) -> None:
+        self.tag = tag
+        self.descriptions = descriptions
+        self.dispatchable = dispatchable
+        self.threshold = threshold
+        self._enabled = enabled
+        self._score_timeout_s = score_timeout_s
+        self._cooldown_s = cooldown_s
+        self._cache_size = cache_size
+        self._decisions: "OrderedDict[str, Optional[SemanticMatch]]" = OrderedDict()
+        self._disabled_until: float = 0.0
+
+    # -- decision rule --------------------------------------------------------
+    def fires(self, match: Optional[SemanticMatch]) -> bool:
+        return (
+            match is not None
+            and match.kind in self.dispatchable
+            and match.score >= self.threshold
+        )
+
+    # -- cache ----------------------------------------------------------------
+    def _remember(self, key: str, match: Optional[SemanticMatch]) -> None:
+        self._decisions[key] = match
+        self._decisions.move_to_end(key)
+        while len(self._decisions) > self._cache_size:
+            self._decisions.popitem(last=False)
+
+    def reset_for_tests(self) -> None:
+        self._decisions.clear()
+        self._disabled_until = 0.0
+
+    def seed_for_tests(self, query_text: str, match: Optional[SemanticMatch]) -> None:
+        self._remember(_normalise(query_text), match)
+
+    def cached(self, query_text: str) -> Optional[SemanticMatch]:
+        """The raw cached decision (fired or not), or None if never prepared."""
+        return self._decisions.get(_normalise(query_text))
+
+    def lookup(self, query_text: str) -> Optional[SemanticMatch]:
+        match = self._decisions.get(_normalise(query_text))
+        return match if self.fires(match) else None
+
+    # -- scoring --------------------------------------------------------------
+    async def score(self, query_text: str) -> dict[str, float]:
+        """Raw scores against every description, uncached, may raise —
+        for the offline probes."""
+        return await score_descriptions(query_text, self.descriptions)
+
+    async def prepare(self, query_text: str) -> Optional[SemanticMatch]:
+        key = _normalise(query_text)
+        if key in self._decisions:
+            return self.lookup(key)
+        if not self._enabled() or time.monotonic() < self._disabled_until:
+            return None
+        started = time.monotonic()
+        try:
+            match = rank_scores(await self.score(key))
+        except Exception as exc:  # noqa: BLE001 - a dead tunnel must never block dispatch
+            self._disabled_until = time.monotonic() + self._cooldown_s
+            logger.warning(
+                "%s unavailable (%s: %s); phrase selection stands for the next %.0fs",
+                self.tag, type(exc).__name__, exc, self._cooldown_s,
+            )
+            return None
+        self._remember(key, match)
+        elapsed = time.monotonic() - started
+        if self.fires(match):
+            logger.info(
+                "%s %s: score=%.3f runner_up=%s(%.3f) threshold=%.2f %.2fs | %s",
+                self.tag, match.kind, match.score, match.runner_up,
+                match.runner_up_score, self.threshold, elapsed, key[:120],
+            )
+            return match
+        logger.info(
+            "%s no-fire: best=%s(%.3f) runner_up=%s(%.3f) threshold=%.2f %.2fs | %s",
+            self.tag, match.kind, match.score, match.runner_up,
+            match.runner_up_score, self.threshold, elapsed, key[:120],
+        )
+        return None
 
 
 # ── State ────────────────────────────────────────────────────────────────────

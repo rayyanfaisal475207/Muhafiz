@@ -404,3 +404,62 @@ async def test_statute_court_stage_join_renders(monkeypatch):
     assert "PPC §34: 2 case(s)" in result.raw_summary_text
     assert "Of 33 criminal records" in result.raw_summary_text
     assert "Do the two agree? No." in result.raw_summary_text
+
+
+@pytest.mark.asyncio
+async def test_applicant_accused_overlap_renders(monkeypatch):
+    """[Gold-QA fix — Module 161] Guards the hand-maintained `AggregateKind`
+    Literal (the THIRTEENTH family): omitting an entry there is the
+    documented silent-`literal_error` crash class Modules 13, 22 and 23 each
+    hit, and this kind is reachable only through the semantic layer, so no
+    phrase-list test would ever exercise it."""
+    async def _run_aggregate(*a, **kw):
+        return {
+            "kind": "applicant_accused_overlap",
+            "service_record_count": 18,
+            "distinct_citizen_count": 14,
+            "records_without_cnic": 0,
+            "accused_entry_count": 94,
+            "distinct_accused_count": 92,
+            "accused_without_cnic": 0,
+            "matched_count": 1,
+            "matches": [{
+                "cnic": "00000-1000055-1", "entity_id": "PERSON-e71d55c47b",
+                "name": "سرفراز احمد", "case_ids": ["fir-620-26"], "match_key": "cnic",
+                "services": [{
+                    "record_id": "pkm_application:pkm-app-c14-01",
+                    "record_type": "pkm_application", "label": "Khidmat Markaz application",
+                    "service_type": "driving_license", "submitted_at": "2021-04-10T00:00:00Z",
+                    "status": "completed",
+                }],
+            }],
+            "name_only_collisions": 14,
+            "citizens_with_name_collision": 9,
+        }
+
+    monkeypatch.setattr(xagg_mod, "run_aggregate", _run_aggregate)
+    result = await xagg_tool(XAggToolInput(
+        query_text="has anyone who applied for a service also been charged",
+        execution=_execution(),
+    ))
+
+    assert result.status is ToolStatus.OK
+    assert result.aggregate_kind == "applicant_accused_overlap"
+    assert "Yes — exactly one person" in result.raw_summary_text
+    assert "سرفراز احمد (CNIC 00000-1000055-1) — accused in fir-620-26" in result.raw_summary_text
+    assert "Matched on CNIC, not on name." in result.raw_summary_text
+    assert "14 more 'match(es)' on 9 citizen(s)" in result.raw_summary_text
+
+
+@pytest.mark.asyncio
+async def test_applicant_accused_overlap_is_denied_to_an_investigator():
+    """[Gold-QA fix — Module 161] The real `run_aggregate()` role gate,
+    through the wrapper: an investigator asking the cross-silo join gets
+    DENIED, not an answer and not a crash."""
+    result = await xagg_tool(XAggToolInput(
+        query_text="has anyone who applied for a service also been charged",
+        execution=_execution(role="investigator"),
+    ))
+    assert result.status is ToolStatus.DENIED
+    assert result.error.kind == "permission_denied"
+    assert result.chunks == [] and result.raw_summary_text is None

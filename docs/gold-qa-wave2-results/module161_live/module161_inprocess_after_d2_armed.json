@@ -1,0 +1,89 @@
+{
+ "Q2::run1": {
+  "answer": "Yes, exactly one person who used a police citizen service is also recorded as an accused in an FIR:  \n- **سرفراز احمد** (CNIC: 00000-1000055-1) — accused in **fir-620-26**; used the **Khidmat Markaz** application for a driving license submission on **2021-04-10** (completed) [pkm_application:pkm-app-c14-01].  \n\nThis match was confirmed via CNIC, not name.  \n\nBasis: 18 citizen-service records (14 distinct people) compared against 94 accused entries (92 distinct accused) in FIRs. Matches based on CNIC alone; name-only matches (14 additional potential overlaps) are excluded as they involve different CNICs.  \n\n[Document 1]Response generated (626 chars)",
+  "confidence": "medium",
+  "elapsed_s": 11.0,
+  "expected_kind": "applicant_accused_overlap",
+  "model": "local",
+  "question": "Is there anyone who used one of our citizen services who also turns out to be under investigation for a crime?",
+  "reason": "Semantic dispatch: no phrase list matched, but the cross-encoder scores XAGG's purpose-built 'applicant_accused_overlap' aggregate at 0.473 (runner-up 'graph_recurrence_person' at 0.010; Module 145)",
+  "route": "XAGG",
+  "route_error": null,
+  "secondary_methods": null,
+  "semantic_dispatch_enabled": true,
+  "semantic_dispatch_lines": [
+   "src.pipeline.semantic_dispatch: SEMANTIC-DISPATCH applicant_accused_overlap: score=0.473 runner_up=graph_recurrence_person(0.010) threshold=0.40 2.33s | Is there anyone who used one of our citizen services who also turns out to be under investigation for a crime?"
+  ],
+  "status": null,
+  "steps": [
+   "supervisor/active: Routing through the agent harness...",
+   "supervisor:dispatch/active: Classified query as route='XAGG' -> sub-agent='Large-Scale Aggregate'",
+   "supervisor:dispatch/done: Large-Scale Aggregate completed with status=ok",
+   "supervisor/done: Harness routing complete",
+   "citations/done: 1 citation(s)",
+   "memory/done: Saved to session"
+  ],
+  "used_cutover": true,
+  "xagg_lines": [
+   "src.pipeline.xagg: XAGG applicant_accused_overlap: 18 citizen-service record(s) over 14 distinct citizen(s) (0 record(s) without CNIC) vs 94 accused entr(ies) over 92 distinct accused (0 without CNIC); CNIC join matched 1 [سرفراز احمد:00000-1000055-1:fir-620-26]; a name join would have added 14 false match(es) on 9 citizen(s)"
+  ]
+ },
+ "Q2::run2": {
+  "answer": "Yes, exactly one person who used a police citizen service is also recorded as an accused in an FIR:  \n- **سرفراز احمد** (CNIC: 00000-1000055-1) — accused in **fir-620-26**; used the **Khidmat Markaz** application for a driving license submission on **2021-04-10** (completed) [pkm_application:pkm-app-c14-01].  \n\nThis match was confirmed via CNIC, not name.  \n\nBasis: 18 citizen-service records (14 distinct people) compared against 94 accused entries (92 distinct accused) in FIRs. Matches based on CNIC alone; name-only matches (14 additional potential overlaps) are excluded as they involve different CNICs.  \n\n[Document 1]Response generated (626 chars)",
+  "confidence": "medium",
+  "elapsed_s": 10.1,
+  "expected_kind": "applicant_accused_overlap",
+  "model": "local",
+  "question": "Is there anyone who used one of our citizen services who also turns out to be under investigation for a crime?",
+  "reason": "Semantic dispatch: no phrase list matched, but the cross-encoder scores XAGG's purpose-built 'applicant_accused_overlap' aggregate at 0.473 (runner-up 'graph_recurrence_person' at 0.010; Module 145)",
+  "route": "XAGG",
+  "route_error": null,
+  "secondary_methods": null,
+  "semantic_dispatch_enabled": true,
+  "semantic_dispatch_lines": [
+   "src.pipeline.semantic_dispatch: SEMANTIC-DISPATCH applicant_accused_overlap: score=0.473 runner_up=graph_recurrence_person(0.010) threshold=0.40 2.19s | Is there anyone who used one of our citizen services who also turns out to be under investigation for a crime?"
+  ],
+  "status": null,
+  "steps": [
+   "supervisor/active: Routing through the agent harness...",
+   "supervisor:dispatch/active: Classified query as route='XAGG' -> sub-agent='Large-Scale Aggregate'",
+   "supervisor:dispatch/done: Large-Scale Aggregate completed with status=ok",
+   "supervisor/done: Harness routing complete",
+   "citations/done: 1 citation(s)",
+   "memory/done: Saved to session"
+  ],
+  "used_cutover": true,
+  "xagg_lines": [
+   "src.pipeline.xagg: XAGG applicant_accused_overlap: 18 citizen-service record(s) over 14 distinct citizen(s) (0 record(s) without CNIC) vs 94 accused entr(ies) over 92 distinct accused (0 without CNIC); CNIC join matched 1 [سرفراز احمد:00000-1000055-1:fir-620-26]; a name join would have added 14 false match(es) on 9 citizen(s)"
+  ]
+ },
+ "Q2::run3": {
+  "answer": "Yes, exactly one person who used a police citizen service is also recorded as an accused in an FIR:  \n- **سرفراز احمد** (CNIC: 00000-1000055-1) — accused in **fir-620-26**; used the **Khidmat Markaz** application for a driving license submission on **2021-04-10** (completed) [pkm_application:pkm-app-c14-01].  \n\nThis match was confirmed via CNIC, not name.  \n\nBasis: 18 citizen-service records (14 distinct people) compared against 94 accused entries (92 distinct accused) in FIRs. Matches based on CNIC alone; name-only matches (14 additional potential overlaps) are excluded as they involve different CNICs.  \n\n[Document 1]Response generated (626 chars)",
+  "confidence": "medium",
+  "elapsed_s": 9.8,
+  "expected_kind": "applicant_accused_overlap",
+  "model": "local",
+  "question": "Is there anyone who used one of our citizen services who also turns out to be under investigation for a crime?",
+  "reason": "Semantic dispatch: no phrase list matched, but the cross-encoder scores XAGG's purpose-built 'applicant_accused_overlap' aggregate at 0.473 (runner-up 'graph_recurrence_person' at 0.010; Module 145)",
+  "route": "XAGG",
+  "route_error": null,
+  "secondary_methods": null,
+  "semantic_dispatch_enabled": true,
+  "semantic_dispatch_lines": [
+   "src.pipeline.semantic_dispatch: SEMANTIC-DISPATCH applicant_accused_overlap: score=0.473 runner_up=graph_recurrence_person(0.010) threshold=0.40 2.10s | Is there anyone who used one of our citizen services who also turns out to be under investigation for a crime?"
+  ],
+  "status": null,
+  "steps": [
+   "supervisor/active: Routing through the agent harness...",
+   "supervisor:dispatch/active: Classified query as route='XAGG' -> sub-agent='Large-Scale Aggregate'",
+   "supervisor:dispatch/done: Large-Scale Aggregate completed with status=ok",
+   "supervisor/done: Harness routing complete",
+   "citations/done: 1 citation(s)",
+   "memory/done: Saved to session"
+  ],
+  "used_cutover": true,
+  "xagg_lines": [
+   "src.pipeline.xagg: XAGG applicant_accused_overlap: 18 citizen-service record(s) over 14 distinct citizen(s) (0 record(s) without CNIC) vs 94 accused entr(ies) over 92 distinct accused (0 without CNIC); CNIC join matched 1 [سرفراز احمد:00000-1000055-1:fir-620-26]; a name join would have added 14 false match(es) on 9 citizen(s)"
+  ]
+ }
+}

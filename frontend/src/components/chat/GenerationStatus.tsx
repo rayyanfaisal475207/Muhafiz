@@ -56,6 +56,12 @@ const PHASES: Record<string, PhaseDef> = {
   response:           { active: 'Writing response',            done: 'Wrote the response',      Icon: PenIcon },
   file_generation:    { active: 'Building your file',          done: 'Built your file',         Icon: FileIcon },
   citation_validator: { active: 'Checking citations',          done: 'Checked citations',       Icon: VerifyIcon },
+  // [Gold-QA fix — Module 178] The generated-graph-query fallback. Its
+  // `done` label says "unverified" on purpose, and the backend pairs it
+  // with a `citation_validator` event whose detail contains "unverified",
+  // which MessageBubble already renders as the warning pill — the same
+  // mechanism, not a new one.
+  llm_query_fallback: { active: 'Writing a graph query (fallback)', done: 'Ran a generated graph query — unverified', Icon: VerifyIcon },
   memory:             { active: 'Saving to this conversation', done: 'Saved to this conversation', Icon: SaveIcon },
 };
 

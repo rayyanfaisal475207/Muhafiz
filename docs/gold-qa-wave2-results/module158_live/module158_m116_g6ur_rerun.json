@@ -1,0 +1,38 @@
+[
+ {
+  "id": "M116-G6-ur",
+  "run": 1,
+  "text": "یہاں نئے تعینات ہونے والے افسر کے لیے ایک مختصر تعارفی نوٹ لکھیں — انہیں موجودہ کیس لوڈ سے کیا توقع رکھنی چاہیے؟",
+  "elapsed_s": 55.5,
+  "fallbacks": 0,
+  "model": "local",
+  "subagent_select": [],
+  "semantic_select": [],
+  "log_lines": [],
+  "actual_answer": "No community cluster in the case corpus is closely related to this specific question (\"یہاں نئے تعینات ہونے والے افسر کے لیے ایک مختصر تعارفی نوٹ لکھیں — انہیں موجودہ کیس لوڈ سے کیا توقع رکھنی چاہیے؟\") (nearest cluster found was distance 0.186 against a relevance cutoff of 0.145). Rather than describing an unrelated cluster, no cross-case network finding is being reported here.",
+  "route": null,
+  "sub_agent": null,
+  "subquery_routes": [],
+  "status": "done",
+  "cutover_classification_failed": false,
+  "error": null
+ },
+ {
+  "id": "M116-G6-ur",
+  "run": 2,
+  "text": "یہاں نئے تعینات ہونے والے افسر کے لیے ایک مختصر تعارفی نوٹ لکھیں — انہیں موجودہ کیس لوڈ سے کیا توقع رکھنی چاہیے؟",
+  "elapsed_s": 55.3,
+  "fallbacks": 0,
+  "model": "local",
+  "subagent_select": [],
+  "semantic_select": [],
+  "log_lines": [],
+  "actual_answer": "No community cluster in the case corpus is closely related to this specific question (\"یہاں نئے تعینات ہونے والے افسر کے لیے ایک مختصر تعارفی نوٹ لکھیں — انہیں موجودہ کیس لوڈ سے کیا توقع رکھنی چاہیے؟\") (nearest cluster found was distance 0.186 against a relevance cutoff of 0.145). Rather than describing an unrelated cluster, no cross-case network finding is being reported here.",
+  "route": null,
+  "sub_agent": null,
+  "subquery_routes": [],
+  "status": "done",
+  "cutover_classification_failed": false,
+  "error": null
+ }
+]
