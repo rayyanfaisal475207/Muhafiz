@@ -24,6 +24,14 @@ MANIFEST
 
 # Virtual environments
 .env
+# Every .env variant, not just the canonical name. A working copy of this
+# repo accumulates `.env.<something>.bak` files during migrations and
+# experiments, and they carry the same live credentials the real one does —
+# one such backup here held 20 lines of API keys and database passwords.
+# `.env` alone does not match them, so a single `git add -A` would have
+# pushed those secrets to the remote.
+.env.*
+!.env.example
 .venv
 env/
 venv/
@@ -108,6 +116,16 @@ api.txt
 
 # SHARE hand-off artefacts — regenerated from the live stack, never committed.
 # .env and certs/*.key under SHARE/ are already covered by the rules above.
-SHARE/database/*.sql
-SHARE/database/*.zip
+# The whole directory is ignored rather than just its dumps: it is a 217 MB
+# rebuildable hand-off bundle (certs, a database dump, a schema snapshot and
+# a frontend env file), and none of it is source.
+SHARE/
 SHARE_muhafiz_*.zip
+
+# Local-only compose override. Its own header says it exists so THIS
+# checkout points at a project-local pgdata volume instead of the
+# team-shared one — committing it would repoint everyone else's stack.
+docker-compose.override.yml
+
+# QA review bundle, extracted and zipped. Working material, not source.
+qa review.zip
