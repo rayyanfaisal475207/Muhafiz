@@ -128,4 +128,9 @@ SHARE_muhafiz_*.zip
 docker-compose.override.yml
 
 # QA review bundle, extracted and zipped. Working material, not source.
+# The trailing-slash form matched only the top level, so the extracted
+# `qa review/qa review/` copy slipped past it and into a commit; the
+# unanchored pattern catches the bundle at any depth.
 qa review.zip
+qa review/
+**/qa review/
