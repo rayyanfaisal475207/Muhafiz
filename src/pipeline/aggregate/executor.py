@@ -208,6 +208,54 @@ async def execute(
     return await _execute_simple(snapshot, spec, window=window)
 
 
+#: Measures whose value IS a population size. For everything else the
+#: returned scalar is a summary OF a population, not a count of one, and
+#: the two must not be conflated in coverage.
+_COUNTING_MEASURES: frozenset[str] = frozenset({"count", "count_distinct"})
+
+
+def _is_counting_measure(measure: str) -> bool:
+    return measure in _COUNTING_MEASURES
+
+
+def _observed_rows(value: Any) -> int:
+    """How many units the computation observed, for coverage bookkeeping.
+
+    NOT the answer — `value` is the answer. This figure feeds coverage
+    reporting, which asks "how much of the population did this see", and
+    the two are only the same thing for counting measures.
+
+    WHY THIS IS NOT AN int() CAST. It used to be, unconditionally, and that
+    assumed every aggregate returns a number. `min`/`max` do not: over a
+    date field they return a timestamp, over a text field a string. The
+    cast raised ValueError on a query that had ALREADY SUCCEEDED, so a
+    correct answer was discarded by an exception raised while filing
+    paperwork about it.
+
+    The rule is about kinds of value, not about dates specifically:
+
+      - A count-like number IS its own observed-row figure.
+      - Any other scalar — a timestamp, a string, a category — is ONE
+        observed value. It says nothing about how many rows were scanned,
+        and inventing a number from it would be worse than reporting the
+        one thing that is true.
+      - Nothing observed is zero.
+
+    A bool is excluded deliberately: `isinstance(True, int)` is True in
+    Python, and a boolean aggregate is a categorical answer, not a count.
+    """
+    if value is None:
+        return 0
+    if isinstance(value, bool):
+        return 1
+    if isinstance(value, (int, float)):
+        # Negative counts are caught by shapes.validate_scalar before this
+        # point; clamping here keeps a nonsensical figure out of coverage
+        # rather than silently re-signing it.
+        return max(0, int(value))
+    return 1
+
+
 async def _execute_simple(
     snapshot: reg.RegistrySnapshot,
     spec: AggregateSpec,
@@ -270,7 +318,22 @@ async def _execute_simple(
         observed_n = sum(int(r.get("value") or 0) for r in rows)
     else:
         value = rows[0].get("value") if rows else 0
-        observed_n = int(value or 0)
+        observed_n = _observed_rows(value)
+        if observed_n <= 1 and not _is_counting_measure(spec.measure):
+            # A non-counting scalar says nothing about population size.
+            # `min(incident_datetime)` returns ONE timestamp having scanned
+            # every Incident, and reporting 1 here made coverage announce
+            # "only 1 record qualifies — too few to report a meaningful
+            # figure" about a figure computed over the whole label. The
+            # registry knows how many units were actually in scope, and for
+            # an unfiltered population that is the honest denominator.
+            info = snapshot.entity(
+                spec.population.traversals[-1].target
+                if spec.population.traversals
+                else spec.population.entity
+            )
+            if info is not None:
+                observed_n = info.active_n
 
     terminal = (
         spec.population.traversals[-1].target

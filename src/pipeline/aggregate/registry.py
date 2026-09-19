@@ -190,6 +190,18 @@ class RelationshipInfo:
     max_reverse_fanout: int = 0
     is_versioned: bool = False
     superseded_n: int = 0
+    #: Properties measured ON THE EDGE, by the same `keys()` method used for
+    #: node properties. Empty for triples that carry none.
+    #:
+    #: Why this exists: a qualifier that lives on the edge rather than on
+    #: either endpoint is invisible to a planner that is only shown labels,
+    #: node properties and relationship names. Measured live, the
+    #: Person-[:INVOLVED_IN]->Incident edge carries the qualifier that
+    #: separates 94 edges from the other 127 — and a question about that
+    #: subset was answered over all 221, because nothing the planner could
+    #: see said the distinction existed. Presence is counted per property
+    #: so a sparse edge qualifier is as visible as a sparse node property.
+    properties: dict[str, PropertyInfo] = dataclasses.field(default_factory=dict)
 
     @property
     def is_fanning(self) -> bool:
@@ -280,6 +292,14 @@ class RegistrySnapshot:
     entities: dict[str, EntityInfo]
     relationships: dict[tuple[str, str, str], RelationshipInfo]
     logical_fields: dict[str, LogicalField]
+    #: (source, rel, target, property) -> the values it takes, for edge
+    #: properties with few enough distinct values to enumerate honestly.
+    #: Absent means "not enumerated", never "has no values" — see
+    #: `edge_property_values`. Defaulted so every existing construction
+    #: site, including the tests, keeps working unchanged.
+    edge_property_values_map: dict[tuple[str, str, str, str], frozenset[str]] = (
+        dataclasses.field(default_factory=dict)
+    )
 
     # ── Lookups used by the validator and compiler ────────────────────
     def entity(self, label: str) -> Optional[EntityInfo]:
@@ -289,6 +309,22 @@ class RegistrySnapshot:
         self, source_label: str, rel_type: str, target_label: str
     ) -> Optional[RelationshipInfo]:
         return self.relationships.get((source_label, rel_type, target_label))
+
+    def edge_property_values(
+        self, source_label: str, rel_type: str, target_label: str, prop: str
+    ) -> frozenset[str]:
+        """The values an edge property takes, WHEN they are few enough to know.
+
+        An empty set means "not enumerated", never "no values exist". The
+        distinction is load-bearing: a caller may refuse a value that is
+        outside a known set, but must not refuse one merely because the set
+        was too large to measure. Properties with many distinct values (an
+        id, a free-text span) are deliberately not enumerated, so they
+        return empty and constrain nothing.
+        """
+        return self.edge_property_values_map.get(
+            (source_label, rel_type, target_label, prop), frozenset()
+        )
 
     def relationships_from(self, source_label: str) -> list[RelationshipInfo]:
         return [r for r in self.relationships.values() if r.source_label == source_label]
@@ -543,6 +579,8 @@ async def _measure_relationships() -> dict[tuple[str, str, str], RelationshipInf
         )
         superseded_n = int((sup[0] or {}).get("n") or 0) if sup else 0
 
+        edge_props = await _measure_edge_properties(src, rel, dst, edge_n)
+
         out[(src, rel, dst)] = RelationshipInfo(
             source_label=src,
             rel_type=rel,
@@ -558,8 +596,124 @@ async def _measure_relationships() -> dict[tuple[str, str, str], RelationshipInf
             # predicate on a property that does not exist.
             is_versioned=superseded_n > 0,
             superseded_n=superseded_n,
+            properties=edge_props,
         )
     return out
+
+
+#: Bookkeeping properties every edge carries. Excluded from the measured
+#: set because they describe provenance and versioning, not the domain, and
+#: showing them to a planner invites a filter on a field that means
+#: "when was this extracted", not "what kind of involvement was this".
+_EDGE_PROPERTY_BLOCKLIST: frozenset[str] = frozenset(
+    {
+        SUPERSEDED_PROPERTY,
+        "as_of",
+        "confidence",
+        "source_doc_id",
+        # Extraction provenance: which chunk an edge came from, and the raw
+        # span it was read out of. `surface_text` is free text with one
+        # distinct value per edge, so it can never be a useful filter, and
+        # between them these two were the widest contributors to card size.
+        "source_chunk_id",
+        "surface_text",
+    }
+)
+
+
+#: An edge property with more distinct values than this is not enumerated.
+#: Matching the card's own threshold: past this point a list stops being a
+#: closed set a caller can check against and becomes a sample, and a
+#: validator that refused values outside a SAMPLE would reject real data.
+_EDGE_VALUE_MAX_DISTINCT = 12
+
+
+async def _measure_edge_property_values(
+    relationships: dict[tuple[str, str, str], RelationshipInfo],
+) -> dict[tuple[str, str, str, str], frozenset[str]]:
+    """Enumerable value sets for edge properties.
+
+    Exists so the validator can check a role VALUE against measured data
+    instead of accepting any string. Bounded exactly like the card's value
+    examples: only properties present on a few edges, only those with few
+    enough distinct values to enumerate honestly, failures swallowed per
+    property. An unmeasured property yields no entry, and the validator
+    treats that as "unknown", not as "empty".
+    """
+    from src.graph import age_client
+
+    out: dict[tuple[str, str, str, str], frozenset[str]] = {}
+    for (src, rel, dst), info in relationships.items():
+        for prop in info.properties:
+            try:
+                rows = await age_client.execute_cypher(
+                    f"MATCH (a:{src})-[r:{rel}]->(b:{dst}) "
+                    f"WHERE r.{prop} IS NOT NULL RETURN DISTINCT r.{prop} AS v",
+                    columns=["v"],
+                )
+            except Exception:  # noqa: BLE001 — an unmeasured property is not fatal
+                continue
+            if not rows or len(rows) > _EDGE_VALUE_MAX_DISTINCT:
+                continue
+            values = {
+                str(r["v"]) for r in rows if r.get("v") is not None
+            }
+            if values:
+                out[(src, rel, dst, prop)] = frozenset(values)
+    return out
+
+
+async def _measure_edge_properties(
+    src: str, rel: str, dst: str, edge_n: int
+) -> dict[str, PropertyInfo]:
+    """Properties carried on one relationship triple, with presence counts.
+
+    Uses `keys(r)` for the same reason `_measure_entity` uses `keys(n)`:
+    AGE stores an absent property as absent rather than NULL, and only
+    `keys()` distinguishes "this edge has no such qualifier" from "it has
+    one whose value is null". Presence is what makes a sparse qualifier
+    visible instead of looking like a universal field.
+
+    Discovery is dynamic: whatever the edges carry is measured, so a
+    qualifier added to the graph later appears without a code change. Only
+    the provenance/versioning bookkeeping in `_EDGE_PROPERTY_BLOCKLIST` is
+    withheld, and that list is about meaning, not about any one domain
+    value.
+
+    A failure here degrades the card rather than breaking the registry: an
+    unmeasured triple simply carries no properties, exactly as before.
+    """
+    from src.graph import age_client
+
+    if edge_n <= 0:
+        return {}
+    try:
+        rows = await age_client.execute_cypher(
+            f"MATCH (a:{src})-[r:{rel}]->(b:{dst}) RETURN keys(r) AS k",
+            columns=["k"],
+        )
+    except Exception as exc:  # noqa: BLE001 — a missing card line, never a crash
+        logger.warning(
+            "registry: could not measure edge properties for (%s)-[:%s]->(%s): %s",
+            src, rel, dst, exc,
+        )
+        return {}
+
+    total = len(rows)
+    if total == 0:
+        return {}
+
+    counts: dict[str, int] = {}
+    for row in rows:
+        for key in row.get("k") or []:
+            if key in _EDGE_PROPERTY_BLOCKLIST:
+                continue
+            counts[key] = counts.get(key, 0) + 1
+
+    return {
+        name: PropertyInfo(name=name, present_n=n, total_n=total)
+        for name, n in sorted(counts.items())
+    }
 
 
 async def _measure_logical_fields(
@@ -686,6 +840,7 @@ async def build_registry(labels: Optional[list[str]] = None) -> RegistrySnapshot
         entities=entities,
         relationships=relationships,
         logical_fields=logical_fields,
+        edge_property_values_map=await _measure_edge_property_values(relationships),
     )
     logger.info(
         "registry: measured %d label(s), %d relationship triple(s), %d logical field(s)",

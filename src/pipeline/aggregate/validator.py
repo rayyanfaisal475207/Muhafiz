@@ -216,34 +216,60 @@ def _validate_edge_role(
     hop: Traversal,
     label: str,
 ) -> list[ValidationIssue]:
-    """Role filters are accepted only on relationships known to carry them.
+    """Role filters are checked against what the edge MEASURABLY carries.
 
-    Deliberately permissive about the VALUE and strict about the FIELD: the
-    registry measures node properties, not edge properties, so this checks
-    that the relationship is one of the role-bearing types rather than that
-    a particular role string exists. A wrong value returns zero rows, which
-    coverage.py reports honestly; a wrong field name would be a silent
-    no-op filter, which is the dangerous case.
+    THIS USED TO BE A HARDCODED TABLE. Two relationship types were listed by
+    hand, transcribed from the write sites, with the justification that "the
+    registry measures node properties, not edge properties". That premise
+    stopped being true when the registry began measuring edge properties: a
+    hand-maintained list is now a second, staler copy of something the
+    snapshot already knows, and a role-bearing relationship added to the
+    graph would have needed a code edit to become usable.
+
+    So the field is checked against `info.properties` — measured, dynamic,
+    and correct for relationships nobody has written down.
+
+    STRICT ABOUT THE FIELD, AND NOW CHECKED ABOUT THE VALUE. A wrong field
+    name is a silent no-op filter, which was always refused. A wrong VALUE
+    was previously accepted on the grounds that it returns zero rows and
+    coverage reports that honestly — true, but it is the same failure class
+    as a wrong node-property literal, which `M3_value_literal` treats as
+    mandatory-verification precisely because a clean, plausible, entirely
+    wrong number is worse than an error. Where the registry has enumerated
+    the values an edge property actually takes, a value outside that set is
+    refused with the real ones named. Where it has not enumerated them
+    (too many distinct values to list honestly), nothing is claimed and the
+    value passes, exactly as before.
     """
-    if hop.role_field not in _ROLE_BEARING_RELATIONSHIPS.get(info.rel_type, ()):
+    measured = getattr(info, "properties", None) or {}
+    if hop.role_field not in measured:
+        known = ", ".join(sorted(measured)) or "no properties"
         return [
             _issue(
                 "unknown_edge_property",
                 f"{label}: {info.rel_type} edges do not carry a "
-                f"{hop.role_field!r} property.",
+                f"{hop.role_field!r} property (measured: {known}).",
+                hop.role_field,
+            )
+        ]
+
+    if hop.role_value is None:
+        return []
+
+    allowed = snapshot.edge_property_values(
+        info.source_label, info.rel_type, info.target_label, hop.role_field
+    )
+    if allowed and hop.role_value not in allowed:
+        shown = ", ".join(repr(v) for v in sorted(allowed))
+        return [
+            _issue(
+                "unknown_edge_property_value",
+                f"{label}: {info.rel_type}.{hop.role_field} does not take "
+                f"the value {hop.role_value!r}; measured values are {shown}.",
                 hop.role_field,
             )
         ]
     return []
-
-
-#: Edge properties usable as role filters, by relationship type. Taken from
-#: the write sites in `src/graph/structured_projection.py` (INVOLVED_IN is
-#: written with {"role": ...}; ASSIGNED_TO with {"role": ...}), not guessed.
-_ROLE_BEARING_RELATIONSHIPS: dict[str, tuple[str, ...]] = {
-    "INVOLVED_IN": ("role",),
-    "ASSIGNED_TO": ("role",),
-}
 
 
 def _validate_predicate(

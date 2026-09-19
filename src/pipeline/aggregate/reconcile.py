@@ -103,6 +103,50 @@ class ReconciliationResult:
         return d
 
 
+def _subject_label(result: Any) -> Optional[str]:
+    """The single label a result counted, for the canonicalization proof.
+
+    Returns None when the subject is ambiguous (more than one label in
+    play), which makes the proof fail closed rather than pick one.
+    """
+    prov = getattr(result, "provenance", {}) or {}
+    plan = prov.get("plan") or {}
+    if plan.get("root_label"):
+        return plan["root_label"]
+    labels = prov.get("chosen_labels") or []
+    if len(labels) == 1:
+        return labels[0]
+    numeric = getattr(result, "numeric", None)
+    population = getattr(numeric, "population", None)
+    if isinstance(population, str) and population:
+        # Structured populations are described as "Person where ..." —
+        # the leading token is the measured label.
+        head = population.split()[0].strip()
+        return head or None
+    return None
+
+
+def _traversal_count(result: Any) -> int:
+    """Relationship hops the computation made.
+
+    Any hop can multiply rows, so a single one is enough to refuse the
+    count/count_distinct equivalence proof. An unknown shape counts as
+    "traversed" — the conservative direction.
+    """
+    prov = getattr(result, "provenance", {}) or {}
+    plan = prov.get("plan") or {}
+    if "patterns" in plan:
+        return len(plan.get("patterns") or ())
+    rels = prov.get("chosen_relationships")
+    if rels is not None:
+        return len(rels)
+    numeric = getattr(result, "numeric", None)
+    population = getattr(numeric, "population", None)
+    if isinstance(population, str) and (" via " in population or "->" in population):
+        return 1
+    return 0
+
+
 def _values_match(a: Any, b: Any) -> bool:
     if isinstance(a, bool) or isinstance(b, bool):
         return a is b
@@ -224,8 +268,27 @@ def reconcile(
     structured: Optional[RouteResult] = None,
     age: Optional[RouteResult] = None,
     semantic: Optional[RouteResult] = None,
+    *,
+    snapshot: Optional[Any] = None,
 ) -> ReconciliationResult:
-    """Classify agreement across the routes. Deterministic; no LLM."""
+    """Classify agreement across the routes. Deterministic; no LLM.
+
+    `snapshot` is optional and enables PROVABLE metric canonicalization
+    (Phase 7). Phase 6 measured four cases where both routes returned the
+    same correct number and this function still reported
+    SEMANTICALLY_DIFFERENT, because one declared `count` and the other
+    `count_distinct` — understating real corroboration.
+
+    With a snapshot, `canonical.py` proves whether those two spellings are
+    equal FOR THIS POPULATION: they are, when the computation traverses
+    nothing (one row per node) and the label's distinct key is measured
+    present-on-every-node and unique. Where the proof fails — any traversal
+    at all, or no unique key — the two stay different, which is what keeps
+    the 73->449 inflation and the 4-vs-70 conflict visible.
+
+    Without a snapshot the behaviour is exactly as before, so every
+    existing caller is unaffected.
+    """
     present = [r for r in (structured, age, semantic) if r is not None]
     refused = tuple(
         r.route for r in present if r.status in ("REFUSED", "UNSUPPORTED", "EXECUTION_ERROR")
@@ -304,8 +367,51 @@ def reconcile(
     s, a = structured, age
     s_num, a_num = s.numeric, a.numeric
 
+    # PHASE 5D REMOVED A SNAPSHOT GATE THAT STOOD HERE. Phase 5C ran the AGE
+    # route against a disposable COPY of the graph, so an AGE figure
+    # described a possibly-stale vintage and could not be compared directly
+    # against a live structured figure; results lacking a snapshot id were
+    # demoted to SINGLE_ROUTE_VALID. Phase 5D compiles the AGE route's typed
+    # plan into read-only Cypher executed against production
+    # `evidence_graph` — the same data the structured route reads — so that
+    # asymmetry no longer exists, and keeping the gate would suppress
+    # genuine agreements and conflicts.
+    #
+    # What deliberately REMAINS is the general semantics comparison below:
+    # `comparable_key()` asks whether the two routes answered the same
+    # question (interpretation, grain, grouping) before asking whether they
+    # got the same answer. That is what keeps "92 distinct accused" from
+    # being compared against "94 accused involvements", and it is unrelated
+    # to evaluator staleness.
+
     # Did they answer the same question? Asked before "the same answer?".
-    if s_num.comparable_key() != a_num.comparable_key():
+    #
+    # Phase 7: when a snapshot is available, the metric spelling is
+    # canonicalised first — but ONLY where equivalence is deterministically
+    # provable. Grain and grouping pass through untouched, so a RECORD-vs-
+    # ENTITY disagreement about what one unit IS still reads as different.
+    s_key, a_key = s_num.comparable_key(), a_num.comparable_key()
+    canon_notes: list[str] = []
+    if snapshot is not None:
+        from src.pipeline.aggregate import canonical as _canon
+
+        s_key, s_canon = _canon.canonical_comparable_key(
+            snapshot,
+            interpretation=s_num.interpretation, grain=s_num.grain,
+            grouping=s_num.grouping,
+            label=_subject_label(s), traversal_count=_traversal_count(s),
+        )
+        a_key, a_canon = _canon.canonical_comparable_key(
+            snapshot,
+            interpretation=a_num.interpretation, grain=a_num.grain,
+            grouping=a_num.grouping,
+            label=_subject_label(a), traversal_count=_traversal_count(a),
+        )
+        canon_notes = [
+            c.describe() for c in (s_canon, a_canon) if c.applied
+        ]
+
+    if s_key != a_key:
         return ReconciliationResult(
             classification=SEMANTICALLY_DIFFERENT,
             disagreeing_routes=(s.route, a.route),
