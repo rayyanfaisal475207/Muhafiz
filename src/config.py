@@ -353,6 +353,23 @@ HARNESS_CUTOVER_ROUTES: frozenset[str] = frozenset(
 # deliberately rather than inherited.
 AGGREGATE_ENGINE_LEGACY = "legacy"
 AGGREGATE_ENGINE_V1 = "aggregate_v1"
+#: "aggregate_v2" — EXPERIMENT, not a product mode. Same pipeline as v1 with
+#: the deterministic schema checks in `validator.py` REPLACED by an LLM judge
+#: that is shown the schema card and asked, strictly, whether the spec names
+#: anything the card does not contain.
+#:
+#: It exists to answer one question with a number instead of an argument:
+#: can a model police its own schema adherence as reliably as a registry
+#: lookup? Run the blind corpus in all three modes and compare the count of
+#: SILENTLY WRONG ANSWERS — legacy measured 5, v1 measured 0.
+#:
+#: Note before interpreting a result: v1's prompt ALREADY says "Do not invent
+#: a property because the question implies one should exist", and the model
+#: invented `criminal_risk_score` in 2 of 3 runs regardless, once answering
+#: 208 (every person) for a field that does not exist. The judge is a second
+#: model call over the same evidence, so the open question is whether a
+#: second look catches what the first one missed, or repeats it.
+AGGREGATE_ENGINE_V2 = "aggregate_v2"
 AGGREGATE_ENGINE_MODE: str = (
     os.getenv("AGGREGATE_ENGINE_MODE", AGGREGATE_ENGINE_LEGACY).strip().lower()
     or AGGREGATE_ENGINE_LEGACY

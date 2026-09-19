@@ -38,9 +38,11 @@ overstate assurance, which is worse than not verifying at all.
 from __future__ import annotations
 
 import dataclasses
+import logging
 import time
 from typing import Any, Optional
 
+from src import config
 from src.pipeline.aggregate import (
     direction,
     fidelity,
@@ -52,11 +54,14 @@ from src.pipeline.aggregate import (
     route_semantic,
     route_structured,
     routes,
+    schema_judge,
     validator,
     verification_policy as vp,
 )
 from src.pipeline.aggregate.routes import AggregateRouteRequest
 from src.pipeline.aggregate.spec import AggregateSpec, Scope
+
+logger = logging.getLogger(__name__)
 
 #: Roles permitted to ask cross-case aggregate questions. Identical to the
 #: set `route_age.run` enforces; checked here too so the refusal happens
@@ -191,6 +196,43 @@ class AggregateAnswer:
         }
 
 
+#: The validator issues that answer "does this name exist in the schema?" —
+#: exactly the question `schema_judge` is given in `aggregate_v2`. Suppressed
+#: in that mode so the judge is measured instead of shadowed by the lookup it
+#: is being compared against. Every other issue code still applies.
+_SCHEMA_EXISTENCE_CODES: frozenset[str] = frozenset({
+    "unknown_entity",
+    "unknown_field",
+    "unknown_relationship",
+    "unknown_edge_property",
+    "unknown_edge_property_value",
+    "wrong_distinct_key",
+    "field_never_populated",
+})
+
+
+def _without_schema_existence_issues(result: Any) -> Any:
+    """`result` minus the issues the judge was asked to find instead.
+
+    Returns the result unchanged when it raised none of them, so the common
+    path allocates nothing.
+    """
+    issues = tuple(getattr(result, "issues", ()) or ())
+    kept = tuple(i for i in issues if i.code not in _SCHEMA_EXISTENCE_CODES)
+    if len(kept) == len(issues):
+        return result
+    dropped = [i.code for i in issues if i.code in _SCHEMA_EXISTENCE_CODES]
+    logger.info(
+        "aggregate_v2: schema-existence issue(s) %s left to the judge, "
+        "which passed the spec", dropped,
+    )
+    return dataclasses.replace(
+        result,
+        verdict="EXECUTABLE" if not kept else result.verdict,
+        issues=kept,
+    )
+
+
 def _refused(
     question: str,
     request_id: str,
@@ -273,8 +315,47 @@ async def answer_question(
     # silently different from the spec that was generated.
     spec, direction_corrections = direction.reconcile_directions(snapshot, spec)
 
-    # ── 2. Deterministic validation ───────────────────────────────────
-    validation = validator.validate(snapshot, spec)
+    # ── 2. Validation ─────────────────────────────────────────────────
+    # `aggregate_v2` is an EXPERIMENT (see config.AGGREGATE_ENGINE_V2): the
+    # deterministic schema check below is replaced by an LLM judge shown the
+    # same schema card. Only that one check changes, so a corpus run in v1
+    # and v2 differs by one variable and the comparison means something.
+    #
+    # The judge fails CLOSED — an error refuses — because an experiment
+    # whose failure mode is "serve it anyway" measures the transport rather
+    # than the judgement.
+    if config.AGGREGATE_ENGINE_MODE == config.AGGREGATE_ENGINE_V2:
+        started = time.perf_counter()
+        verdict = await schema_judge.judge(
+            spec, schema_card=schema_card or "", question=question,
+        )
+        timings["schema_judge"] = (time.perf_counter() - started) * 1000.0
+        if not verdict.ok:
+            return _refused(
+                question, rid, "schema_judge_refused",
+                f"The question was interpreted as a query naming something "
+                f"the schema does not contain ({verdict.message}).",
+                spec=spec, spec_generation=generation,
+                timings_ms=timings,
+                warnings=tuple(
+                    f"Interpretation adjusted: {c.message}"
+                    for c in direction_corrections
+                ),
+            )
+        # The judge has now ANSWERED the schema-existence question, so the
+        # deterministic answer to that same question is suppressed —
+        # otherwise v2 would be "judge AND lookup", the lookup would catch
+        # everything it catches in v1, and the run would measure nothing.
+        #
+        # Every other deterministic check still runs: grain rules,
+        # distinct-key identity, fanout, time-window authority, result
+        # shape. Swapping one check is the experiment; removing the rest
+        # would be a different system, not a comparison.
+        validation = _without_schema_existence_issues(
+            validator.validate(snapshot, spec)
+        )
+    else:
+        validation = validator.validate(snapshot, spec)
     if not validation.ok:
         detail = "; ".join(
             f"{i.code}: {i.message}" for i in validation.issues

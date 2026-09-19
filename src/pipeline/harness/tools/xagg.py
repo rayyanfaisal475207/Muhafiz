@@ -499,7 +499,11 @@ async def xagg_tool(tool_input: XAggToolInput) -> XAggToolResult:
     # deliberate env-var flip, for the same reason HARNESS_CUTOVER_ROUTES
     # works that way: which engine answers live traffic is an operational
     # decision, not a code-deploy one.
-    if config.AGGREGATE_ENGINE_MODE == config.AGGREGATE_ENGINE_V1:
+    # v2 is v1 with one check swapped (see config.AGGREGATE_ENGINE_V2), so it
+    # takes the same path; the orchestrator reads the mode itself.
+    if config.AGGREGATE_ENGINE_MODE in (
+        config.AGGREGATE_ENGINE_V1, config.AGGREGATE_ENGINE_V2
+    ):
         return await _answer_with_aggregate_v1(tool_input)
 
     try:
