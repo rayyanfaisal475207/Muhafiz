@@ -309,6 +309,32 @@ HARNESS_CUTOVER_ROUTES: frozenset[str] = frozenset(
     r.strip().upper() for r in os.getenv("HARNESS_CUTOVER_ROUTES", "").split(",") if r.strip()
 )
 
+# Which engine answers a cross-case aggregate question.
+#
+#   "legacy"       xagg.run_aggregate() — the keyword-dispatched engine that
+#                  has always served this route. DEFAULT, so an unset
+#                  environment behaves exactly as before this flag existed.
+#   "aggregate_v1" src.pipeline.aggregate.orchestrator.answer_question() —
+#                  NL -> AggregateSpec -> validation -> verification policy ->
+#                  structured/AGE/semantic -> reconciliation.
+#
+# A LIVE-TRAFFIC DECISION, NOT A CODE-DEPLOY ONE, for the same reason
+# HARNESS_CUTOVER_ROUTES above is: flip it by restarting with a different
+# env var, never by editing this file.
+#
+# WHY IT IS NOT DEFAULTED ON. The two engines disagree BY DESIGN. The new
+# one refuses questions the legacy one answers — compound questions, filters
+# it cannot express, traversals past its hop limit — because answering them
+# meant silently answering a different question. That is the correct
+# behaviour and it is also a visible product change, so it is enabled
+# deliberately rather than inherited.
+AGGREGATE_ENGINE_LEGACY = "legacy"
+AGGREGATE_ENGINE_V1 = "aggregate_v1"
+AGGREGATE_ENGINE_MODE: str = (
+    os.getenv("AGGREGATE_ENGINE_MODE", AGGREGATE_ENGINE_LEGACY).strip().lower()
+    or AGGREGATE_ENGINE_LEGACY
+)
+
 # Relevance/reliability control, not just safety (architecture doc) — WEB
 # results are restricted to government/legal/established-news domains, never
 # the open web. Comma-separated env override; sensible starting default.
@@ -447,6 +473,27 @@ def validate_config() -> tuple[list[str], list[str]]:
             "MCP_DATABASE_URL. See migrations/009_mcp_readonly_role.sql."
         )
 
+    # The evaluator database is TEST-ONLY after Phase 5D — no runtime path
+    # needs it, so an unset URL is not worth a warning. A MISDIRECTED one
+    # still is: the adversarial tests deliberately execute mutating Cypher
+    # against whatever it names, so pointing it at production would aim
+    # those tests at real data.
+    if AGE_EVAL_DATABASE_URL:
+        _eval_db = (
+            AGE_EVAL_DATABASE_URL.split("?", 1)[0].rstrip("/").rsplit("/", 1)[-1]
+        )
+        if _eval_db == "muhafiz":
+            critical.append(
+                "AGE_EVAL_DATABASE_URL points at the production database "
+                "('muhafiz'). That database is the target of destructive "
+                "adversarial tests — point it at 'muhafiz_age_eval'."
+            )
+        elif _eval_db != "muhafiz_age_eval":
+            errors.append(
+                f"AGE_EVAL_DATABASE_URL names database '{_eval_db}', but the "
+                "evaluator target is fixed to 'muhafiz_age_eval'."
+            )
+
     # AIR_GAP_MODE consistency: with no local LLM endpoint configured, every
     # LLM call refuses cloud fallback and fails outright (src/llm/client.py).
     if AIR_GAP_MODE and not LOCAL_LLM_URL:
@@ -505,6 +552,92 @@ CORS_ORIGINS = os.getenv(
 # provisioned the role yet doesn't hard-break.
 MCP_DATABASE_URL: str = os.getenv("MCP_DATABASE_URL", "")
 DATABASE_URL = os.getenv("DATABASE_URL", "")
+
+# ── Aggregate AGE query limits (Phase 5D safe gateway) ───────────────────────
+# The independent AGE route no longer executes model-written Cypher. A model
+# emits a typed `AgeQueryPlan`; trusted code validates it against the live
+# registry and compiles it into read-only Cypher (see
+# src/pipeline/aggregate/age_plan.py, age_plan_validator.py, age_compiler.py).
+# Mutation is not filtered out — it is unrepresentable, because the plan
+# schema has no field that can carry a clause and the compiler has no
+# mutation emitter.
+#
+# These limits therefore protect AVAILABILITY, not integrity: a read-only
+# aggregate over 13,467 edges can still pin a connection. The pool is
+# separate from age_client's so a slow aggregate cannot exhaust the slots
+# the rest of the application needs.
+AGE_QUERY_STATEMENT_TIMEOUT_MS: int = int(
+    os.getenv("AGE_QUERY_STATEMENT_TIMEOUT_MS", "15000")
+)
+AGE_QUERY_MAX_ROWS: int = int(os.getenv("AGE_QUERY_MAX_ROWS", "1000"))
+AGE_QUERY_MAX_POOL_SIZE: int = int(os.getenv("AGE_QUERY_MAX_POOL_SIZE", "4"))
+
+# ── Isolated AGE evaluator (Phase 5C) — TEST INFRASTRUCTURE ONLY ─────────────
+# Phase 5C protected production by running model-written Cypher against a
+# disposable copy of the graph. Phase 5D removed the need for that at
+# runtime: there is no model-written Cypher any more. The evaluator database
+# is RETAINED as adversarial/security-regression test infrastructure (see
+# scripts/rebuild_age_eval.py and tests/test_age_eval_containment.py), and
+# NO production runtime path requires it.
+#
+# Leaving these unset is now entirely normal and disables nothing.
+# Model-generated Cypher does NOT run against DATABASE_URL. Phase 5 measured
+# that Apache AGE 1.5.0 offers no read-only boundary — SET, REMOVE and
+# DETACH DELETE all succeeded under SELECT-only grants AND
+# default_transaction_read_only=on — so a generated query that slips past
+# src/pipeline/aggregate/cypher_guard.py executes as a write against whatever
+# graph it was pointed at. That is not hypothetical; it destroyed production
+# graph data once during Phase 5 testing.
+#
+# The containment boundary is therefore the CONNECTION, not the query text:
+# a dedicated role (muhafiz_age_eval_app) in a separate, disposable database
+# (muhafiz_age_eval) that has NO CONNECT privilege on `muhafiz`. PostgreSQL
+# refuses at connection time, before any Cypher is parsed. Measured on this
+# cluster: pg_hba is `trust` for 127.0.0.1/::1 and scram-sha-256 elsewhere,
+# so on loopback the evaluator PASSWORD is not a boundary at all — the
+# CONNECT denial is what contains the evaluator, and it holds regardless of
+# auth method.
+#
+# UNSET IS NORMAL AFTER PHASE 5D. This no longer gates any runtime route —
+# the aggregate AGE path answers questions with this unset (verified). It is
+# read only by `age_eval_client`, which the adversarial/security tests use
+# (tests/test_age_eval_containment.py) and which `scripts/rebuild_age_eval.py`
+# refreshes. That client still refuses any DSN naming `muhafiz`, or anything
+# other than `muhafiz_age_eval`, so a copy-pasted production URL fails closed
+# before destructive tests could aim at real data.
+AGE_EVAL_DATABASE_URL: str = os.getenv("AGE_EVAL_DATABASE_URL", "")
+
+# Server-side statement_timeout for evaluator queries, in milliseconds. Set
+# as a server setting rather than a client-side cancel so PostgreSQL itself
+# kills a generated query that plans badly over the copied graph.
+AGE_EVAL_STATEMENT_TIMEOUT_MS: int = int(
+    os.getenv("AGE_EVAL_STATEMENT_TIMEOUT_MS", "15000")
+)
+
+# Hard cap on rows a single evaluator query may return. An aggregate that
+# wants more than this is not an aggregate; the client refuses rather than
+# materialising an unbounded result.
+AGE_EVAL_MAX_ROWS: int = int(os.getenv("AGE_EVAL_MAX_ROWS", "1000"))
+
+# Bounded evaluator concurrency — the evaluation path must not be able to
+# exhaust connection slots the application needs.
+AGE_EVAL_MAX_POOL_SIZE: int = int(os.getenv("AGE_EVAL_MAX_POOL_SIZE", "4"))
+
+# OPERATOR-ONLY connection to the evaluator database, used by
+# scripts/rebuild_age_eval.py and by nothing else. No application runtime
+# path reads this or AGE_EVAL_DATABASE_URL after Phase 5D.
+#
+# Why a second URL rather than widening the evaluator role. Rebuilding the
+# graph calls drop_graph()/create_graph(), which mutate ag_catalog objects
+# owned by the role that installed the AGE extension (measured: `must be
+# owner of sequence _label_id_seq` when muhafiz_age_eval_app attempts it).
+# Granting muhafiz_age_eval_app that ownership would widen the exact role
+# whose narrowness IS the containment boundary — it is the role that runs
+# model-generated Cypher. Rebuilding is an operator action performed out of
+# band, so it gets operator credentials and the application role stays
+# least-privilege.
+AGE_EVAL_ADMIN_DATABASE_URL: str = os.getenv("AGE_EVAL_ADMIN_DATABASE_URL", "")
+
 
 # ── Rate-limiter proxy awareness (audit finding F-09) ────────────────────────
 # slowapi's default key_func (get_remote_address) reads the TCP peer address.

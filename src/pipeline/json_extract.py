@@ -104,6 +104,44 @@ def _json_only_correction(schema_hint: Optional[str]) -> str:
     )
 
 
+#: How much of the previous reply to quote back in repair mode. Enough to
+#: carry a full structured payload, bounded so a runaway reply cannot push
+#: the retry prompt past a provider's request cap.
+_REPAIR_ECHO_CHARS = 4000
+
+
+def _repair_correction(previous: str, schema_hint: Optional[str]) -> str:
+    """Ask the model to REPAIR its previous reply, not to rewrite it.
+
+    The distinction this rests on: a malformed reply usually contains a
+    correct decision expressed badly. Discarding it and asking again throws
+    away the decision along with the malformation, and the second attempt is
+    free to decide differently — which is how a formatting retry turns into
+    a semantic one.
+
+    Quoting the reply back and naming the requirement makes the repair
+    local. The model keeps the entities, relationships, filters and
+    traversals it already chose, and fixes only what was wrong.
+    """
+    schema_line = (
+        f" The required fields are: {schema_hint}."
+        if schema_hint else ""
+    )
+    echoed = previous.strip()[:_REPAIR_ECHO_CHARS]
+    return (
+        "\n\n[SYSTEM CORRECTION] Your previous reply could not be used. It "
+        "was either not valid JSON, or it was missing a required field.\n\n"
+        "YOUR PREVIOUS REPLY:\n"
+        f"{echoed}\n\n"
+        "Return that SAME interpretation as valid JSON." + schema_line +
+        " Keep every entity, relationship, traversal, filter and value you "
+        "already chose — do not simplify the query, do not drop a "
+        "constraint, and do not change what is being counted. Repair only "
+        "what was malformed or missing. Reply with ONLY the JSON object, "
+        "nothing else."
+    )
+
+
 async def call_llm_json(
     system_prompt: str,
     user_message: str,
@@ -120,6 +158,7 @@ async def call_llm_json(
     escalate_to_cloud_on_failure: bool = False,
     reasoning_effort: Optional[str] = None,
     cloud_system_prompt: Optional[str] = None,
+    preserve_interpretation: bool = False,
 ) -> tuple[Optional[Any], str]:
     """
     Call an LLM expecting a JSON response, retrying with an explicit
@@ -220,6 +259,32 @@ async def call_llm_json(
             reasoning_effort=reasoning_effort,
         )
 
+    def _correction(previous: str) -> str:
+        """The text appended to the prompt before a retry.
+
+        `preserve_interpretation` changes WHAT the retry is asked to do.
+        Without it the model is told to produce the required JSON and
+        nothing else — it never sees its previous reply, so it re-reads the
+        question and re-decides what the answer's shape should be. For a
+        caller whose payload encodes an INTERPRETATION rather than a report,
+        that is a semantic regeneration wearing a formatting fix's clothes.
+
+        Measured on the aggregate planner: a question needing a two-hop
+        traversal was interpreted correctly on a first attempt and, whenever
+        a retry fired, came back as a simpler one-hop traversal that meant
+        something different and was refused. The correlation over 26 runs in
+        two sessions was exact — every `attempts=1` produced the correct
+        interpretation, every `attempts=2` produced the wrong one.
+
+        With the flag, the previous reply is quoted back and the model is
+        asked to REPAIR it: keep every field it already chose, change only
+        what was malformed or missing. That is the narrow thing a retry was
+        always meant to be.
+        """
+        if not preserve_interpretation:
+            return _json_only_correction(schema_hint)
+        return _repair_correction(previous, schema_hint)
+
     message = user_message
     last_raw = ""
     if not force_cloud:
@@ -232,7 +297,7 @@ async def call_llm_json(
                     "call_llm_json: invalid JSON on attempt %d/%d: %s — raw: %s",
                     attempt + 1, max_attempts, exc, last_raw[:150],
                 )
-                message = user_message + _json_only_correction(schema_hint)
+                message = user_message + _correction(last_raw)
                 continue
 
             if validate is not None and not validate(result):
@@ -240,7 +305,7 @@ async def call_llm_json(
                     "call_llm_json: JSON failed validation on attempt %d/%d: %s",
                     attempt + 1, max_attempts, last_raw[:150],
                 )
-                message = user_message + _json_only_correction(schema_hint)
+                message = user_message + _correction(last_raw)
                 continue
 
             return result, last_raw

@@ -46,6 +46,7 @@ from typing import Literal, Optional
 
 from pydantic import Field
 
+from src import config
 from src.data_gateway import get_gateway
 from src.pipeline.harness.types import (
     ChunkMetadata,
@@ -482,6 +483,16 @@ async def xagg_tool(tool_input: XAggToolInput) -> XAggToolResult:
     caller = tool_input.execution.caller
     gateway = await get_gateway()
 
+    # ── Engine selection. One branch, no logic of its own. ─────────────
+    # `config.AGGREGATE_ENGINE_MODE` defaults to "legacy", so an unset
+    # environment takes the identical path it always has — everything below
+    # this block is untouched. The alternative engine is reached only by a
+    # deliberate env-var flip, for the same reason HARNESS_CUTOVER_ROUTES
+    # works that way: which engine answers live traffic is an operational
+    # decision, not a code-deploy one.
+    if config.AGGREGATE_ENGINE_MODE == config.AGGREGATE_ENGINE_V1:
+        return await _answer_with_aggregate_v1(tool_input)
+
     try:
         agg_result = await run_aggregate(
             tool_input.query_text,
@@ -518,6 +529,76 @@ async def xagg_tool(tool_input: XAggToolInput) -> XAggToolResult:
         case_ids_touched=_case_ids_touched(agg_result),
         aggregate_kind=agg_result["kind"],
         raw_summary_text=raw_summary_text,
+    )
+
+
+async def _answer_with_aggregate_v1(tool_input: XAggToolInput) -> XAggToolResult:
+    """Answer through `aggregate.orchestrator`, translated at the boundary.
+
+    SCOPE IS CARRIED, NEVER WIDENED. `Scope` is built from the authenticated
+    caller this tool was already handed — the same `user_id` and role the
+    legacy branch passes to `run_aggregate()`. The orchestrator then applies
+    its own role gate before any model call or database read, so an
+    unauthorised caller is refused there as well as here. Nothing in the
+    question text can influence scope: `nl_spec` discards any scope field a
+    model emits, and the validator refuses a spec whose scope did not come
+    from the caller.
+
+    REFUSALS ARE RESULTS, NOT FAILURES. The new engine refuses questions the
+    legacy one answers, because answering them meant answering a different
+    question. Those come back as `OK` with refusal text, so the harness
+    reports the refusal rather than treating the primitive as broken.
+    """
+    from src.pipeline.aggregate import orchestrator as agg_orchestrator
+    from src.pipeline.aggregate import registry as agg_registry
+    from src.pipeline.aggregate import route_age as agg_route_age
+    from src.pipeline.aggregate.spec import Scope
+    from src.pipeline.harness.tools import xagg_v1_adapter as adapter
+
+    caller = tool_input.execution.caller
+    scope = Scope(
+        kind="cross_case",
+        user_role=caller.role.value,
+        user_id=caller.user_id,
+    )
+
+    try:
+        snapshot = await agg_registry.get_registry()
+        examples = await agg_route_age.collect_value_examples(snapshot)
+        schema_card = agg_route_age.build_schema_card(snapshot, examples)
+        answer = await agg_orchestrator.answer_question(
+            snapshot, tool_input.query_text, scope, schema_card=schema_card,
+        )
+    except PermissionError as exc:
+        return XAggToolResult(
+            status=ToolStatus.DENIED,
+            error=ToolError(kind="permission_denied", message=str(exc)),
+        )
+    except Exception as exc:  # noqa: BLE001 — an engine crash is an upstream failure
+        logger.error("XAGG tool (aggregate_v1): cross-case aggregate failed: %s", exc)
+        return XAggToolResult(
+            status=ToolStatus.FAILED,
+            error=ToolError(kind="upstream_failure", message=str(exc)),
+        )
+
+    # The orchestrator's own scope gate refuses an unauthorised caller
+    # rather than raising, so that outcome is translated to DENIED here to
+    # match what the legacy branch reports for the same condition.
+    if getattr(answer, "refusal_code", None) == "scope_denied":
+        return XAggToolResult(
+            status=ToolStatus.DENIED,
+            error=ToolError(
+                kind="permission_denied",
+                message=getattr(answer, "refusal_reason", "") or "scope denied",
+            ),
+        )
+
+    return adapter.to_tool_result(
+        answer,
+        result_cls=XAggToolResult,
+        status_ok=ToolStatus.OK,
+        chunk_cls=EvidenceChunk,
+        metadata_cls=ChunkMetadata,
     )
 
 
