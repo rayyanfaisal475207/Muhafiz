@@ -462,3 +462,66 @@ class TestAnswerTextNamesItsSubject:
             _Answer(value=5, interpretation="count", grain="ENTITY")
         )
         assert "5" in text
+
+
+# ── Verification wording ──────────────────────────────────────────────
+class TestVerificationNoteMatchesWhatHappened:
+    """"Could not check" and "checked and disagreed" are different claims.
+
+    One sentence used to cover every FULL-verification outcome that was not
+    AGREEMENT: "Verification was required and did not confirm this figure."
+    Reported live on a CORRECT answer whose second route simply cannot
+    express edge-property filters — nothing disagreed, because nothing
+    comparable was produced. The text read as doubt about a good number.
+    """
+
+    def _answer(self, classification, *, level=None, claims=True):
+        import dataclasses as dc
+
+        from src.pipeline.aggregate import verification_policy as vp
+        from src.pipeline.aggregate.orchestrator import AggregateAnswer
+
+        @dc.dataclass
+        class _D:
+            level: str
+            claims_independent: bool = True
+            partial_reason: str = ""
+
+        @dc.dataclass
+        class _R:
+            classification: str
+
+        class _Age:
+            ok = True
+
+        return AggregateAnswer(
+            question="q", request_id="r", status="ANSWERED", value=92,
+            decision=_D(level or vp.FULL, claims), reconciliation=_R(classification),
+            age=_Age(),
+        )
+
+    def test_agreement_is_stated_as_verified(self):
+        a = self._answer("AGREEMENT")
+        assert a.independently_verified
+        assert "Independently verified" in a.verification_note
+
+    def test_no_comparable_figure_does_not_read_as_disagreement(self):
+        """The reported bug."""
+        note = self._answer("SINGLE_ROUTE_VALID").verification_note
+        assert "did not confirm" not in note
+        assert "nothing to compare" in note.lower()
+        assert "nothing disagreed" in note.lower()
+
+    def test_a_different_measurement_is_not_a_disagreement(self):
+        note = self._answer("SEMANTICALLY_DIFFERENT").verification_note
+        assert "did not confirm" not in note
+        assert "not comparable" in note.lower()
+
+    def test_a_real_conflict_keeps_the_strong_warning(self):
+        """The one case where doubt about the number IS warranted."""
+        note = self._answer("CONFLICT").verification_note
+        assert "did not confirm this figure" in note
+
+    def test_none_of_these_claims_independent_verification(self):
+        for cl in ("SINGLE_ROUTE_VALID", "SEMANTICALLY_DIFFERENT", "CONFLICT"):
+            assert not self._answer(cl).independently_verified

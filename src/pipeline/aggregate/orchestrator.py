@@ -155,6 +155,30 @@ class AggregateAnswer:
                 + (self.decision.partial_reason or "Corroborating evidence only.")
             )
         if self.decision.level == vp.FULL:
+            # WHY THIS BRANCHES. One sentence used to cover every FULL
+            # outcome that was not AGREEMENT, and it read as doubt about the
+            # number: "Verification was required and did not confirm this
+            # figure." For a question whose second route could not express
+            # the computation at all, that is simply untrue — nothing
+            # disagreed, because nothing comparable was produced. Reported
+            # from a live deployment, on a figure that was correct.
+            #
+            # "Could not check" and "checked and disagreed" are different
+            # claims about how much to trust a number, so they get different
+            # sentences.
+            classification = getattr(self.reconciliation, "classification", None)
+            if classification == "SINGLE_ROUTE_VALID":
+                return (
+                    "Not independently verified: the second route could not "
+                    "compute a comparable figure for this question, so there "
+                    "is nothing to compare against. Nothing disagreed."
+                )
+            if classification == "SEMANTICALLY_DIFFERENT":
+                return (
+                    "Not independently verified: the second route measured a "
+                    "different thing, so the two figures are not comparable. "
+                    "This is not a disagreement about the number."
+                )
             return (
                 "Verification was required and did not confirm this figure; "
                 "see the reconciliation result."
