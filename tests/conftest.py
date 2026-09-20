@@ -60,6 +60,19 @@ os.environ["CHROMA_PERSIST_DIR"] = str(_TEST_CHROMA_DIR)
 # decisions with `seed_for_tests()` and never needs the scorer.
 os.environ["SEMANTIC_DISPATCH_ENABLED"] = "false"
 
+# Same rule, same reason, for the aggregate engine flag. `aggregate_v2`
+# replaces a registry lookup with an LLM judge, so it makes a real model call
+# on every spec — and it FAILS CLOSED by design, refusing when the call fails.
+# A developer or a deployment with AGGREGATE_ENGINE_MODE=aggregate_v2 in
+# `.env` therefore turned 28 offline orchestration tests red with
+# "Connection error", which says nothing about the code under test.
+#
+# Pinned to legacy here, before src.config is imported. The v2 path keeps its
+# own coverage in tests/test_xagg_engine_flag.py, which stubs both engines and
+# never needs the network; that file also clears this variable where it needs
+# to assert on the default.
+os.environ["AGGREGATE_ENGINE_MODE"] = "legacy"
+
 # ═══════════════════════════════════════════════════════════════════════
 # POSTGRES / AGE TEST ISOLATION — same reasoning as the Chroma block, for
 # the other persistence layer, and it must run here for the same reason.

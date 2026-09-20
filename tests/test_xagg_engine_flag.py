@@ -46,8 +46,24 @@ class _Answer:
 class TestFlagDefaultsToLegacy:
     """The property the whole design rests on."""
 
-    def test_default_mode_is_legacy(self):
-        assert config.AGGREGATE_ENGINE_MODE == config.AGGREGATE_ENGINE_LEGACY
+    def test_default_mode_is_legacy(self, monkeypatch):
+        """An UNSET environment selects legacy.
+
+        This used to assert on the live `config.AGGREGATE_ENGINE_MODE`, which
+        made the suite fail on any machine actually running the new engine —
+        it was testing the deployment rather than the code. What matters is
+        the default, so the environment is cleared and the module reloaded.
+        """
+        import importlib
+
+        monkeypatch.delenv("AGGREGATE_ENGINE_MODE", raising=False)
+        reloaded = importlib.reload(config)
+        try:
+            assert reloaded.AGGREGATE_ENGINE_MODE == reloaded.AGGREGATE_ENGINE_LEGACY
+        finally:
+            # Restore whatever this process was actually configured with, so
+            # one reload does not leak into the rest of the suite.
+            importlib.reload(config)
 
     def test_the_two_modes_are_distinct(self):
         assert config.AGGREGATE_ENGINE_LEGACY != config.AGGREGATE_ENGINE_V1
@@ -296,3 +312,50 @@ def _tool_input(question: str, role: str):
             caller=CallerContext(user_id="u-1", role=Role(role)),
         ),
     )
+
+
+# ── Cross-case role gate ──────────────────────────────────────────────
+class TestCrossCaseRoleGate:
+    """The orchestrator's gate must admit exactly the roles route_age does.
+
+    It did not. The set was written out by hand with UNDERSCORES —
+    {"supervisor", "station_admin", "platform_admin"} — under a comment
+    claiming it was "identical to the set route_age.run enforces", while
+    `route_age` and the `Role` enum both use HYPHENS. So
+    `"platform-admin" in _CROSS_CASE_ROLES` was False and every admin was
+    refused a cross-case aggregate; only bare "supervisor" matched, being
+    the one value with no separator. The gate runs before the engine, so
+    with aggregate_v2 enabled no admin could reach the new engine at all.
+
+    Caught on a live deployment, not by this suite, which is why it is here.
+    """
+
+    def test_gate_matches_route_age_exactly(self):
+        from src.pipeline.aggregate.orchestrator import _CROSS_CASE_ROLES
+        from src.pipeline.aggregate.route_age import (
+            _CROSS_CASE_ROLES as ROUTE_AGE_ROLES,
+        )
+
+        assert set(_CROSS_CASE_ROLES) == set(ROUTE_AGE_ROLES)
+
+    def test_every_admin_role_is_admitted(self):
+        """The regression itself: these are real Role values, not guesses."""
+        from src.pipeline.aggregate.orchestrator import _CROSS_CASE_ROLES
+        from src.pipeline.harness.types import Role
+
+        for role in (Role.SUPERVISOR, Role.STATION_ADMIN, Role.PLATFORM_ADMIN):
+            assert role.value in _CROSS_CASE_ROLES, (
+                f"{role.value} must reach the aggregate engine"
+            )
+
+    def test_investigator_is_still_refused(self):
+        from src.pipeline.aggregate.orchestrator import _CROSS_CASE_ROLES
+        from src.pipeline.harness.types import Role
+
+        assert Role.INVESTIGATOR.value not in _CROSS_CASE_ROLES
+
+    def test_no_role_in_the_gate_uses_an_underscore(self):
+        """The shape of the original bug, guarded directly."""
+        from src.pipeline.aggregate.orchestrator import _CROSS_CASE_ROLES
+
+        assert not [r for r in _CROSS_CASE_ROLES if "_" in r]

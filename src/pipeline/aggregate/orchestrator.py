@@ -63,12 +63,27 @@ from src.pipeline.aggregate.spec import AggregateSpec, Scope
 
 logger = logging.getLogger(__name__)
 
-#: Roles permitted to ask cross-case aggregate questions. Identical to the
-#: set `route_age.run` enforces; checked here too so the refusal happens
-#: before an LLM call rather than after one.
-_CROSS_CASE_ROLES: frozenset[str] = frozenset(
-    {"supervisor", "station_admin", "platform_admin"}
+#: Roles permitted to ask cross-case aggregate questions. Checked here so the
+#: refusal happens before an LLM call rather than after one.
+#:
+#: IMPORTED, NOT RETYPED. This set was originally written out by hand as
+#: {"supervisor", "station_admin", "platform_admin"} with UNDERSCORES, above a
+#: comment claiming it was "identical to the set route_age.run enforces".
+#: It was not: `route_age` uses hyphens, matching `Role`, and the two drifted
+#: the moment one was copied rather than shared. The live effect was that
+#: `"platform-admin" in _CROSS_CASE_ROLES` was False, so every admin was
+#: refused a cross-case aggregate — only bare "supervisor" matched, because it
+#: is the one value with no separator. Worse, this gate runs BEFORE the
+#: engine, so with aggregate_v2 enabled no admin could reach the new engine at
+#: all.
+#:
+#: Taking the values from `route_age` makes a future divergence impossible
+#: rather than merely unlikely.
+from src.pipeline.aggregate.route_age import (  # noqa: E402
+    _CROSS_CASE_ROLES as _ROUTE_AGE_CROSS_CASE_ROLES,
 )
+
+_CROSS_CASE_ROLES: frozenset[str] = frozenset(_ROUTE_AGE_CROSS_CASE_ROLES)
 
 
 # ══════════════════════════════════════════════════════════════════════
