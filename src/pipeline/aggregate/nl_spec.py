@@ -98,7 +98,8 @@ _SPEC_SCHEMA = """{
   "time_window":   {"field": "incident_date", "start": "2024-01-01",
                     "end": "2024-12-31"},
   "top_n":         null,
-  "requested_outputs": ["<one short phrase per SEPARATE number the question asks for>"],
+  "requested_outputs": [{"asks":  "<this part as a COMPLETE standalone question>",
+                         "label": "<short phrase naming this figure>"}],
   "question_constraints": [{"describes": "<the condition, in your words>",
                             "applied": true,
                             "where": "predicate | traversal | role | time_window | threshold | grain",
@@ -203,12 +204,42 @@ RULES THAT MATTER MORE THAN BREVITY:
    cannot express a condition, say so — an honest refusal is correct and a
    silently wider answer is not.
 
-9. ONE SPEC IS ONE NUMBER. requested_outputs lists each separate figure
-   the question asks for. Most questions ask for one. A question that asks
-   for two ("how many X, and how many Y") needs two entries, and you
-   should still fill the structure for the first — trusted code decides
-   what to do about the rest. Do not silently answer one half of a
-   two-part question as though it were the whole.
+9. ONE SPEC IS ONE NUMBER, SO SPLIT THE QUESTION. requested_outputs lists
+   each separate figure the question asks for. Most questions ask for one,
+   and then it holds exactly one entry.
+
+   A question asking for two ("how many X, and how many Y") gets one entry
+   per figure, and each entry's "asks" must be a COMPLETE, SELF-CONTAINED
+   question that could be asked on its own. Each part is run separately
+   through this whole process, so a part that depends on wording left
+   behind in the original is answered wrongly:
+
+     asked:  "how many witnesses are there, and how many victims?"
+     asks 1: "how many witnesses are there"        GOOD - stands alone
+     asks 2: "how many victims are there"          GOOD - stands alone
+     asks 2: "and how many victims"                BAD  - a fragment
+     asks 2: "victims"                             BAD  - not a question
+
+   Carry every shared qualifier into EVERY part. If the question is "in
+   2024, how many X and how many Y", both parts say "in 2024" — a part
+   that drops it measures a wider set and the two figures stop being
+   comparable.
+
+   AN ENTRY HOLDS ONLY "asks" AND "label" — NEVER A SPEC. Do not put
+   measure, entity, grain, traversals, predicates or any other spec field
+   inside a requested_outputs entry. Each part is re-read from its "asks"
+   text and gets its own structure then; a spec written inside an entry is
+   discarded, and the whole question is refused because the top-level
+   structure was left unfilled.
+
+   The TOP-LEVEL structure is the first part, and it is always required.
+   So for "how many X, and how many Y": the top level is the spec for X,
+   and requested_outputs holds two {asks, label} entries.
+
+   Do not split a single figure into parts. "How many cases are there" is
+   ONE output; so is a breakdown by a property, which one grouped spec
+   already produces. Split only when the question asks for figures that
+   two separate queries would have to produce.
 
 Omit any field that does not apply. Do not emit a "scope" field; scope is
 supplied by the authenticated session and anything you write there is
@@ -565,6 +596,43 @@ class DeclaredConstraint:
 
 
 @dataclasses.dataclass(frozen=True)
+class RequestedOutput:
+    """One figure the question asks for, and the question that yields it.
+
+    ALSO A SELF-REPORT. Like `DeclaredConstraint` this is the model's own
+    account, and the decomposition it describes is acted on rather than
+    merely checked — each part is asked as its own question. That is safe
+    only because every part then runs the FULL path: its own validation,
+    its own schema judge, its own fidelity check. A bad split produces a
+    part that refuses, not a part that answers something else.
+
+    `asks` is the part as a standalone question. `label` names the figure
+    for rendering. A model emitting the older bare-string shape sets both
+    to that string, and `answerable` is then False — a label is not a
+    question, and asking it as one is how a fragment gets answered as
+    though it were the whole.
+    """
+
+    asks: str
+    label: str = ""
+
+    #: A sub-question shorter than this is a label or a fragment, not a
+    #: question. The bound is on FORM, not content: it names no entity and
+    #: no wording, so it cannot encode a question we have seen.
+    _MIN_ASKS_CHARS = 12
+
+    @property
+    def answerable(self) -> bool:
+        return len(self.asks.strip()) >= self._MIN_ASKS_CHARS
+
+    def to_dict(self) -> dict:
+        return {"asks": self.asks, "label": self.label}
+
+    def __str__(self) -> str:  # so existing `repr(o)` renderings stay readable
+        return self.label or self.asks
+
+
+@dataclasses.dataclass(frozen=True)
 class SpecGeneration:
     """A generated spec plus what the model said alongside it."""
 
@@ -577,7 +645,7 @@ class SpecGeneration:
     #: a caller that supplies its own spec (the tests, the evaluation
     #: harness) is unaffected and no fidelity claim is made on its behalf.
     declared_constraints: tuple[DeclaredConstraint, ...] = ()
-    requested_outputs: tuple[str, ...] = ()
+    requested_outputs: tuple[RequestedOutput, ...] = ()
     provenance: Optional["GenerationProvenance"] = None
 
     def to_dict(self) -> dict:
@@ -591,7 +659,13 @@ class SpecGeneration:
             "declared_constraints": [
                 c.to_dict() for c in self.declared_constraints
             ],
-            "requested_outputs": list(self.requested_outputs),
+            # Tolerates a caller that constructed this with bare strings —
+            # the tests and the evaluation harness both do — so the receipt
+            # stays JSON-serialisable either way.
+            "requested_outputs": [
+                o.to_dict() if isinstance(o, RequestedOutput) else {"asks": "", "label": str(o)}
+                for o in self.requested_outputs
+            ],
             "provenance": (
                 self.provenance.to_dict() if self.provenance is not None else None
             ),
@@ -728,10 +802,38 @@ def _declared_constraints(payload: Any) -> tuple[DeclaredConstraint, ...]:
     return tuple(out)
 
 
-def _requested_outputs(payload: Any) -> tuple[str, ...]:
+def _requested_outputs(payload: Any) -> tuple["RequestedOutput", ...]:
+    """Parse the decomposition, accepting both the old and new shapes.
+
+    The old shape was a list of bare label strings; the new one carries a
+    standalone sub-question alongside each label. A string is read as both,
+    which is why nothing that emits the old shape breaks — but a part whose
+    `asks` is only a label cannot be executed, and `answerable` says so
+    rather than letting a fragment be asked as a question.
+
+    Entries are DEDUPLICATED on `asks`. A model that lists the same figure
+    twice is asking for one number, and running it twice would present one
+    answer as two.
+    """
     raw = payload.get("requested_outputs") if isinstance(payload, dict) else None
     if not isinstance(raw, list):
         return ()
-    return tuple(
-        s for s in (_str_or_none(v) for v in raw) if s
-    )
+    out: list[RequestedOutput] = []
+    seen: set[str] = set()
+    for item in raw:
+        if isinstance(item, dict):
+            asks = _str_or_none(item.get("asks")) or ""
+            label = _str_or_none(item.get("label")) or ""
+        else:
+            asks = label = _str_or_none(item) or ""
+        # A label alone still counts as a requested figure — that is what
+        # makes the multi-output REFUSAL still fire for a model that gives
+        # no sub-question — so an entry is kept when either field is set.
+        if not (asks or label):
+            continue
+        key = (asks or label).strip().casefold()
+        if key in seen:
+            continue
+        seen.add(key)
+        out.append(RequestedOutput(asks=asks, label=label or asks))
+    return tuple(out)

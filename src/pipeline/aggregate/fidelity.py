@@ -258,8 +258,15 @@ def check_single_output(generation: Optional[Any]) -> Optional[FidelityIssue]:
     was to answer the first and say nothing about the second — a partial
     answer indistinguishable from a complete one.
 
-    This does not attempt multi-measure support. It detects the case and
-    refuses, so the limitation is visible instead of silent.
+    NO LONGER THE PRODUCTION PATH. Multi-part questions are now executed
+    part by part — `multi.plan_parts` decides whether the parts can be run
+    and `orchestrator.answer` runs them — so this is not what refuses them
+    any more. It is kept because it states the invariant a single
+    `AggregateSpec` obeys, and a caller holding one answer still needs a
+    way to ask whether the question wanted more than one.
+
+    Use `multi.plan_parts` to decide whether to DECOMPOSE. Use this to
+    decide whether one answer is the whole answer.
     """
     outputs = tuple(getattr(generation, "requested_outputs", ()) or ())
     if len(outputs) <= 1:

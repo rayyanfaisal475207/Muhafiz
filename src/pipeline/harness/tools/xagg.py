@@ -579,7 +579,11 @@ async def _answer_with_aggregate_v1(tool_input: XAggToolInput) -> XAggToolResult
         snapshot = await agg_registry.get_registry()
         examples = await agg_route_age.collect_value_examples(snapshot)
         schema_card = agg_route_age.build_schema_card(snapshot, examples)
-        answer = await agg_orchestrator.answer_question(
+        # `answer`, not `answer_question`: a question asking for several
+        # figures comes back as a multi-part answer with every figure in it,
+        # where `answer_question` alone would return the first one. The
+        # adapter renders whichever shape arrives.
+        answer = await agg_orchestrator.answer(
             snapshot, tool_input.query_text, scope, schema_card=schema_card,
         )
     except PermissionError as exc:

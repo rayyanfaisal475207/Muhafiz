@@ -47,6 +47,7 @@ from src.pipeline.aggregate import (
     direction,
     fidelity,
     gates as gatelib,
+    multi,
     nl_spec,
     reconcile as rec,
     registry as reg,
@@ -290,6 +291,77 @@ def _refused(
 
 
 # ══════════════════════════════════════════════════════════════════════
+# Entry point
+# ══════════════════════════════════════════════════════════════════════
+async def answer(
+    snapshot: reg.RegistrySnapshot,
+    question: str,
+    scope: Scope,
+    *,
+    schema_card: Optional[str] = None,
+    spec: Optional[AggregateSpec] = None,
+    gate_profile_id: Optional[str] = None,
+    request_id: Optional[str] = None,
+) -> Any:
+    """Answer a question, whichever number of figures it asks for.
+
+    Returns an `AggregateAnswer` for the ordinary single-figure question —
+    the same object `answer_question` has always returned, by the same
+    path — and a `MultiPartAnswer` when the question asked for several.
+
+    WHY TWO RETURN TYPES AND NOT ONE. A `MultiPartAnswer` has no single
+    `value`, and giving it one would mean picking a figure to stand for the
+    whole question. Every caller that renders a bare `.value` would then
+    show one number as the answer to a two-number question, which is the
+    failure this work exists to remove. Two types make a caller that has
+    not been taught about parts fail loudly rather than quietly.
+
+    `answer_question` remains the single-figure path and is unchanged for
+    callers that want exactly one answer.
+    """
+    first = await answer_question(
+        snapshot, question, scope,
+        schema_card=schema_card, spec=spec,
+        gate_profile_id=gate_profile_id, request_id=request_id,
+    )
+
+    parts, refusal = multi.plan_parts(getattr(first, "spec_generation", None))
+    # No parts, or parts that were already refused as unrunnable: the
+    # single answer IS the answer, refusal included.
+    if not parts or refusal is not None:
+        return first
+
+    # PART 1 IS RE-ASKED FROM ITS OWN TEXT, like every other part.
+    #
+    # The first pass generated its spec from the WHOLE question, while the
+    # model was simultaneously working out how to split it, and that spec
+    # is measurably worse than one generated from the part alone. Observed
+    # live on "How many witnesses are there, and how many victims?": part 1
+    # came back with a two-hop traversal ending (Incident)-[:INVOLVED_IN]->
+    # (Incident), which does not exist and was refused by the judge, while
+    # the identical figure asked as its own question answered correctly.
+    # Part 2, generated from its isolated text, was correct in the same run.
+    #
+    # So the asymmetry was the bug: parts 2..N got a clean question and
+    # part 1 did not. Re-asking costs one extra generation on multi-part
+    # questions only, and it means no part is privileged over another.
+    first_part = await answer_question(
+        snapshot, parts[0].asks, scope,
+        schema_card=schema_card,
+        gate_profile_id=gate_profile_id,
+        request_id=f"{first.request_id}-p1",
+    )
+
+    return await multi.answer_multi_part(
+        snapshot, question, scope, parts,
+        first_answer=first_part,
+        request_id=getattr(first, "request_id", None) or (request_id or ""),
+        schema_card=schema_card,
+        gate_profile_id=gate_profile_id,
+    )
+
+
+# ══════════════════════════════════════════════════════════════════════
 # The path
 # ══════════════════════════════════════════════════════════════════════
 async def answer_question(
@@ -418,13 +490,40 @@ async def answer_question(
     # because the point is to never compute an answer to a question that
     # was not asked. Both checks are skipped when the caller supplied the
     # spec, since no declaration was made on its behalf.
-    multi = fidelity.check_single_output(generation)
-    if multi is not None:
+    # A question asking for several figures is no longer refused HERE. It
+    # is refused only when its parts cannot be run (too many, or one that
+    # was never restated as a standalone question) — `plan_parts` decides
+    # which, and `answer()` above runs the parts when they can be run.
+    #
+    # This still refuses when the caller came in through `answer_question`
+    # directly, because that entry point returns ONE answer and returning
+    # part 1 from it would be the silent half-answer this check was added
+    # to stop.
+    parts, part_refusal = multi.plan_parts(generation)
+    if parts and part_refusal is not None:
         return _refused(
-            question, rid, "multiple_outputs_requested", multi.message,
+            question, rid, "multiple_outputs_requested", part_refusal,
             spec=spec, spec_generation=generation, validation=validation,
             timings_ms=timings,
         )
+    # When the parts CAN be run, this call is computing part 1 of N and the
+    # answer it returns is exactly that. `answer()` picks the remaining
+    # parts up; a caller that used this entry point directly gets a warning
+    # saying so, because a figure that answers half a question must never
+    # look like one that answers all of it.
+    if parts:
+        # The prefix is `multi`'s constant, not a literal: `multi` strips
+        # this warning when it runs the other parts, and a reworded copy
+        # here would leave a complete answer carrying a note saying it is
+        # incomplete.
+        part_warnings = (
+            multi.PARTIAL_WARNING_PREFIX
+            + f"{len(parts)} figures the question asks for ("
+            + "; ".join(p.label or p.asks for p in parts)
+            + ").",
+        )
+    else:
+        part_warnings = ()
 
     faithful = fidelity.check(spec, generation)
     if not faithful.ok:
@@ -509,6 +608,7 @@ async def answer_question(
         timings=timings,
         direction_corrections=direction_corrections,
         fidelity_result=faithful,
+        extra_warnings=part_warnings,
     )
 
 
@@ -527,6 +627,7 @@ def _assemble(
     timings: dict,
     direction_corrections: tuple = (),
     fidelity_result: Any = None,
+    extra_warnings: tuple[str, ...] = (),
 ) -> AggregateAnswer:
     """Turn route results into one answer. No computation happens here.
 
@@ -544,6 +645,10 @@ def _assemble(
     warnings = [
         f"Interpretation adjusted: {c.message}" for c in direction_corrections
     ] + warnings
+    # Ahead of everything else: "this is one figure of several the question
+    # asked for" changes what the number MEANS, not merely how far to trust
+    # it, so it cannot sit below a note about route agreement.
+    warnings = list(extra_warnings) + warnings
 
     # A generation that needed more than one model call used a corrected
     # prompt on the later ones, which is the measured condition under which

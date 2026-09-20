@@ -232,6 +232,99 @@ def render_answer_text(answer: Any) -> str:
     return "\n".join(p for p in parts if p)
 
 
+# ══════════════════════════════════════════════════════════════════════
+# Multi-part
+# ══════════════════════════════════════════════════════════════════════
+def _render_part(index: int, total: int, part: Any) -> str:
+    """One part of a multi-part answer, labelled and self-contained.
+
+    "Self-contained" is the requirement, not a nicety. Each part carries
+    ITS OWN assurance line, because a verified figure and an unverified one
+    can sit side by side here and a single note covering both would launder
+    the weaker claim into the stronger.
+    """
+    label = getattr(part, "label", "") or f"part {index}"
+    head = f"Part {index} of {total} — {label}"
+    answer = getattr(part, "answer", None)
+
+    if not getattr(part, "answered", False):
+        # RULE 1: a part that failed is rendered, never omitted. Emitting
+        # only the parts that worked would present a partial answer as a
+        # whole one, which is the failure this engine exists to prevent.
+        reason = (
+            getattr(answer, "refusal_reason", None)
+            or "no reason recorded"
+        )
+        code = getattr(answer, "refusal_code", None)
+        detail = f"{reason} ({code})" if code else reason
+        return f"{head}: could not be answered — {detail}"
+
+    body = render_answer_text(answer)
+    # The value line already reads "<measure> <subject>: <n>"; under a
+    # heading that names the part, indenting keeps the two readable as one
+    # block rather than running together.
+    indented = "\n".join(f"  {line}" for line in body.splitlines())
+    return f"{head}:\n{indented}"
+
+
+def render_multi_part_text(answer: Any) -> str:
+    """The deterministic rendering for a question that asked for N figures.
+
+    States up front how many figures were asked for and how many were
+    produced. A reader who sees only the figures cannot tell whether
+    something was left out, and the model paraphrasing this for them
+    cannot either — so the count is stated rather than left to be counted.
+    """
+    parts = tuple(getattr(answer, "parts", ()) or ())
+    total = len(parts)
+    answered = sum(1 for p in parts if getattr(p, "answered", False))
+
+    lines: list[str] = []
+    if not total:
+        # Unreachable through `plan_parts`, which never returns fewer than
+        # two parts. Handled anyway because the alternative branch would
+        # read "All 0 were computed" — a claim of completeness over nothing,
+        # which is the exact shape of false assurance this module exists to
+        # keep out of the text.
+        return "No figures were computed for this question."
+    if answered == total:
+        lines.append(
+            f"This question asks for {total} separate figures. "
+            f"All {total} were computed, each independently."
+        )
+    elif answered:
+        lines.append(
+            f"This question asks for {total} separate figures. "
+            f"{answered} of {total} could be computed; the rest are listed "
+            f"below with the reason they could not be."
+        )
+    else:
+        lines.append(
+            f"This question asks for {total} separate figures, and none "
+            f"could be computed. The reasons are listed below."
+        )
+
+    for index, part in enumerate(parts, start=1):
+        lines.append("")
+        lines.append(_render_part(index, total, part))
+
+    for warning in getattr(answer, "warnings", ()) or ():
+        lines.append(f"Note: {warning}")
+    return "\n".join(lines)
+
+
+def multi_part_case_ids(answer: Any) -> list[str]:
+    """Every case id any part read, de-duplicated, order preserved."""
+    out: list[str] = []
+    seen: set[str] = set()
+    for part in getattr(answer, "parts", ()) or ():
+        for cid in case_ids_touched(getattr(part, "answer", None)):
+            if cid not in seen:
+                seen.add(cid)
+                out.append(cid)
+    return out
+
+
 def case_ids_touched(answer: Any) -> list[str]:
     """Case ids the computation actually read, when the receipt records them.
 
@@ -264,7 +357,17 @@ def to_tool_result(answer: Any, *, result_cls: Any, status_ok: Any,
     would invite a retry or a fallback to a route that cannot answer the
     question either.
     """
-    text = render_answer_text(answer)
+    # A multi-part answer is identified by CARRYING PARTS, not by its class
+    # name. The orchestrator returns two different types and this module is
+    # deliberately injected with its collaborators rather than importing
+    # them, so a structural check keeps that independence.
+    multi_part = hasattr(answer, "parts") and not hasattr(answer, "value")
+    if multi_part:
+        text = render_multi_part_text(answer)
+        case_ids = multi_part_case_ids(answer)
+    else:
+        text = render_answer_text(answer)
+        case_ids = case_ids_touched(answer)
     chunk = chunk_cls(
         id="xagg-aggregate-v1",
         text=text,
@@ -276,7 +379,7 @@ def to_tool_result(answer: Any, *, result_cls: Any, status_ok: Any,
     return result_cls(
         status=status_ok,
         chunks=[chunk],
-        case_ids_touched=case_ids_touched(answer),
+        case_ids_touched=case_ids,
         # Deliberately None — see this module's docstring.
         aggregate_kind=None,
         raw_summary_text=text,
