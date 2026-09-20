@@ -196,6 +196,22 @@ def _field_predicate_cypher(
     if pred.op == "contains":
         # AGE supports CONTAINS; the needle is still a bound parameter.
         return f"{target} CONTAINS {bag.add(pred.value)}"
+    # A COMPARISON AGAINST NULL IS AN EXISTENCE TEST, NOT A COMPARISON.
+    #
+    # Cypher three-valued logic makes `x <> null` and `x = null` both
+    # UNKNOWN, so either one filters every row away and the query returns
+    # 0 — with no error, and with a spec that reads as though it asked the
+    # right thing. Measured live: "how many weapons have a caliber
+    # recorded?" compiled to `n.caliber_or_bore <> $p0` with p0 = None and
+    # answered 0, where the property is in fact set on all 30.
+    #
+    # Both directions are affected, so "how many are MISSING a caliber"
+    # would answer 0 just as confidently. A model writing eq/ne against a
+    # null literal means presence or absence, and that is what is emitted
+    # here rather than a comparison that cannot be true.
+    if pred.value is None and pred.op in ("eq", "ne"):
+        return f"{target} IS {'NOT ' if pred.op == 'ne' else ''}NULL"
+
     op = _CYPHER_OPS.get(pred.op)
     if op is None:
         raise CompilerError(f"operator {pred.op!r} has no safe Cypher emission")

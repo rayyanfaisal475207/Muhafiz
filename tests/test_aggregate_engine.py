@@ -305,6 +305,63 @@ class TestOfficerGrainRegression:
         # The hop alias must NOT carry the entity's own condition.
         assert "m0.age" not in q.text, q.text
 
+    def test_null_comparison_becomes_an_existence_test(
+        self, snapshot, supervisor_scope
+    ):
+        """`x <> null` is UNKNOWN in Cypher, so it filters everything away.
+
+        REGRESSION, AND IT ALSO FAILED SILENTLY. A model writing eq/ne
+        against a null literal means presence or absence. Compiled as a
+        comparison, three-valued logic makes every row UNKNOWN and the
+        query returns 0 with no error.
+
+        Measured live: "how many weapons have a caliber recorded?" compiled
+        to `n.caliber_or_bore <> $p0` with p0 = None and answered 0, where
+        the property is set on all 30. BOTH directions are affected, so
+        "how many are missing a caliber" answered 0 just as confidently.
+        """
+        def _pred_spec(op):
+            return AggregateSpec(
+                question_text="q", measure="count_distinct",
+                population=PopulationNode(
+                    entity="Weapon",
+                    predicates=(FieldPredicate(
+                        field="caliber_or_bore", op=op, value=None),),
+                ),
+                grain="ENTITY", distinct_key="entity_id",
+                scope=supervisor_scope,
+            )
+
+        present = compile_spec(snapshot, _pred_spec("ne")).text
+        assert "IS NOT NULL" in present, present
+        assert "<>" not in present, present
+
+        absent = compile_spec(snapshot, _pred_spec("eq")).text
+        assert "IS NULL" in absent, absent
+        assert "IS NOT NULL" not in absent, absent
+
+    def test_a_real_value_is_still_a_bound_parameter(
+        self, snapshot, supervisor_scope
+    ):
+        """The null handling must not stop ordinary values being parameters.
+
+        Values becoming parameters is what keeps caller input out of query
+        text, so a change to predicate emission has to be shown not to have
+        weakened it.
+        """
+        spec = AggregateSpec(
+            question_text="q", measure="count_distinct",
+            population=PopulationNode(
+                entity="Weapon",
+                predicates=(FieldPredicate(
+                    field="caliber_or_bore", op="eq", value="9mm"),),
+            ),
+            grain="ENTITY", distinct_key="entity_id", scope=supervisor_scope,
+        )
+        q = compile_spec(snapshot, spec)
+        assert "9mm" not in q.text, q.text
+        assert "9mm" in q.params.values()
+
     def test_relationship_grain_compiles_to_edge_count(self, snapshot, supervisor_scope):
         spec = AggregateSpec(
             question_text="How many officer assignments per case?",
