@@ -42,7 +42,25 @@ GROQ_MODEL: str = os.getenv("GROQ_MODEL", "openai/gpt-oss-120b")
 
 # Google Gemini — also used as LLM fallback and for vision
 GEMINI_API_KEY: str = os.getenv("GEMINI_API_KEY", "")
-GEMINI_MODEL: str = os.getenv("GEMINI_MODEL", "gemini-2.5-flash")
+# NOT "gemini-2.5-flash". That model still answers on the raw v1beta REST
+# endpoint, so it looks alive, but the `google-genai` SDK this codebase calls
+# through rejects it for keys issued after its cutoff:
+#
+#   404 NOT_FOUND — "This model models/gemini-2.5-flash is no longer
+#   available to new users."
+#
+# Gemini is the THIRD fallback rung (local empty -> Groq -> Gemini), so this
+# only surfaces when the first two have already failed, and it then turns a
+# recoverable degradation into a hard pipeline error. Observed live: a
+# question refused with spec_generation_error after the local model returned
+# empty twice and Groq rejected the prompt with 413.
+#
+# Verified working through the SDK at a realistic budget: gemini-3.6-flash,
+# gemini-3.5-flash, gemini-3.1-flash-lite. A small max_output_tokens makes
+# any of them return None — the thinking trace consumes the budget, exactly
+# as qwen3:14b does locally — so test a model change with a real budget, not
+# a 32-token probe.
+GEMINI_MODEL: str = os.getenv("GEMINI_MODEL", "gemini-3.5-flash")
 
 # OpenAI (optional, kept for compatibility)
 OPENAI_API_KEY: str = os.getenv("OPENAI_API_KEY", "")
