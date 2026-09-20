@@ -47,6 +47,7 @@ produced the answer. The field is optional and the harness treats None as
 from __future__ import annotations
 
 import logging
+import re
 from typing import Any, Optional
 
 logger = logging.getLogger(__name__)
@@ -57,6 +58,47 @@ logger = logging.getLogger(__name__)
 _MAX_GROUP_ROWS = 25
 
 
+#: How a measure reads in a sentence. The aggregate names operations
+#: (`count_distinct`); a reader needs the thing that was done.
+_MEASURE_PHRASING: dict[str, str] = {
+    "count": "Count of",
+    "count_distinct": "Number of distinct",
+    "sum": "Total of",
+    "avg": "Average of",
+    # Neutral about type: `min` over a date is the earliest one, over a
+    # number the smallest. "Lowest/earliest" reads for both without the
+    # renderer having to know which it got.
+    "min": "Lowest or earliest value across",
+    "max": "Highest or latest value across",
+    "median": "Median of",
+}
+
+
+def _subject(answer: Any) -> str:
+    """What was counted, in words — the thing the text used to omit.
+
+    The rendering said `count_distinct: 32` followed by `Counted unit:
+    ENTITY`, which names a GRAIN, not a subject. An answering model given
+    that cannot tell a reader what the number is about, so it hedged:
+    observed live, correct figures arrived wrapped in "it does not
+    explicitly specify whether these entities are weapons".
+
+    The subject was available all along — `spec.population.entity` is
+    `Case`, `Person`, `Weapon` — it simply was not being passed through.
+    Everything here is read from the answer; nothing is inferred, and when
+    the entity is missing the text falls back to the old wording rather
+    than guessing a label.
+    """
+    spec = getattr(answer, "spec", None)
+    population = getattr(spec, "population", None)
+    entity = getattr(population, "entity", None)
+    if not entity:
+        return ""
+    # A plural that reads naturally for the labels this schema uses
+    # (Case, Person, Weapon, Incident, Document, Officer, PoliceStation).
+    return entity + ("es" if entity.endswith(("s", "x", "ch", "sh")) else "s")
+
+
 def _render_value(answer: Any) -> str:
     """The deterministic text for an answered question."""
     lines: list[str] = []
@@ -64,8 +106,15 @@ def _render_value(answer: Any) -> str:
     grain = getattr(answer, "grain", None)
     value = getattr(answer, "value", None)
 
+    subject = _subject(answer)
+    phrasing = _MEASURE_PHRASING.get(interpretation or "", "")
+
     if isinstance(value, list):
-        lines.append(f"Computed {interpretation or 'aggregate'}, by group:")
+        head = (
+            f"{phrasing} {subject}".strip() if (phrasing and subject)
+            else f"Computed {interpretation or 'aggregate'}"
+        )
+        lines.append(f"{head}, by group:")
         for row in value[:_MAX_GROUP_ROWS]:
             if isinstance(row, dict):
                 key = row.get("key")
@@ -78,12 +127,63 @@ def _render_value(answer: Any) -> str:
             lines.append(f"  ... and {len(value) - _MAX_GROUP_ROWS} more group(s)")
         lines.append(f"Total groups: {len(value)}")
     else:
-        label = interpretation or "aggregate"
-        lines.append(f"{label}: {value}")
+        if phrasing and subject:
+            # "Number of distinct Cases: 32" — a sentence a reader can quote
+            # without having to ask what was counted.
+            lines.append(f"{phrasing} {subject}: {value}")
+        else:
+            lines.append(f"{interpretation or 'aggregate'}: {value}")
 
+    # The population as the compiler resolved it, including any traversal
+    # and role filter. This is what distinguishes "accused persons" from
+    # "persons", and the reader cannot infer it from the number.
+    population = _population_description(answer)
+    if population:
+        lines.append(f"Population: {population}.")
     if grain:
-        lines.append(f"Counted unit: {grain}.")
+        lines.append(f"Counted unit: one {grain.lower()}.")
     return "\n".join(lines)
+
+
+def _population_description(answer: Any) -> str:
+    """How the structured route described the set it measured, made readable.
+
+    Read from the receipt rather than rebuilt, so the text cannot describe a
+    population other than the one that ran. The receipt's own form is written
+    for a machine — `Person ->INVOLVED_IN[role=accused]Incident` — and is
+    spaced out here so a reader, and the model paraphrasing for them, can see
+    the traversal and the role filter that make this population narrower than
+    its label suggests.
+
+    A population that is just the label ("Case") is dropped: repeating it
+    after "Count of Cases" adds nothing.
+    """
+    structured = getattr(answer, "structured", None)
+    result = getattr(structured, "result", None)
+    population = getattr(result, "population", None)
+    if not population:
+        provenance = getattr(structured, "provenance", None) or {}
+        if isinstance(provenance, dict):
+            population = provenance.get("population_definition")
+    if not population:
+        return ""
+
+    text = str(population)
+    spec = getattr(answer, "spec", None)
+    entity = getattr(getattr(spec, "population", None), "entity", None)
+    if entity and text.strip() == entity:
+        return ""
+
+    # `->REL[role=x]Target` / `<-RELTarget` -> `-> REL [role=x] -> Target`
+    for arrow in ("->", "<-"):
+        text = text.replace(arrow, f" {arrow} ")
+    text = text.replace("[", " [").replace("]", "] ")
+    # The receipt concatenates a REL_TYPE straight onto its target label
+    # (`BELONGS_TO_CASEWeapon`). Relationship types are upper snake case and
+    # labels are CamelCase, so the boundary is an upper letter followed by a
+    # lower one — split there rather than carrying the run-on into the text.
+    text = re.sub(r"([A-Z0-9_]{3,}?)([A-Z][a-z])", r"\1 \2", text)
+    return " ".join(text.split())
 
 
 def _render_assurance(answer: Any) -> list[str]:

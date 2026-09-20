@@ -41,6 +41,8 @@ class _Answer:
     warnings: tuple = ()
     verification_note: str = ""
     structured: Any = None
+    #: The adapter reads `spec.population.entity` to name what was counted.
+    spec: Any = None
 
 
 class TestFlagDefaultsToLegacy:
@@ -359,3 +361,104 @@ class TestCrossCaseRoleGate:
         from src.pipeline.aggregate.orchestrator import _CROSS_CASE_ROLES
 
         assert not [r for r in _CROSS_CASE_ROLES if "_" in r]
+
+
+# ── Naming what was counted ───────────────────────────────────────────
+class TestAnswerTextNamesItsSubject:
+    """The text must say WHAT the number counts, not just the number.
+
+    Reported from a live deployment: the figures were right, but the
+    rendering said `count_distinct: 32` followed by `Counted unit: ENTITY`.
+    ENTITY is a grain, not a subject, so the model paraphrasing for the user
+    could not say what 32 was — and hedged, e.g. "it does not explicitly
+    specify whether these entities are weapons". Correct numbers, unusable
+    prose.
+
+    `spec.population.entity` held the answer the whole time.
+    """
+
+    def _answer(self, *, entity, value, measure, population, grain="ENTITY"):
+        import dataclasses as dc
+        from typing import Any as A
+
+        @dc.dataclass
+        class _Res:
+            value: A
+            interpretation: str
+            grain: str
+            population: str
+
+        @dc.dataclass
+        class _St:
+            result: A
+            provenance: dict = dc.field(default_factory=dict)
+
+        @dc.dataclass
+        class _Pop:
+            entity: str
+
+        @dc.dataclass
+        class _Spec:
+            population: A
+
+        return _Answer(
+            value=value, interpretation=measure, grain=grain,
+            structured=_St(result=_Res(value, measure, grain, population)),
+            spec=_Spec(_Pop(entity)),
+        )
+
+    def test_the_counted_thing_is_named(self):
+        text = adapter.render_answer_text(
+            self._answer(entity="Case", value=73, measure="count",
+                         population="Case")
+        )
+        assert "Cases" in text
+        assert "73" in text
+
+    def test_a_measure_reads_as_words_not_an_operator(self):
+        text = adapter.render_answer_text(
+            self._answer(entity="Person", value=92, measure="count_distinct",
+                         population="Person ->INVOLVED_IN[role=accused]Incident")
+        )
+        assert "count_distinct:" not in text
+        assert "Number of distinct Persons" in text
+
+    def test_a_role_filtered_population_is_visible(self):
+        """"accused persons" must be distinguishable from "persons"."""
+        text = adapter.render_answer_text(
+            self._answer(entity="Person", value=92, measure="count_distinct",
+                         population="Person ->INVOLVED_IN[role=accused]Incident")
+        )
+        assert "role=accused" in text
+
+    def test_a_run_on_relationship_and_label_is_split(self):
+        """The receipt writes `BELONGS_TO_CASEWeapon` with no separator."""
+        text = adapter.render_answer_text(
+            self._answer(entity="Case", value=32, measure="count_distinct",
+                         population="Case <-BELONGS_TO_CASEWeapon")
+        )
+        assert "BELONGS_TO_CASEWeapon" not in text
+        assert "BELONGS_TO_CASE Weapon" in text
+
+    def test_a_trivial_population_is_not_repeated(self):
+        """"Count of Cases" already says it; "Population: Case." adds nothing."""
+        text = adapter.render_answer_text(
+            self._answer(entity="Case", value=73, measure="count",
+                         population="Case")
+        )
+        assert "Population:" not in text
+
+    def test_min_over_a_date_does_not_read_as_a_number(self):
+        text = adapter.render_answer_text(
+            self._answer(entity="Incident", value="2024-09-14T22:00:00Z",
+                         measure="min", population="Incident")
+        )
+        assert "smallest value" not in text.lower()
+        assert "2024-09-14T22:00:00Z" in text
+
+    def test_a_missing_entity_falls_back_rather_than_guessing(self):
+        """No spec, no subject — say less, never invent a label."""
+        text = adapter.render_answer_text(
+            _Answer(value=5, interpretation="count", grain="ENTITY")
+        )
+        assert "5" in text
