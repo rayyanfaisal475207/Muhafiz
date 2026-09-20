@@ -354,9 +354,25 @@ def _compile_population(
 
     clause = f"MATCH {pattern}"
 
+    # AGAINST `base_alias`, NOT `alias`. `alias` has been reassigned by the
+    # traversal loop above and points at the LAST HOP TARGET, so a condition
+    # on the population's own entity was being applied to whatever the last
+    # hop landed on. `FieldPredicate` is defined as "a condition on a
+    # property of the population's own entity", and that entity is
+    # `base_alias` (see `_compile_spec`: "base_alias is the population's own
+    # entity — what gets measured").
+    #
+    # This failed SILENTLY and is the reason it is called out here. Measured
+    # live: "how many accused persons are under 30" compiled the age test
+    # against the Incident rather than the Person. Incidents carry no age,
+    # so nothing matched and the engine served 0 as ANSWERED, with a correct
+    # spec and correctly bound parameters. The same query with this one
+    # alias corrected returns 8. A filter silently evaluated against the
+    # wrong node answers a question nobody asked, which is the exact failure
+    # class this package exists to make unexpressible.
     field_preds = [p for p in pop.predicates if isinstance(p, FieldPredicate)]
     for pred in field_preds:
-        emitted = _field_predicate_cypher(pred, alias, bag)
+        emitted = _field_predicate_cypher(pred, base_alias, bag)
         if emitted:
             where.append(emitted)
 

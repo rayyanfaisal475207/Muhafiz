@@ -267,6 +267,44 @@ class TestOfficerGrainRegression:
         assert "count(DISTINCT rt0.entity_id)" in q.text
         assert "count(DISTINCT n.case_id)" in q.text
 
+    def test_entity_predicate_binds_to_the_entity_not_the_last_hop(
+        self, snapshot, supervisor_scope
+    ):
+        """A filter on the population's entity must not land on a hop target.
+
+        REGRESSION, AND IT FAILED SILENTLY. The traversal loop reassigns the
+        working alias as it emits each hop, so field predicates were compiled
+        against the LAST HOP TARGET instead of the entity being measured.
+
+        Measured live before the fix: "how many accused persons are under 30"
+        produced `... AND m0.age < $p1` — the age test applied to the Incident.
+        Incidents carry no age, nothing matched, and the engine served 0 as
+        ANSWERED with a correct spec and correctly bound parameters. The same
+        query against the Person returns 8.
+
+        A number that is wrong because a filter was evaluated on the wrong
+        node is indistinguishable from a real finding, which is why this is
+        asserted on the compiled text rather than left to an integration run.
+        """
+        spec = AggregateSpec(
+            question_text="How many accused persons are under 30?",
+            measure="count_distinct",
+            population=PopulationNode(
+                entity="Person",
+                traversals=(
+                    Traversal(rel="INVOLVED_IN", target="Incident",
+                              direction="out", role_field="role",
+                              role_value="accused"),
+                ),
+                predicates=(FieldPredicate(field="age", op="lt", value=30),),
+            ),
+            grain="ENTITY", distinct_key="entity_id", scope=supervisor_scope,
+        )
+        q = compile_spec(snapshot, spec)
+        assert "n.age <" in q.text, q.text
+        # The hop alias must NOT carry the entity's own condition.
+        assert "m0.age" not in q.text, q.text
+
     def test_relationship_grain_compiles_to_edge_count(self, snapshot, supervisor_scope):
         spec = AggregateSpec(
             question_text="How many officer assignments per case?",
