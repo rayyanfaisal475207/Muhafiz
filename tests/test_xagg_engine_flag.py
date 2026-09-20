@@ -55,10 +55,29 @@ class TestFlagDefaultsToLegacy:
         made the suite fail on any machine actually running the new engine —
         it was testing the deployment rather than the code. What matters is
         the default, so the environment is cleared and the module reloaded.
+
+        CLEARING THE ENVIRONMENT IS NOT ENOUGH, and that is the second half
+        of the same bug. `config` calls `load_dotenv(.env)` at import, so a
+        reload re-reads the FILE and puts the value straight back. On a
+        deployed machine — where AGGREGATE_ENGINE_MODE=aggregate_v2 lives in
+        .env, which is how the engine is actually switched on — `delenv`
+        cleared the process variable and the reload restored it from disk.
+        Reported from a live deployment, and confirmed by A/B: commenting
+        that one .env line out made this pass, restoring it made it fail.
+
+        So `load_dotenv` is neutralised for the reload too. The subject here
+        is what the CODE defaults to when nothing is configured, and a .env
+        file is configuration.
         """
         import importlib
 
+        import dotenv
+
         monkeypatch.delenv("AGGREGATE_ENGINE_MODE", raising=False)
+        monkeypatch.setattr(dotenv, "load_dotenv", lambda *a, **k: False)
+        # `config` imported the name directly, so patching the module
+        # attribute alone would leave its own reference untouched.
+        monkeypatch.setattr(config, "load_dotenv", lambda *a, **k: False)
         reloaded = importlib.reload(config)
         try:
             assert reloaded.AGGREGATE_ENGINE_MODE == reloaded.AGGREGATE_ENGINE_LEGACY
