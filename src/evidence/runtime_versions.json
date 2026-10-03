@@ -1,0 +1,7 @@
+{
+  "2.0": {
+    "module": "runtime_v2_0",
+    "sha256": "bbdb5fe8e3c124d34e7f6bc25c508eb6384448ed4c02612ed164731d85016adb",
+    "description": "Frozen compatible evidence kernel; shares current authorization and typed-tool enforcement"
+  }
+}

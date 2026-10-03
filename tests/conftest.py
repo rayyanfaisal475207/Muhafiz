@@ -16,6 +16,11 @@ from typing import Optional
 
 import pytest
 
+# A developer's staged cutover must not silently reroute legacy unit tests or
+# acquire the real ingestion credential. Evidence integration tests explicitly
+# use the disposable DSNs in .env.evidence-test.
+os.environ["EVIDENCE_RUNTIME_ENABLED"] = "false"
+
 # Make `src` importable when pytest is run from the repo root
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
@@ -801,3 +806,20 @@ class FakeLLM:
 @pytest.fixture
 def fake_llm():
     return FakeLLM()
+
+
+@pytest.fixture(autouse=True)
+def evidence_model_cache():
+    """A module-level cache must not carry answers between tests.
+
+    `LocalModel` keeps validated responses keyed on the whole request, which
+    is correct in a running process and wrong in a test suite: one test's
+    stubbed reply was served to another asking the same thing, so tests
+    passed alone and failed together. Cleared around every test, which also
+    means a test can exercise the cache deliberately without leaking.
+    """
+    from src.evidence import model as _model
+    _model.CACHE._items.clear()
+    _model.CACHE.hits = _model.CACHE.misses = 0
+    yield
+    _model.CACHE._items.clear()
