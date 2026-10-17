@@ -217,6 +217,10 @@ async def delete_attachment(attachment_id: str, current_user: User = Depends(get
     if record.get("user_id") != str(current_user.id):
         raise HTTPException(status_code=403, detail="Not authorized to delete this attachment")
 
+    from src import config
+    if config.EVIDENCE_RUNTIME_ENABLED:
+        from src.evidence.attachments import revoke_attachment
+        await revoke_attachment(attachment_id,current_user.id)
     await gateway.delete_attachment(attachment_id)
     return {"status": "deleted", "attachment_id": attachment_id}
 

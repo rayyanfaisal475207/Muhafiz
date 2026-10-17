@@ -4,7 +4,7 @@
 // unmemoized bubble re-rendered (and re-parsed) every message each token.
 // ============================================================
 
-import { memo, useMemo, Children } from 'react';
+import { memo, useMemo, useState, Children } from 'react';
 import type { ReactNode } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
@@ -14,6 +14,8 @@ import { GenerationStatus } from './GenerationStatus';
 import { AlertIcon, GlobeIcon, ReadIcon } from './StatusIcons';
 import { FileResultCard } from './FileResultCard';
 import { QueryChecks } from '../pipeline/QueryChecks';
+import { EvidenceRunStatus } from './EvidenceRunStatus';
+import { EvidenceTrace } from './EvidenceTrace';
 
 interface Props {
   message: ChatMessage;
@@ -137,6 +139,7 @@ function safeSourceLabel(filename: string): string {
 
 export const MessageBubble = memo(function MessageBubble({ message, onSourceClick }: Props) {
   const isUser = message.role === 'user';
+  const [showAllSources,setShowAllSources] = useState(false);
 
   const fileErrors = useMemo(
     () =>
@@ -190,6 +193,15 @@ export const MessageBubble = memo(function MessageBubble({ message, onSourceClic
             isStreaming={!!message.isStreaming}
             hasContent={message.content.length > 0}
           />
+          {/* The evidence runtime's own step-by-step record. GenerationStatus
+              keys off a fixed PHASES map and drops any step not in it, which
+              is every step this runtime emits -- so a run showed a spinner
+              and nothing else. Open while streaming so a slow question shows
+              what it is doing rather than appearing frozen. */}
+          <EvidenceTrace
+            events={message.pipelineEvents ?? []}
+            defaultOpen={!!message.isStreaming}
+          />
 
           {message.content ? (
             // `token-stream` (only while isStreaming) is the streaming-reveal
@@ -210,6 +222,9 @@ export const MessageBubble = memo(function MessageBubble({ message, onSourceClic
               not what the evidence says, so it must never read as part of the
               content. Renders nothing while streaming or when no trace exists. */}
           {!message.isStreaming && <QueryChecks trace={message.degradationTrace} />}
+          {message.evidenceRunId && <EvidenceRunStatus
+            runId={message.evidenceRunId} messageId={message.id}
+            status={message.answerStatus} artifactUrl={message.artifactUrl} streaming={!!message.isStreaming} />}
           {/* File Download Block */}
           {!message.isStreaming &&
             message.pipelineEvents?.some((e) => e.step === 'file_generation' && e.status === 'done') && (
@@ -253,7 +268,7 @@ export const MessageBubble = memo(function MessageBubble({ message, onSourceClic
               <span className="text-[11px] self-center" style={{ color: 'var(--text-faint)' }}>
                 Sources
               </span>
-              {message.sources.map((src, i) => {
+              {(showAllSources ? message.sources : message.sources.slice(0,5)).map((src, i) => {
                 // Structural discriminator (src.type), not a filename/URL
                 // heuristic — a case-evidence citation whose source
                 // filename happens to look like a link must never render
@@ -277,6 +292,10 @@ export const MessageBubble = memo(function MessageBubble({ message, onSourceClic
                   </button>
                 );
               })}
+              {message.sources.length > 5 && <button className="text-[11px] underline"
+                aria-expanded={showAllSources} onClick={() => setShowAllSources(!showAllSources)}>
+                {showAllSources ? 'Show fewer sources' : `Show all ${message.sources.length} sources`}
+              </button>}
 
               {/* Web Search Tag */}
               {message.pipelineEvents?.some((e) => e.step === 'web_search' && e.status === 'done') && (

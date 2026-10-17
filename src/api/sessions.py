@@ -47,6 +47,13 @@ async def get_session_history(session_id: str, current_user: User = Depends(get_
         raise HTTPException(status_code=403, detail="Not authorized to access this session.")
         
     history = await gateway.get_session_history(session_id)
+    # New evidence turns have a durable run identity, structured citations and
+    # resumable status. Return them separately to avoid guessing message ids.
+    evidence_runs = []
+    from src import config
+    if config.EVIDENCE_RUNTIME_ENABLED:
+        from src.api.evidence import session_runs
+        evidence_runs = (await session_runs(uuid.UUID(session_id), current_user))["runs"]
     # Opening a conversation counts as using it: bump `updated_at` so the
     # sidebar (ordered by that column) surfaces it at the top, matching how
     # every other chat UI behaves. Best-effort — a failure here must never
@@ -55,7 +62,15 @@ async def get_session_history(session_id: str, current_user: User = Depends(get_
         await gateway.touch_session(session_id)
     except Exception as exc:
         logger.warning("Failed to touch session %s on access: %s", session_id, exc)
-    return {"history": history}
+    # Mirrored evidence messages have a stable identity. Filtering by time
+    # would lose legitimate legacy messages created during a rollback.
+    # A rejected run must not leak back through its legacy message mirror.
+    # Only the separately reauthorized evidence_runs may expose those turns.
+    history = [h for h in history if not (h.get("degradation_trace") or {}).get("evidence_run_id")]
+    for item in history:
+        if (item.get("degradation_trace") or {}).get("evidence_run_id"):
+            item["degradation_trace"] = None
+    return {"history": history, "evidence_runs": evidence_runs}
 
 @router.delete("/{session_id}")
 async def delete_session(session_id: str, current_user: User = Depends(get_current_user)):
@@ -103,8 +118,14 @@ async def export_session(
     if session_obj["user_id"] != str(current_user.id):
         raise HTTPException(status_code=403, detail="Not authorized to access this session.")
         
-    history = await gateway.get_session_history(session_id)
-    
+    safe_history = await get_session_history(session_id,current_user)
+    history = list(safe_history['history'])
+    for run in safe_history['evidence_runs']:
+        if run.get('response'):
+            history.extend([{'role':'user','content':run['question'],'created_at':str(run['created_at'])},
+                            {'role':'assistant','content':run['response']['text'],'created_at':str(run['created_at'])}])
+    history.sort(key=lambda item:str(item.get('created_at','')))
+
     if format == "json":
         return JSONResponse(content={"session": session_obj, "history": history})
         

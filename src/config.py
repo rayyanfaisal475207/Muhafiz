@@ -716,3 +716,14 @@ TRUST_PROXY_HEADERS: bool = os.getenv("TRUST_PROXY_HEADERS", "false").strip().lo
 TRUSTED_PROXY_IPS: list[str] = [
     ip.strip() for ip in os.getenv("TRUSTED_PROXY_IPS", "").split(",") if ip.strip()
 ]
+
+# The evidence runtime is opt-in until source-reviewed acceptance passes.
+# Both /api/chat and compatibility adapters obey this server-side switch.
+EVIDENCE_RUNTIME_ENABLED: bool = os.getenv("EVIDENCE_RUNTIME_ENABLED", "false").lower() == "true"
+
+
+# The timezone a question's relative dates are resolved in. Police records
+# in this deployment are Pakistani, and "this month" must mean the month
+# where the station is, not where the server happens to run. Named rather
+# than an offset so daylight rules, if any, come from the zone database.
+EVIDENCE_TIMEZONE: str = os.getenv("EVIDENCE_TIMEZONE", "Asia/Karachi")

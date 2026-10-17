@@ -23,7 +23,10 @@ export default defineConfig({
       // an absolute VITE_API_URL, bypassing this proxy entirely) and
       // would have been broken the moment anything relied on it.
       '/api': {
-        target: 'http://127.0.0.1:8001',
+        // The backend port. Overridable so a running server on a
+        // different port does not require editing this file:
+        //   VITE_BACKEND_PORT=8099 npm run dev
+        target: `http://127.0.0.1:${process.env.VITE_BACKEND_PORT || 8099}`,
         changeOrigin: true,
       },
     },

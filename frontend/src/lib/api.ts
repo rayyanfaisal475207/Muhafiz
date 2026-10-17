@@ -3,9 +3,14 @@
 // ============================================================
 
 import axios, { AxiosError } from 'axios';
-import type { Attachment, PipelineEvent } from '../types';
+import type { Attachment, PipelineEvent , TraceStep } from '../types';
 
-const BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000/api';
+// Same-origin requests use the Vite proxy locally and the deployment proxy in production.
+const BASE_URL = import.meta.env.VITE_API_URL || '/api';
+
+// The server flag selects the evidence runtime; flag-off preserves the
+// existing rebuilt engine so staging does not silently change the baseline.
+const CHAT_ENDPOINT = import.meta.env.VITE_CHAT_ENDPOINT || '/ask/stream';
 
 // ── Axios Instance ──────────────────────────────────────────────────────────
 export const apiClient = axios.create({
@@ -109,7 +114,7 @@ export async function streamChat(
     bodyData.enable_web_search = true;
   }
 
-  const response = await fetch(`${BASE_URL}/chat`, {
+  const response = await fetch(`${BASE_URL}${CHAT_ENDPOINT}`, {
     method: 'POST',
     headers,
     body: JSON.stringify(bodyData),
@@ -166,9 +171,45 @@ export async function streamChat(
   }
 }
 
+export interface EvidenceRun {
+  run_id: string;
+  status: string;
+  progress?: Record<string, unknown>;
+  discovery?: { status: string; completed: number; total: number };
+  response?: {
+    text: string;
+    status: string;
+    artifact_url?: string | null;
+    results: Array<{ citations: Array<{ span_id: string; document_id: string; title: string; text: string; start: number; end: number }> }>;
+    /** Every stage the runtime recorded, written with the answer into
+     * evidence.runs.response. This is what makes a trace survive a refresh:
+     * the steps are read back from the database, not from the live stream. */
+    health?: { trace?: TraceStep[] } | null;
+  } | null;
+}
+
+export async function getEvidenceRun(runId: string): Promise<EvidenceRun> {
+  return (await apiClient.get<EvidenceRun>(`/evidence/runs/${runId}`)).data;
+}
+
+export async function cancelEvidenceRun(runId: string): Promise<void> {
+  await apiClient.post(`/evidence/runs/${runId}/cancel`);
+}
+
+export async function downloadEvidenceArtifact(path: string): Promise<void> {
+  if (!/^\/api\/evidence\/artifacts\/[a-f0-9-]+$/i.test(path)) throw new Error('Invalid artifact path');
+  const response = await apiClient.get(path.replace(/^\/api/, ''), { responseType: 'blob' });
+  const url = URL.createObjectURL(response.data);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = 'Muhafiz-report';
+  link.click();
+  URL.revokeObjectURL(url);
+}
+
 // ── Chat attachments ────────────────────────────────────────────────────────
-// Files attached to ONE conversation. These are NOT knowledge-base documents:
-// they are never embedded or indexed, and are visible only to this session.
+// Files attached to ONE conversation enter the session-scoped evidence store;
+// they remain separate from shared knowledge-base documents.
 // Knowledge-base ingestion lives in the admin app.
 
 export async function uploadAttachment(sessionId: string, file: File): Promise<Attachment> {

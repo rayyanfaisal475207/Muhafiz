@@ -1,3 +1,18 @@
+# ─────────────────────────────────────────────────────────────────────
+# DEPRECATED — superseded by the rebuilt retrieval path.
+#
+# This module: XGRAPH cross-case entity recurrence + XNETWORK thematic synthesis
+#
+# Replaced by: PARTIAL. The XGRAPH half is covered: measured, the rebuilt agent wrote
+#   SELECT person_id, count(DISTINCT case_id) FROM case_parties
+#   GROUP BY person_id HAVING count(DISTINCT case_id) > 1
+# unaided and answered correctly. The XNETWORK half -- thematic synthesis
+# over precomputed community summaries -- has NO equivalent yet.
+# DO NOT DELETE THIS MODULE until that gap is closed.
+#
+# Still imported and still serving /api/chat. See ARCHITECTURE.md for the
+# cutover checklist; the frontend switch is VITE_CHAT_ENDPOINT.
+# ─────────────────────────────────────────────────────────────────────
 """
 Cross-Case Linkage sub-agent —
 src/pipeline/harness/agents/cross_case_linkage.py

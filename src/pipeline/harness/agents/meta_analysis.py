@@ -1,3 +1,16 @@
+# ─────────────────────────────────────────────────────────────────────
+# DEPRECATED — superseded by the rebuilt retrieval path.
+#
+# This module: decompose a question into sub-questions, answer each, synthesize
+#
+# Replaced by: src/retrieval/decompose.py + engine.py::_run_parts + crosscheck.py.
+# Same design -- split, run each through the FULL pipeline, one level of
+# recursion only -- in about 200 lines rather than 2,145, because the
+# thing being composed is the whole engine rather than a supervisor.
+#
+# Still imported and still serving /api/chat. See ARCHITECTURE.md for the
+# cutover checklist; the frontend switch is VITE_CHAT_ENDPOINT.
+# ─────────────────────────────────────────────────────────────────────
 """
 Meta-Analysis sub-agent — src/pipeline/harness/agents/meta_analysis.py
 (findings.md Module 10, "Meta-analysis — query decomposition and

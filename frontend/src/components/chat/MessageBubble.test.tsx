@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { render, screen, fireEvent } from '@testing-library/react'
 import { MessageBubble } from './MessageBubble'
 import type { ChatMessage } from '../../types'
 
@@ -22,6 +22,15 @@ function renderContent(content: string) {
 }
 
 describe('MessageBubble markdown rendering', () => {
+  it('keeps aggregate citations compact while preserving access to all sources', () => {
+    const message={...assistant('Supported result'),sources:Array.from({length:8},(_,index)=>({filename:`Evidence ${index}`}))}
+    render(<MessageBubble message={message} />)
+    expect(screen.queryByTitle('Evidence 7')).toBeNull()
+    fireEvent.click(screen.getByText('Show all 8 sources'))
+    expect(screen.getByTitle('Evidence 7')).toBeTruthy()
+    fireEvent.click(screen.getByText('Show fewer sources'))
+    expect(screen.queryByTitle('Evidence 7')).toBeNull()
+  })
   // ── Finding B ──────────────────────────────────────────────────────────
   it('renders single-asterisk emphasis as <em>, not literal asterisks', () => {
     const c = renderContent('The weapon was a *30-bore pistol* recovered on site.')

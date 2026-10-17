@@ -54,3 +54,63 @@ describe('chatStore.sendMessage — rapid double-send', () => {
     expect(finalMessages.find((m) => m.id === firstAssistant!.id)?.isStreaming).toBe(false)
   })
 })
+
+describe('evidence session reload', () => {
+  it('preserves a legacy turn written after an evidence run during rollback', async () => {
+    const get=vi.spyOn(api.apiClient,'get')
+    get.mockResolvedValueOnce({data:{
+      history:[{role:'assistant',content:'Legacy after rollback',created_at:'2026-09-24T11:00:00Z'}],
+      evidence_runs:[{run_id:'run-1',question:'Evidence question',created_at:'2026-09-24T10:00:00Z',
+        status:'answered',response:{text:'Checked answer',status:'answered',results:[]}}],
+    }})
+    get.mockResolvedValueOnce({data:{attachments:[]}})
+    await useChatStore.getState().loadSession('session-1')
+    expect(useChatStore.getState().messages.map(m=>m.content)).toEqual([
+      'Evidence question','Checked answer','Legacy after rollback',
+    ])
+    get.mockRestore()
+  })
+
+  it('restores the recorded trace so a refresh does not lose it', async () => {
+    // The runtime writes its step-by-step trace into
+    // evidence.runs.response.health, so it outlives the SSE stream. Before
+    // this, a reloaded conversation showed the answer with no record of how
+    // it was reached -- and the traces that explain a wrong answer are
+    // exactly the ones worth keeping.
+    const trace = [
+      { seq: 1, stage: 'question', title: 'Question received', at_ms: 0 },
+      { seq: 2, stage: 'plan_rejected', title: 'The plan was rejected', at_ms: 1200 },
+    ]
+    const get = vi.spyOn(api.apiClient, 'get')
+    get.mockResolvedValueOnce({ data: {
+      history: [],
+      evidence_runs: [{ run_id: 'run-2', question: 'Who is Ahmed?', created_at: '2026-09-25T10:00:00Z',
+        status: 'partial',
+        response: { text: 'Not established', status: 'partial', results: [], health: { trace } } }],
+    }})
+    get.mockResolvedValueOnce({ data: { attachments: [] } })
+    await useChatStore.getState().loadSession('session-2')
+
+    const answer = useChatStore.getState().messages.find((m) => m.id === 'run-2')
+    expect(answer).toBeTruthy()
+    const events = answer!.pipelineEvents ?? []
+    expect(events).toHaveLength(1)
+    expect(events[0].step).toBe('response')
+    expect(events[0].trace).toEqual(trace)
+    get.mockRestore()
+  })
+
+  it('leaves pipelineEvents alone when a run recorded no trace', async () => {
+    const get = vi.spyOn(api.apiClient, 'get')
+    get.mockResolvedValueOnce({ data: {
+      history: [],
+      evidence_runs: [{ run_id: 'run-3', question: 'Older run', created_at: '2026-09-25T10:00:00Z',
+        status: 'answered', response: { text: 'An answer', status: 'answered', results: [] } }],
+    }})
+    get.mockResolvedValueOnce({ data: { attachments: [] } })
+    await useChatStore.getState().loadSession('session-3')
+    const answer = useChatStore.getState().messages.find((m) => m.id === 'run-3')
+    expect(answer?.pipelineEvents).toBeUndefined()
+    get.mockRestore()
+  })
+})

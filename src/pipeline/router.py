@@ -1,3 +1,16 @@
+# ─────────────────────────────────────────────────────────────────────
+# DEPRECATED — superseded by the rebuilt retrieval path.
+#
+# This module: 11-route LLM classification plus 133 hardcoded question patterns
+#
+# Replaced by: src/retrieval/planner.py — there is no router. Which tables a question
+# touches comes from binding its terms against real schema and real
+# values; capabilities are derived from those bindings. Nothing matches
+# question text against a pattern list.
+#
+# Still imported and still serving /api/chat. See ARCHITECTURE.md for the
+# cutover checklist; the frontend switch is VITE_CHAT_ENDPOINT.
+# ─────────────────────────────────────────────────────────────────────
 # ============================================================
 # Router — LLM Call 2: Does This Query Need Retrieval?
 #

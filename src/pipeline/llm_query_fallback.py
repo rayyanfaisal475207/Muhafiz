@@ -1,3 +1,17 @@
+# ─────────────────────────────────────────────────────────────────────
+# DEPRECATED — superseded by the rebuilt retrieval path.
+#
+# This module: last resort: ask a model to write SQL, then run it
+#
+# Replaced by: NOTHING, deliberately. This is how the worst measured failure happened:
+# 'how many persons have a criminal risk score above 80' -- a field that
+# does not exist -- was answered 208, the count of every person in the
+# database. The rebuilt path refuses and names what is missing instead.
+# This capability must NOT be reintroduced.
+#
+# Still imported and still serving /api/chat. See ARCHITECTURE.md for the
+# cutover checklist; the frontend switch is VITE_CHAT_ENDPOINT.
+# ─────────────────────────────────────────────────────────────────────
 # -*- coding: utf-8 -*-
 """
 [Gold-QA fix — Module 178] LLM-generated graph queries as a BOUNDED, VISIBLE

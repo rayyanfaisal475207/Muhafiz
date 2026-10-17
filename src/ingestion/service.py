@@ -727,6 +727,10 @@ async def ingest_documents(
     the class of bug this migration's idempotency work exists to close.
     """
     try:
+        if config.EVIDENCE_RUNTIME_ENABLED:
+            from src.evidence.ingestion import ingest_sources
+            return await ingest_sources(documents,source_name,case_id=case_id,project_id=project_id,
+                                        is_global=is_global,doc_type=doc_type)
         # Normalize before it reaches the chunker.
         #
         # Urdu normalization runs FIRST: it removes diacritics and

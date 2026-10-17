@@ -2,10 +2,27 @@
 // Shared TypeScript Types
 // ============================================================
 
+/** One stage the evidence runtime recorded while answering. */
+export interface TraceStep {
+  seq: number;
+  stage: string;
+  title: string;
+  at_ms: number;
+  detail?: Record<string, unknown>;
+}
+
 /** A single Server-Sent Event from the /chat endpoint */
 export interface PipelineEvent {
+  run_id?: string;
+  answer_status?: 'answered' | 'partial' | 'clarification' | 'not_extracted' | 'unavailable' | 'pending' | 'running' | 'cancelled';
+  clarification?: string | null;
+  artifact_url?: string | null;
+  coverage?: Array<{ population_documents: number; complete_documents: number; truncated: boolean; notes: string[] }>;
   step: string;
   status: 'active' | 'done' | 'skipped' | 'error' | 'streaming' | 'waiting';
+  /** One recorded runtime stage (step === 'trace'), or the whole trace on
+   * the final `response` event. See src/evidence/trace.py. */
+  trace?: TraceStep | TraceStep[];
   detail?: string;
   thinking?: string;
   ms?: number;
@@ -34,6 +51,11 @@ export interface PipelineStep {
 
 /** A source citation extracted from retrieval events */
 export interface Source {
+  doc_id?: string;
+  span_id?: string;
+  snippet?: string;
+  start?: number;
+  end?: number;
   filename: string;
   score?: number;
   file_id?: string;
@@ -75,6 +97,9 @@ export interface DegradationTrace {
 }
 
 export interface ChatMessage {
+  evidenceRunId?: string;
+  answerStatus?: PipelineEvent['answer_status'];
+  artifactUrl?: string;
   id: string;
   role: 'user' | 'assistant';
   content: string;

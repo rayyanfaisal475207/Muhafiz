@@ -27,7 +27,7 @@ from typing import Optional
 from fastapi import FastAPI, BackgroundTasks, HTTPException, Request
 from fastapi.responses import StreamingResponse, FileResponse
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from src import config
 from src.config import ensure_directories, validate_config
@@ -47,6 +47,8 @@ from src.api.profile import router as profile_router
 from src.api.admin import router as admin_router
 from src.api.projects import router as projects_router
 from src.api.cases import router as cases_router
+from src.api.ask import router as ask_router
+from src.api.evidence import router as evidence_router
 from src.api.case_assignments import router as case_assignments_router
 from src.api.attachments import router as attachments_router
 from src.api.graph_review import router as graph_review_router
@@ -267,6 +269,8 @@ async def lifespan(app: FastAPI):
     logger.info("Server ready at http://%s:%d", config.HOST, config.PORT)
 
     yield  # Server is running — handle requests
+    from src.evidence.service import shutdown as shutdown_evidence
+    await shutdown_evidence()
 
     # ── SHUTDOWN ─────────────────────────────────────────────────────────
     logger.info("Muhafiz shutting down. Goodbye!")
@@ -305,6 +309,11 @@ app.include_router(profile_router, prefix="/api/profile", tags=["profile"])
 app.include_router(admin_router)   # prefix already set inside admin.py
 app.include_router(projects_router, prefix="/api/projects", tags=["projects"])
 app.include_router(cases_router, prefix="/api/cases", tags=["cases"])
+# The rebuilt retrieval path, alongside /api/chat rather than
+# replacing it, so the two can be compared on the same question
+# before anything is cut over.
+app.include_router(ask_router)
+app.include_router(evidence_router)
 app.include_router(case_assignments_router)
 app.include_router(attachments_router, prefix="/api/attachments", tags=["attachments"])
 app.include_router(graph_review_router)   # prefix already set inside graph_review.py
@@ -314,7 +323,7 @@ app.include_router(ingestion_quality_admin_router)   # prefix already set inside
 # ── Models ─────────────────────────────────────────────────────────────────────
 class ChatRequest(BaseModel):
     session_id: str
-    message: str
+    message: str = Field(min_length=1, max_length=2000)
     project_id: Optional[str] = None
     case_id: Optional[str] = None
     # Explicit, per-query opt-in for live web search (a UI checkbox/toggle).
@@ -403,6 +412,10 @@ async def chat_endpoint(request: Request, chat_request: ChatRequest, current_use
     """
     import asyncio
 
+    if config.EVIDENCE_RUNTIME_ENABLED:
+        from src.evidence.service import stream
+        return await stream(chat_request, current_user, await get_gateway())
+
     # F-06: session_id is typed str (not UUID) so the frontend's client-side
     # generation of it isn't tangled with parsing, but that means a malformed
     # value used to reach one of several unguarded uuid.UUID(session_id)
@@ -419,8 +432,15 @@ async def chat_endpoint(request: Request, chat_request: ChatRequest, current_use
         gateway.get_user_context_profile(user_id),
         gateway.get_session(chat_request.session_id),
     )
+    if session and str(session.get("user_id")) != user_id:
+        raise HTTPException(status_code=403, detail="Not authorized to access this conversation")
     project_id = chat_request.project_id or (session.get("project_id") if session else None)
     case_id = chat_request.case_id or (session.get("case_id") if session else None)
+    if project_id:
+        validate_uuid_field(project_id, "project_id")
+        project = await gateway.get_project(project_id)
+        if not project or str(project.get("user_id")) != user_id:
+            raise HTTPException(status_code=403, detail="Not authorized to access this project")
 
     # RBAC/ABAC: a case_id from the client (or a session it never verified either)
     # must never reach the pipeline unchecked — RLS only enforces that retrieved

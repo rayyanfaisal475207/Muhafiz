@@ -14,7 +14,7 @@ import {
   uploadAttachment, listAttachments, deleteAttachment,
 } from '../lib/api';
 import type {
-  ChatMessage, PipelineEvent, Source, PipelineStep,
+  ChatMessage, PipelineEvent, Source, PipelineStep, TraceStep,
   Attachment, PendingAttachment, DegradationTrace,
 } from '../types';
 import { useProjectStore } from './projectStore';
@@ -238,12 +238,21 @@ export const useChatStore = create<ChatState>((set, get) => ({
         pendingAttachments: [],
       });
       const { data } = await apiClient.get<{
-        history: { role: string; content: string; degradation_trace?: DegradationTrace | null }[]
+        history: { role: string; content: string; created_at?: string; degradation_trace?: DegradationTrace | null }[];
+        evidence_runs?: Array<{ run_id: string; question: string; created_at: string; status: PipelineEvent['answer_status']; response?: {
+          text: string; status: PipelineEvent['answer_status']; artifact_url?: string;
+          results: Array<{ citations: Array<{ span_id: string; document_id: string; title: string; text: string; start: number; end: number }> }>;
+          /** The recorded runtime trace, persisted with the answer. */
+          health?: { trace?: TraceStep[] } | null;
+        } }>;
       }>(`/sessions/${id}`);
       // Ignore the response if the user already switched somewhere else
       if (get().sessionId !== id) return;
-      const messages: ChatMessage[] = data.history.map((h) => ({
+      // The server removes only explicitly tagged mirrors. Preserve and
+      // interleave legacy turns if the runtime was temporarily rolled back.
+      const messages: Array<ChatMessage & { sortTime?: number }> = data.history.map((h, index) => ({
         id: crypto.randomUUID(),
+        sortTime: h.created_at ? new Date(h.created_at).getTime() : index,
 
         role: h.role as 'user' | 'assistant',
         content: h.content,
@@ -258,6 +267,30 @@ export const useChatStore = create<ChatState>((set, get) => ({
         // message) is deliberately distinct from an empty trace.
         degradationTrace: h.degradation_trace ?? undefined,
       }));
+      for (const run of data.evidence_runs ?? []) {
+        const sortTime = new Date(run.created_at).getTime();
+        messages.push({ id: `${run.run_id}-user`, role: 'user', content: run.question, sortTime });
+        // The trace is written into evidence.runs.response with the answer,
+        // so a reloaded conversation shows exactly what the run did rather
+        // than losing it with the stream. Replayed as one 'response' event,
+        // which is the shape EvidenceTrace already reads.
+        const recordedTrace = run.response?.health?.trace;
+        messages.push({ id: run.run_id, role: 'assistant', content: run.response?.text ??
+          (run.status === 'cancelled' ? 'Request cancelled.' : run.status === 'pending' || run.status === 'running'
+            ? 'Checking the evidence…' : 'This request did not complete. Please retry.'),
+          evidenceRunId: run.run_id,
+          pipelineEvents: recordedTrace?.length
+            ? [{ step: 'response', status: 'done', trace: recordedTrace } as PipelineEvent]
+            : undefined,
+          sortTime: sortTime + 0.1,
+          answerStatus: run.status === ('running' as string) ? 'pending' : run.status,
+          artifactUrl: run.response?.artifact_url,
+          sources: run.response?.results.flatMap((r) => r.citations.map((s) => ({
+            filename: s.title, span_id: s.span_id, doc_id: s.document_id, snippet: s.text, start: s.start, end: s.end,
+          }))) ?? [],
+        });
+      }
+      messages.sort((a, b) => (a.sortTime ?? 0) - (b.sortTime ?? 0));
       set({ messages, isLoadingSession: false });
 
       // Attachments stay with the conversation, so restore them alongside it.
@@ -411,6 +444,16 @@ export const useChatStore = create<ChatState>((set, get) => ({
           accumulatedEvents.push(event);
         }
         if (!isCurrent()) return;
+
+        if (event.run_id) {
+          set((state) => ({
+            messages: state.messages.map((m) => m.id === assistantMsgId
+              ? { ...m, evidenceRunId: event.run_id,
+                  answerStatus: event.answer_status ?? m.answerStatus,
+                  artifactUrl: event.artifact_url ?? m.artifactUrl }
+              : m),
+          }));
+        }
 
         if (event.step === 'title_generation' && event.status === 'done' && event.detail) {
           import('./sessionStore').then(({ useSessionStore }) => {
