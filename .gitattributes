@@ -1,0 +1,9 @@
+# The frozen evidence kernel is sealed by a SHA-256 of its BYTES, so any
+# line-ending rewrite breaks the seal. MEASURED: committing src/evidence for
+# the first time converted all 795 lines to CRLF, and the manifest check then
+# refused to load v2.0 -- "the frozen evidence kernel does not match its
+# reviewed manifest" -- although not one character of the code had changed.
+#
+# These two files are byte-stable in the repository and on every checkout.
+src/evidence/runtime_v2_0.py      text eol=lf
+src/evidence/runtime_versions.json text eol=lf

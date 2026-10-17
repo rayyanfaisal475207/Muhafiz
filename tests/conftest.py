@@ -823,3 +823,20 @@ def evidence_model_cache():
     _model.CACHE.hits = _model.CACHE.misses = 0
     yield
     _model.CACHE._items.clear()
+
+
+@pytest.fixture(autouse=True)
+def llm_response_cache():
+    """The same isolation for the cache in front of `call_llm`.
+
+    MEASURED the moment that cache was added:
+    `test_local_branch_uses_max_tokens_not_cloud_max_tokens` passed alone
+    and failed in the full suite, because an earlier test's stubbed reply to
+    the same prompt was served to it and the real branch never ran. Exactly
+    the failure the evidence cache fixture above exists to prevent, one
+    module along.
+    """
+    from src.llm import cache as _cache
+    _cache.CACHE.clear()
+    yield
+    _cache.CACHE.clear()

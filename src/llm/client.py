@@ -1,5 +1,6 @@
 import logging
 import asyncio
+import os
 from typing import AsyncGenerator, Optional
 
 from google import genai
@@ -9,6 +10,7 @@ import httpx
 from groq import AsyncGroq
 
 from src import config
+from src.llm import cache as response_cache
 from src.llm.key_manager import key_manager
 
 logger = logging.getLogger(__name__)
@@ -17,6 +19,10 @@ logger = logging.getLogger(__name__)
 # Building a new client per call adds connection setup to every LLM call.
 # Cache one client per (provider, api_key) — key rotation still works because
 # the rotated key produces a new cache entry.
+#
+# NOTE: this caches CLIENTS, not responses — it saves connection setup and
+# not one token. The response cache is `src/llm/cache.py`, applied in
+# `call_llm` below so that all 36 call sites get it at once.
 
 _groq_clients: dict[str, AsyncGroq] = {}
 _gemini_clients: dict[str, genai.Client] = {}
@@ -71,6 +77,11 @@ def _fallback_provider_for(provider: str) -> Optional[str]:
     Returns None when no distinct, configured alternative exists — the
     caller then surfaces the original error rather than pretending to retry.
     """
+    # OpenAI first when configured: the condition that lands here is a
+    # per-request size cap, and Groq's free tier has the smallest one, so
+    # failing over to it is the least likely to help.
+    if provider != "openai" and config.OPENAI_API_KEY:
+        return "openai"
     if provider != "groq" and config.GROQ_API_KEY:
         return "groq"
     if provider != "gemini" and config.GEMINI_API_KEY:
@@ -92,6 +103,50 @@ async def call_llm(
     force_cloud: bool = False,
     reasoning_effort: Optional[str] = None,
 ) -> str:
+    """Every LLM call outside the evidence runtime, with a response cache.
+
+    AN IDENTICAL REQUEST HAS AN IDENTICAL ANSWER.
+
+    The cache is applied here, around the whole call, because all 36 call
+    sites across extraction, graph, pipeline and the harness agents arrive
+    through this one function -- and because the body below has five
+    separate success paths through local, Groq and Gemini. Wrapping it once
+    cannot miss one of them; editing each return could.
+
+    The key is every argument that can change the answer. A request that
+    asked for sampling is not cached at all. See src/llm/cache.py.
+    """
+    cached, cache_key = response_cache.lookup(
+        temperature,
+        system_prompt=system_prompt, user_message=user_message,
+        max_tokens=max_tokens,
+        provider=provider_override or config.LLM_PROVIDER,
+        llm_mode=llm_mode, role=role, cloud_max_tokens=cloud_max_tokens,
+        force_cloud=force_cloud, reasoning_effort=reasoning_effort)
+    if cached is not None:
+        logger.debug("LLM response served from cache (role=%s)", role)
+        return cached
+    answer = await _call_llm_uncached(
+        system_prompt, user_message, temperature, max_tokens,
+        provider_override, llm_mode, role, cloud_max_tokens, force_cloud,
+        reasoning_effort)
+    # Only a success is remembered; a raised exception never reaches here.
+    response_cache.remember(cache_key, answer)
+    return answer
+
+
+async def _call_llm_uncached(
+    system_prompt: str,
+    user_message: str,
+    temperature: float = 0.0,
+    max_tokens: int = 1000,
+    provider_override: str = None,
+    llm_mode: str = None,
+    role: str = "reasoning",
+    cloud_max_tokens: int = None,
+    force_cloud: bool = False,
+    reasoning_effort: Optional[str] = None,
+) -> str:
     provider = provider_override or config.LLM_PROVIDER
     # force_cloud skips the local branch entirely — for callers where a
     # "successful" local response that isn't usable (e.g. JSON-classification
@@ -100,8 +155,31 @@ async def call_llm(
     # logic below never reaches the cloud branch on its own; AIR_GAP_MODE
     # still applies below regardless of this flag — a data-sovereignty
     # boundary a caller-side quality issue must never override.
+    # ── LOCAL-FIRST IS A POLICY, AND IT IS NOW A SETTING ──────────────────
+    #
+    # Every call here tried the local model first and only reached a cloud
+    # provider when the local one FAILED. So pointing LLM_PROVIDER at a
+    # cloud vendor changed nothing for a healthy local model: document
+    # classification, NER, relationship extraction, entity resolution,
+    # conflict detection, the evaluator, the file structurer and every
+    # harness agent all kept running on Qwen3-14B. The setting looked
+    # applied and was not.
+    #
+    # LLM_PREFER_CLOUD inverts that for deployments that chose a cloud model
+    # for quality reasons. It is OFF by default, because turning it on means
+    # DOCUMENT TEXT REACHES THE PROVIDER: these call sites read case files,
+    # unlike the evidence runtime's Draft and Review, which are local by
+    # design precisely so case text cannot leave.
+    #
+    # AIR_GAP_MODE still wins below, unconditionally. A data-sovereignty
+    # boundary is not a preference and this flag must never cross it.
+    prefer_cloud = os.getenv("LLM_PREFER_CLOUD", "false").strip().lower() == "true"
+    if prefer_cloud and config.AIR_GAP_MODE:
+        logger.warning(
+            "LLM_PREFER_CLOUD is set but AIR_GAP_MODE is active; staying local.")
+        prefer_cloud = False
     local_url = (
-        None if force_cloud else
+        None if (force_cloud or prefer_cloud) else
         (config.LOCAL_GEN_LLM_URL if role == "generation" else config.LOCAL_LLM_URL)
     )
     # The caller can't know in advance whether this call will resolve to the
@@ -144,13 +222,29 @@ async def call_llm(
     for attempt in range(max_retries):
         observed_index = key_manager.get_current_index(provider)
         try:
+            # Dispatched by name. This used to read `if groq ... else gemini`,
+            # which made "openai" -- a value config.py has advertised all
+            # along -- silently call Gemini instead.
             if provider == "groq":
                 return await _call_groq(
                     system_prompt, user_message, temperature, resolved_cloud_max_tokens,
                     reasoning_effort=reasoning_effort,
                 )
-            else:
+            elif provider == "openai":
+                return await _call_openai(
+                    system_prompt, user_message, temperature, resolved_cloud_max_tokens,
+                    reasoning_effort=reasoning_effort,
+                )
+            elif provider == "gemini":
                 return await _call_gemini(system_prompt, user_message, temperature, resolved_cloud_max_tokens)
+            else:
+                # Named rather than quietly routed somewhere. A typo in
+                # LLM_PROVIDER should not become a bill from a vendor the
+                # deployment did not choose.
+                raise RuntimeError(
+                    f"LLM_PROVIDER={provider!r} is not a provider this client "
+                    "implements (groq, openai, gemini)."
+                )
         except Exception as e:
             # Checked BEFORE _is_rate_limit: Groq reports an oversized request
             # as 413 with code `rate_limit_exceeded`, so it would otherwise be
@@ -171,6 +265,11 @@ async def call_llm(
                 )
                 if fallback == "groq":
                     return await _call_groq(
+                        system_prompt, user_message, temperature, resolved_cloud_max_tokens,
+                        reasoning_effort=reasoning_effort,
+                    )
+                if fallback == "openai":
+                    return await _call_openai(
                         system_prompt, user_message, temperature, resolved_cloud_max_tokens,
                         reasoning_effort=reasoning_effort,
                     )
@@ -264,10 +363,15 @@ def _local_url_and_model(role: str) -> tuple[str, str]:
 async def _post_local(system_prompt: str, user_message: str, temperature: float, max_tokens: int, role: str) -> str:
     url, model = _local_url_and_model(role)
     timeout = config.LOCAL_GEN_LLM_TIMEOUT if role == "generation" else config.LOCAL_LLM_TIMEOUT
+    key = os.getenv('EVIDENCE_MODEL_API_KEY','')
+    gateway_options = ({'think':False,'timeout_seconds':min(600,float(timeout))}
+                       if os.getenv('EVIDENCE_MODEL_WRAPPER_V2','false').lower()=='true' else {})
     async with httpx.AsyncClient(timeout=timeout) as client:
         response = await client.post(
             url,
+            headers={'Authorization':'Bearer '+key} if key else {},
             json={
+                **gateway_options,
                 "system": system_prompt,
                 "prompt": user_message,
                 "model": model,
@@ -445,6 +549,101 @@ async def call_gemini_with_search(user_message: str, max_tokens: int = 1500) -> 
                 raise e
 
     raise Exception(f"Failed to use Gemini Search after {max_retries} attempts.")
+
+
+# ── OpenAI ────────────────────────────────────────────────────────────────────
+
+# Parameter spellings a model has already refused, per model name. One
+# refusal teaches the whole process rather than every call paying for the
+# same 400.
+_OPENAI_REFUSED: dict[str, set[str]] = {}
+
+OPENAI_CHAT_URL = "https://api.openai.com/v1/chat/completions"
+
+
+def _openai_adapt(body: dict, message: str) -> bool:
+    """Rewrite one request to the dialect a refusal just named. True if changed.
+
+    The server states exactly which parameter it will not take, so the
+    refusal is a specification rather than a failure.
+
+    MEASURED against this key: every gpt-5 model refuses `max_tokens` and
+    names `max_completion_tokens` instead; gpt-5.5 refuses a `temperature`
+    of anything but its default while gpt-5.4-mini accepts 0.0. A hardcoded
+    table of which model tolerates what would be wrong the day a new one
+    ships, so the refusal is read and applied.
+    """
+    low = (message or "").lower()
+    seen = _OPENAI_REFUSED.setdefault(str(body.get("model")), set())
+    if "max_tokens" in low and "max_completion_tokens" in low and "max_tokens" in body:
+        body["max_completion_tokens"] = body.pop("max_tokens")
+        seen.add("max_tokens")
+        return True
+    if "temperature" in low and "temperature" in body:
+        body.pop("temperature")
+        seen.add("temperature")
+        return True
+    return False
+
+
+async def _call_openai(
+    system_prompt: str, user_message: str, temperature: float, max_tokens: int,
+    reasoning_effort: Optional[str] = None,
+) -> str:
+    """One completion from OpenAI.
+
+    WHY THIS EXISTS AT ALL
+
+    `config.LLM_PROVIDER` has advertised "openai" as a choice for a long
+    time and there was no branch for it: the dispatch in
+    `_call_llm_uncached` reads `if provider == "groq" ... else gemini`, so
+    setting LLM_PROVIDER=openai silently called GEMINI. Every one of the 36
+    call sites across extraction, graph, pipeline and the harness agents
+    would have gone to the wrong vendor without a single error.
+
+    Raw httpx rather than the SDK, because the dialect above needs to read
+    the server's refusal text and retry, and because this file already
+    speaks httpx to the local model.
+    """
+    if not config.OPENAI_API_KEY:
+        raise RuntimeError("OPENAI_API_KEY is not set; cannot call OpenAI.")
+    body = {
+        "model": config.OPENAI_MODEL,
+        "messages": [{"role": "system", "content": system_prompt},
+                     {"role": "user", "content": user_message}],
+        "temperature": temperature,
+        "max_tokens": max_tokens,
+    }
+    if reasoning_effort is not None:
+        body["reasoning_effort"] = reasoning_effort
+    # What this model has already refused, applied before the request rather
+    # than after a 400 that teaches nothing new.
+    for refused in _OPENAI_REFUSED.get(config.OPENAI_MODEL, set()):
+        if refused == "max_tokens" and "max_tokens" in body:
+            body["max_completion_tokens"] = body.pop("max_tokens")
+        elif refused == "temperature":
+            body.pop("temperature", None)
+
+    headers = {"Authorization": f"Bearer {config.OPENAI_API_KEY}"}
+    async with httpx.AsyncClient(timeout=180.0) as client:
+        # Two attempts per refused parameter, plus one to succeed on.
+        for _ in range(4):
+            response = await client.post(OPENAI_CHAT_URL, json=body, headers=headers)
+            if response.status_code == 400:
+                try:
+                    said = (response.json().get("error") or {}).get("message", "")
+                except ValueError:
+                    said = ""
+                if _openai_adapt(body, said):
+                    continue
+            response.raise_for_status()
+            data = response.json()
+            try:
+                return data["choices"][0]["message"]["content"]
+            except (KeyError, IndexError, TypeError) as exc:
+                raise RuntimeError("OpenAI response was not in the expected shape") from exc
+        response.raise_for_status()
+        raise RuntimeError("OpenAI refused every dialect this client knows")
 
 
 # ── Groq ──────────────────────────────────────────────────────────────────────

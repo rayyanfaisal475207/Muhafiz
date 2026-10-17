@@ -53,8 +53,14 @@ async def test_airgap_mode_blocks_llm_cloud_fallback_on_local_failure():
     original_local_url = config.LOCAL_LLM_URL
     config.LOCAL_LLM_URL = "http://fake-local-model:9/v1"
     try:
+        # Every cloud branch is stubbed, including OpenAI: the air-gap
+        # assertion is "no cloud provider was reached", so a provider left
+        # unstubbed would reach a real transport and the test would fail on
+        # the network guard instead of on the boundary it is checking. That
+        # is exactly what happened when the OpenAI branch was added.
         with patch.object(llm_client, "_call_local", AsyncMock(side_effect=RuntimeError("local down"))), \
              patch.object(llm_client, "_call_groq", AsyncMock(return_value="cloud answer")) as mock_groq, \
+             patch.object(llm_client, "_call_openai", AsyncMock(return_value="cloud answer")) as mock_openai, \
              patch.object(llm_client, "_call_gemini", AsyncMock(return_value="cloud answer")) as mock_gemini:
 
             # Air-gapped: must fail closed, never reach a cloud provider.
@@ -63,6 +69,7 @@ async def test_airgap_mode_blocks_llm_cloud_fallback_on_local_failure():
                 await llm_client.call_llm("system", "user message")
             mock_groq.assert_not_called()
             mock_gemini.assert_not_called()
+            mock_openai.assert_not_called()
 
             # Not air-gapped: the existing local-first-then-cloud-fallback
             # behavior (the ngrok-tunnel deployment this system normally runs
@@ -70,7 +77,7 @@ async def test_airgap_mode_blocks_llm_cloud_fallback_on_local_failure():
             config.AIR_GAP_MODE = False
             result = await llm_client.call_llm("system", "user message")
             assert result == "cloud answer"
-            assert mock_groq.called or mock_gemini.called
+            assert mock_groq.called or mock_gemini.called or mock_openai.called
     finally:
         config.AIR_GAP_MODE = False
         config.LOCAL_LLM_URL = original_local_url

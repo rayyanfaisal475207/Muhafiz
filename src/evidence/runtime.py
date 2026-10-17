@@ -10,13 +10,17 @@ import time
 from contextlib import asynccontextmanager
 from datetime import datetime
 from zoneinfo import ZoneInfo
-from uuid import UUID
+from uuid import UUID, uuid4
 
 from .answer import render
 from .compiler import InvalidPlan
 from .model import LocalModel, ModelOutputError, ModelUnavailable
 from .store import EvidenceStore
 from .trace import Trace, describe_plan, describe_operation, shorten
+# Imported under a distinct name: `forms` is already a local
+# variable inside _run (one reading's written forms), and the
+# module import was being shadowed by it.
+from . import forms as term_forms
 from . import web
 from pydantic import ValidationError
 
@@ -330,7 +334,7 @@ def plan_cannot_match(plan, concepts, carried_by, located) -> str | None:
     return None
 
 
-def outcome_is_not_an_answer(plan, results) -> str | None:
+def outcome_is_not_an_answer(plan, results, classification=None) -> str | None:
     """Did the chosen OPERATION fail to answer, though it ran without error?
 
     THE FALLBACK THAT WAS MISSING
@@ -368,6 +372,26 @@ def outcome_is_not_an_answer(plan, results) -> str | None:
                     "so nothing was actually grouped. Count the records that are "
                     "TALLIED by this question and group those by the property "
                     "that names the answer.")
+    # ── FOR AN EXISTENCE QUESTION, FINDING NOTHING IS THE ANSWER ──────────
+    #
+    # MEASURED on "does Bhara Kahu appear anywhere in the records", whose
+    # true answer is that it appears nowhere: the search RAN, the term was
+    # confirmed absent, and `coverage.absent_literals` was filled -- the
+    # whole mechanism worked. Then this gate rejected the result for having
+    # no findings, the ladder repaired it into
+    # `count_entities(police station)`, and the run reported **"0 police
+    # station records are recorded"**: a confident wrong number standing
+    # where a correct absence belonged.
+    #
+    # "Did it find anything" cannot be the test when the question IS "did
+    # anything turn up". A measured absence is a finding about the records,
+    # so it is returned rather than repaired.
+    asked_whether = getattr(classification, "category", None) == "existence"
+    measured_absence = any(
+        getattr(r.coverage, "absent_literals", None) for r in (results or []))
+    if asked_whether and measured_absence:
+        return None
+
     narrative = [r for r in (results or []) if r.operation.operation == "search"]
     if narrative and all(r.citations and not r.findings for r in narrative):
         return ("The search retrieved passages but none of them supported a "
@@ -375,6 +399,611 @@ def outcome_is_not_an_answer(plan, results) -> str | None:
                 "Try a typed operation over the fields that hold what was "
                 "asked for, or search for a different form of the term.")
     return None
+
+
+def asks_about_nothing_recorded(understanding, vocabulary, value_locations,
+                                candidates, grounded) -> list[str]:
+    """Terms the question is about that are no field, no population, no value.
+
+    MEASURED, both from a real user's session:
+
+      "Are all FIRs registered on the standard cognizable-offense form
+       (Form 154), or are other form types in use?"
+          -> 7 planning attempts, 133s, "an answer has not yet been
+             established". There is no form field in these records. None of
+             the 41 predicates mentions one, so no plan could ever answer it.
+
+      "How many items are logged in the evidence store (malkhana) vs. the
+       weapons register?"
+          -> 8 attempts, 187s, same empty reply. `weapon register item
+             detail` exists with 32 rows; an evidence-store field does not.
+
+    Both spent minutes failing to find something that was never there, and
+    then said nothing the reader could act on. "The records carry no field
+    for that" is short, true, and tells them to stop looking.
+
+    DELIBERATELY CONSERVATIVE. Claiming a thing is unrecorded when it is
+    would be far worse than staying quiet, so a term is reported only when
+    it matches NOTHING: no concept label, no value the corpus holds, no
+    entity name, and no grounded form that occurs. Short words and words
+    the corpus confirmed are never reported.
+    """
+    if not understanding:
+        return []
+    known: list[str] = []
+    for label in (vocabulary or []):
+        known.extend(_words(label))
+    for row in (value_locations or []):
+        known.extend(_words(str(row.get("form") or "")))
+        known.extend(_words(str(row.get("holds_this_value") or "")))
+    for row in (candidates or []):
+        known.extend(_words(str(row.get("label") or "")))
+    # GROUNDED FORMS ARE DELIBERATELY NOT IN HERE.
+    #
+    # `grounded` means "this word occurs somewhere in the text", which is a
+    # different question from "there is a field for it". MEASURED: the first
+    # version of this check included them and never fired, because the word
+    # "form" appears in plenty of FIR narrative text and "malkhana" appears
+    # in passages too -- so both looked known while no field existed for
+    # either. A recorded VALUE still counts (value_locations above), because
+    # a value the corpus holds is answerable with a filter; a word in a
+    # passage is not.
+    known = list(dict.fromkeys(known))
+    if not known:
+        return []                       # nothing to compare against; say nothing
+
+    unrecorded: list[str] = []
+    for reading in (getattr(understanding, "terms", None) or []):
+        term = (reading.term or "").strip()
+        if not term:
+            continue
+        # ONLY FIELDS, BECAUSE "NO FIELD FOR THAT" IS A CLAIM ABOUT FIELDS.
+        #
+        # The reader tags each term with a role, and only "attribute" means
+        # a field. Two measured false denials came from accepting the other
+        # roles:
+        #
+        #   "how many people are recorded as accused" answered 92 correctly
+        #   and then added "These records carry no field for 'people'" --
+        #   `person` is a recorded population with 216 entities. A false
+        #   denial appended to a right answer is the worst of both.
+        #
+        #   "does Bhara Kahu appear anywhere" said "no field for 'Bhara
+        #   Kahu'", displacing the accurate sentence the absence machinery
+        #   had already produced: that the term appears in no recorded
+        #   passage, entity name or value. A place name is not a field, and
+        #   `absent_literals` answers it better.
+        #
+        # ENTITY is the role that must stay out. A person or a place the
+        # records lack is answered by the absence and clarification paths,
+        # which measure it properly; both false denials above were entity
+        # terms. A VALUE stays in, because a value that IS recorded is
+        # already in the known set via `value_locations` and so cannot be
+        # denied -- and because the reader tags the same term either way:
+        # MEASURED, "Form 154" came back as an attribute on one run and a
+        # value on the next, so accepting only attributes made the honest
+        # "no field for Form 154" answer appear roughly half the time.
+        if getattr(reading, "role", None) not in {"attribute", "value"}:
+            continue
+        pieces = [w for w in _words(term) if len(w) > 3]
+        if not pieces:
+            continue                    # too short to judge
+        # Every word of the term has to be unknown. A term sharing even one
+        # word with the recorded vocabulary is something the records touch,
+        # and the plan is the right place to settle it.
+        if all(not _is_known_word(piece, known) for piece in pieces):
+            unrecorded.append(term)
+    return unrecorded[:4]
+
+
+def _is_known_word(piece: str, known: list[str]) -> bool:
+    """Whether one word of a question names something the records hold.
+
+    MORE PERMISSIVE THAN `_same_word`, on purpose. This decides whether to
+    tell a reader that their subject is not recorded here, and a false
+    denial is far worse than a missed one: it tells an officer to stop
+    looking for something that is in front of them.
+
+    MEASURED: the first version used `_same_word` alone, whose four-
+    character floor exists to stop "car" standing in for "carried". "FIR" is
+    three characters, so the question's "FIRs" never matched the recorded
+    population "FIR", and the answer opened by claiming these records carry
+    no field for FIRs -- of which there are 75. Hence the plain plural
+    comparison below, which has no floor.
+    """
+    if any(piece == word for word in known):
+        return True
+    for word in known:
+        short, long = sorted((piece, word), key=len)
+        if short and (long == short + "s" or long == short + "es"):
+            return True
+    return any(_same_word(piece, word) for word in known)
+
+
+def missing_all_parts(understanding) -> list[str]:
+    """Every part the reader named, as a question in its own right.
+
+    `QuestionPart.ask` is already phrased as a standalone question -- the
+    reader writes "How many records are still under trial?" rather than a
+    fragment -- which is what makes answering them one at a time possible
+    without asking the model to rewrite anything.
+    """
+    out: list[str] = []
+    for part in (getattr(understanding, "parts", None) or []):
+        text = (getattr(part, "text", None) or getattr(part, "ask", None) or "").strip()
+        if text:
+            out.append(text)
+    return out
+
+
+def should_name_unrecorded(unrecorded, status, already_measured) -> bool:
+    """Whether to tell the reader a field they asked about does not exist.
+
+    The note explains why something could NOT be counted, so it belongs on
+    a run that did not manage to count it, and nowhere else. Both boundaries
+    were learned from live answers:
+
+      * "کتنی FIR میں PPC کا حوالہ ہے؟" answered 61 correctly and then
+        appended "These records carry no field for 'حوالہ'" -- true, since
+        حوالہ ("reference") is not a field name, and pure noise on a
+        complete answer.
+
+      * "does Bhara Kahu appear anywhere in the records" had already
+        produced the accurate sentence from an exhaustive check over every
+        passage, entity name and value. The note displaced it with a vaguer
+        one about fields, which is the wrong claim for a place name.
+
+    A clarification is excluded too: it is a question back to the reader,
+    not a failure to count.
+    """
+    if not unrecorded or already_measured:
+        return False
+    return status not in {"answered", "clarification"}
+
+
+class _AnswerEachPart(Exception):
+    """A compound question, to be answered one part at a time.
+
+    Not an error. It carries the parts the reader already identified, so
+    `Runtime.run` can answer each as its own question instead of demanding
+    one plan that covers them all.
+    """
+
+    def __init__(self, parts: list[str]):
+        super().__init__("answer each part separately")
+        self.parts = parts
+
+
+def _population_asked_for(question, classification, concepts, understanding):
+    """The record type a counting question counts, decided before the operation.
+
+    MEASURED, and the reason this exists: "how many FIRs cite the PPC" was
+    answered **198** three runs in four, because the planner chose
+    `count_assertions` -- which counts statute-act STATEMENTS -- instead of
+    `count_entities(FIR)`, which counts FIR RECORDS and returns 61. Both are
+    well-formed plans over real concepts. Only one answers the question that
+    was asked.
+
+    The question fixes the population. "How many FIRs" counts FIRs whatever
+    else the sentence contains, so the population is read from the question's
+    own words against the entity types the catalog actually has -- and the
+    operation then has to agree with it, rather than the operation being
+    chosen freely and the population inferred from it afterwards.
+
+    Returns the concept id of the entity type, or None when the question
+    names no record type this corpus has -- in which case nothing is forced
+    and the planner's own choice stands.
+    """
+    if not classification or getattr(classification, "category", None) != "count":
+        return None
+    asked = _words(question or "")
+    for reading in (getattr(understanding, "terms", None) or []):
+        asked.extend(_words(reading.term))
+        for variant in (reading.variants or []):
+            asked.extend(_words(variant))
+    if not asked:
+        return None
+    # Only entity types are populations. A property or a relation cannot be
+    # counted as a population, and offering one would be the same mistake a
+    # step further on.
+    best, best_score = None, 0
+    for key, concept in (concepts or {}).items():
+        if getattr(concept, "kind", None) != "entity_type":
+            continue
+        label_words = _words(getattr(concept, "label", ""))
+        if not label_words:
+            continue
+        # Every word of the label has to be present, so "police station"
+        # does not match a question that only says "police".
+        if all(any(_same_word(lw, aw) for aw in asked) for lw in label_words):
+            if len(label_words) > best_score:
+                best, best_score = key, len(label_words)
+    return best
+
+
+def values_covered_by(asked: str, recorded: list[dict]) -> list[str]:
+    """Which RECORDED values the asked word covers, matched word to word.
+
+    MEASURED, and the whole reason this function exists: asked how many
+    cases are completed and how many still in process, the plan compiled
+    `conviction status = 'completed'`. The values this corpus stores are
+
+        Under trial                               30
+        Convicted, on bail pending appeal          1
+        Sub judice, external prior case            1
+        Under trial, priority hearing requested    1
+
+    "completed" is not among them and never will be -- it is a READING of
+    the ones that are. The literal filter matched zero rows, the ladder fell
+    back to `search`, and search cannot produce a count, so an answer of "1
+    completed, 32 in process" was reported as "0 of 602 documents checked".
+
+    Matched on word stems, the same comparison `unused_terms` uses, so
+    "completed" reaches "Convicted" only if they share a stem -- they do not,
+    which is correct: this function finds what the records SAY, and a reading
+    that no recorded value supports returns nothing rather than guessing.
+    What it does catch is the common case, where the asked word IS one of the
+    words a stored value is written with: "under trial", "trial", "bail",
+    "convicted", "mufroor".
+
+    Returns the values, longest-matching first, or [] when the asked word
+    describes no recorded value -- which is itself a finding, and the caller
+    reports it instead of filtering on nothing.
+    """
+    asked_words = _words(asked)
+    if not asked_words or not recorded:
+        return []
+    hits: list[tuple[int, int, str]] = []
+    for row in recorded:
+        value = str(row.get("value") or "")
+        value_words = _words(value)
+        if not value_words:
+            continue
+        matched = sum(1 for aw in asked_words
+                      if any(_same_word(aw, vw) for vw in value_words))
+        if matched:
+            hits.append((matched, int(row.get("rows") or 0), value))
+    # Most of the asked words matched first, then the commonest value.
+    hits.sort(key=lambda h: (-h[0], -h[1], h[2]))
+    return [value for _, _, value in hits]
+
+
+async def widen_scope_that_excludes_everything(plan, concepts, store) -> list[str]:
+    """Stop a case-scoped plan from counting zero of a record type with no case.
+
+    MEASURED, from a real user's session. Four questions in a row returned
+    "the service could not complete this part", and every one of them asked
+    about criminal records, citizen-service applications or walk-in
+    complaints. Their fifth question, about police stations, answered
+    correctly. The difference was not the question's shape:
+
+        endpoint            records   attached to a case
+        fir                      73   all
+        roznamcha                74   all but one
+        criminal-records         33   NONE
+        pkm                      14   NONE
+        cms                       4   NONE
+
+    `source_scope="case_documents"` compiles to `cardinality(case_ids)>0`,
+    so a plan counting criminal records that way asks for the intersection
+    of "criminal record" and "attached to a case", which is empty. The
+    answer came back 0 over a population of 0 documents, which the runtime
+    correctly refuses to report as a factual zero -- and so the whole run
+    failed for a question whose answer is 33.
+
+    The planner cannot know which record types carry case links; nothing
+    told it. Rather than ask it again, the two counts are measured and the
+    scope is corrected when, and only when, the narrower scope would see
+    nothing while the wider one sees something. A population that is
+    genuinely empty everywhere is left alone, because that is a real zero
+    and must stay one.
+    """
+    notes: list[str] = []
+    if not hasattr(store, "population_by_scope"):
+        return notes
+    for op in plan.outputs:
+        if op.source_scope != "case_documents" or not op.subject_type:
+            continue
+        try:
+            counted = await store.population_by_scope(op.subject_type)
+        except Exception:                                   # noqa: BLE001
+            logger.debug("population by scope unavailable", exc_info=True)
+            continue
+        inside, anywhere = counted["in_case_documents"], counted["anywhere"]
+        if inside == 0 and anywhere > 0:
+            label = getattr(concepts.get(op.subject_type), "label", "?")
+            op.source_scope = "all"
+            notes.append(
+                "widened %r from case documents to all documents: none of its "
+                "%d record(s) are attached to a case, so the narrower scope "
+                "would have counted zero of them" % (label, anywhere))
+    return notes
+
+
+async def resolve_value_filters(plan, concepts, store, trace=None) -> list[str]:
+    """Turn a filter on a word nobody recorded into a filter on what IS recorded.
+
+    An equality filter whose value occurs in none of the predicate's stored
+    values cannot match a row, so it is not a filter -- it is a guess that
+    compiles. Here it becomes an `in` over the values the asked word
+    actually covers, which keeps the answer an exhaustive SQL count with
+    citations rather than a ranked passage list that cannot count at all.
+
+    A value that IS recorded is left exactly as it is: "PPC" is a real
+    stored value and must not be widened into anything else.
+    """
+    notes: list[str] = []
+    if not hasattr(store, "recorded_values"):
+        return notes
+    for op in plan.outputs:
+        for f in (op.filters or []):
+            # ── A SUPPLIED VALUE SET IS SNAPPED TO THE RECORDED STRINGS ───
+            #
+            # MEASURED: shown the four values `conviction status` holds, the
+            # planner filtered `in (...)` with its own near-copies of them
+            # and the SQL matched nothing -- "this filter matched none of
+            # them, so the field is wrong", which is a true statement about
+            # a plan that was actually right. A model asked to transcribe an
+            # exact string is the same failure as a model asked to
+            # transcribe a UUID, so the string is resolved here instead.
+            if f.operator in {"in", "not_in"}:
+                concept = (concepts or {}).get(f.predicate_id)
+                if getattr(concept, "value_type", None) != "text":
+                    continue
+                try:
+                    recorded = await store.recorded_values(f.predicate_id)
+                except Exception:                           # noqa: BLE001
+                    continue
+                if not recorded:
+                    continue
+                exact = {str(r["value"]).lower(): str(r["value"]) for r in recorded}
+                snapped: list[str] = []
+                for supplied in (f.values or []):
+                    text = str(supplied).strip()
+                    if not text:
+                        continue
+                    if text.lower() in exact:
+                        snapped.append(exact[text.lower()])
+                        continue
+                    covered = values_covered_by(text, recorded)
+                    if covered:
+                        snapped.append(covered[0])
+                        notes.append("matched %r to the recorded value %r"
+                                     % (text, covered[0]))
+                kept = list(dict.fromkeys(snapped))
+                if kept and kept != list(f.values or []):
+                    f.values = kept[:40]
+                elif not kept:
+                    notes.append(
+                        "none of the values given for %r are recorded; the "
+                        "recorded values are: %s"
+                        % (getattr(concept, "label", "?"),
+                           ", ".join(str(r["value"]) for r in recorded[:6])))
+                continue
+            if f.operator != "eq" or not isinstance(f.value, str) or not f.value.strip():
+                continue
+            concept = (concepts or {}).get(f.predicate_id)
+            if getattr(concept, "value_type", None) != "text":
+                continue
+            try:
+                recorded = await store.recorded_values(f.predicate_id)
+            except Exception:                               # noqa: BLE001
+                logger.debug("recorded values unavailable", exc_info=True)
+                continue
+            if not recorded:
+                continue
+            asked = f.value.strip()
+            stored = {str(r.get("value") or "").lower() for r in recorded}
+            if asked.lower() in stored:
+                continue                        # a real recorded value; leave it
+            covered = values_covered_by(asked, recorded)
+            label = getattr(concept, "label", "?")
+            if covered:
+                f.operator = "in"
+                f.values = covered[:40]
+                f.value = None
+                notes.append(
+                    "%s %r is not a recorded value of %r; matched the %d value(s) "
+                    "that are: %s" % ("filter", asked, label, len(f.values),
+                                      ", ".join(f.values[:4])))
+            else:
+                # Reported, not silently filtered on nothing. The caller
+                # decides; a count over a value the records do not hold is
+                # not a zero, it is an unanswerable filter.
+                notes.append(
+                    "%r is not a recorded value of %r, and no recorded value "
+                    "is written with that word. Recorded values are: %s"
+                    % (asked, label,
+                       ", ".join(str(r["value"]) for r in recorded[:6])))
+    return notes
+
+
+def fill_slots(plan, question, classification, concepts, understanding,
+               grounded) -> list[str]:
+    """Complete what the question REQUIRES and the plan left empty.
+
+    WHY THIS IS DONE IN CODE AND NOT ASKED FOR AGAIN
+
+    Three failures measured on this corpus were all the same shape -- a
+    required thing left empty or a population inferred from the operation
+    instead of from the question:
+
+      "how many FIRs cite the PPC"    -> count_assertions, no population -> 198, not 61
+      "FIRs registered in June 2026"  -> list(FIR), no time bound at all
+      "does Bhara Kahu appear"        -> search(text=None), a search for nothing
+
+    Every one of them was handed back to the planner as a rejection, and the
+    repair ladder spent rungs re-proposing variations. But none of them
+    needed a model: the population is in the question, the search text is in
+    the question, and whether a bound is missing is a fact about the plan.
+    Filling them here costs no round trip, cannot hallucinate, and is the
+    same every run -- which is the opposite of what the ladder was doing.
+
+    Mutates `plan` in place and returns a list of what it filled, for the
+    trace, so a completed plan is visible rather than silently different
+    from what the planner said.
+    """
+    filled: list[str] = []
+
+    # ── THE POPULATION OF A COUNT COMES FROM THE QUESTION ─────────────────
+    population = _population_asked_for(question, classification, concepts,
+                                       understanding)
+    if population is not None:
+        label = getattr(concepts.get(population), "label", "?")
+        for op in plan.outputs:
+            if op.operation == "count_assertions" and op.subject_type is None:
+                op.operation = "count_entities"
+                op.subject_type = population
+                filled.append(
+                    f"counted {label} records rather than statements, because "
+                    f"the question asks how many {label}")
+            elif op.operation == "count_entities" and op.subject_type is None:
+                op.subject_type = population
+                filled.append(f"population set to {label}")
+
+    # ── A SEARCH FOR NOTHING FINDS NOTHING ────────────────────────────────
+    #
+    # `search` with no text is not a wide search, it is an empty one. The
+    # text the question was about is already measured: the grounded forms
+    # are exactly the words that occur in these records.
+    usable = [f for f in (grounded or []) if f and f.strip()]
+    # A term the records do NOT contain still has to be searched FOR, because
+    # that is how the absence becomes a measured finding: `ScopedStore`
+    # fills `coverage.absent_literals` for a searched phrase it cannot find,
+    # and `absent_literals` then reports it as the answer.
+    #
+    # MEASURED, and the reason this fallback exists: "does Bhara Kahu appear
+    # anywhere in the records" produced `search(text=None)`. Leaving it empty
+    # ran a search for nothing, the plan was rejected, and the repair ladder
+    # turned it into `count_entities(police station)` -- answering **"0
+    # police station records are recorded"**, a confident wrong number in
+    # place of the true answer, which is that the term appears nowhere.
+    unread = [reading.term for reading in (getattr(understanding, "terms", None) or [])
+              if reading.term and len(reading.term.split()) <= 6
+              and len(reading.term) <= 60]
+    # AN EXISTENCE QUESTION IS ABOUT ONE PHRASE, SO IT IS SEARCHED FOR ALONE.
+    #
+    # `ScopedStore` can only record an absence for a phrase short enough to
+    # be a recordable value -- six words, sixty characters -- because a
+    # sentence that "does not appear" is not a finding about the records.
+    # MEASURED: filling the text with a bag of six grounded forms produced a
+    # phrase too long to check, so `absent_literals` stayed empty, the
+    # existence guard below never fired, and the ladder answered "0 police
+    # station records" instead of "it appears nowhere".
+    # NORMALISED, NOT MERELY FILLED. An existence question is about one
+    # phrase, so that phrase is what gets searched for whether the planner
+    # left the text empty or wrote a sentence of its own. MEASURED: the
+    # version of this that only filled an EMPTY text fixed the question in
+    # isolation and still failed inside the battery, because that run's
+    # planner supplied its own long search string -- too long to check, so
+    # the absence went unmeasured again and the ladder spent nine calls.
+    asked_whether = getattr(classification, "category", None) == "existence"
+    for op in plan.outputs:
+        if op.operation != "search":
+            continue
+        if asked_whether and unread and (op.text or "").strip() != unread[0]:
+            op.text = unread[0]
+            filled.append(
+                f"searched for {unread[0]!r} alone, so its presence or "
+                "absence in the records is measurable")
+        elif not (op.text or "").strip():
+            if usable:
+                op.text = " ".join(usable[:6])
+                filled.append("search text set from the question's grounded terms")
+            elif unread:
+                # Searched exactly as asked, so "not found" is about the
+                # records rather than about an empty query.
+                op.text = unread[0]
+                filled.append(
+                    f"searched for {unread[0]!r}, which occurs in no record, so "
+                    "the absence is measured rather than inferred")
+            else:
+                filled.append("search had no text and the question named no "
+                              "searchable term")
+    return filled
+
+
+def _words(text: str) -> list[str]:
+    """The words of a string, for comparing a question against a plan.
+
+    Urdu and Arabic script are kept as word characters; `\\w` alone would
+    split مدعی into nothing useful on some builds.
+    """
+    return [w for w in re.split(r"[^0-9A-Za-z؀-ۿ]+", (text or "").lower()) if w]
+
+
+def _same_word(a: str, b: str, least: int = 4) -> bool:
+    """Whether two words are the same word wearing a different inflection.
+
+    MEASURED, and the reason this function exists: asking "how many
+    complainants are recorded", gpt-5.5 planned
+
+        count_entities(person) where `complainant of` exists
+
+    -- the correct plan, the one that returns 71 -- and `unused_terms`
+    rejected it eight times running, because it tested
+
+        "complainants" in "... complainant of ..."
+
+    which is False. The plural has an "s" where the predicate label has a
+    space. The same question asked of "accused" passed, for no better
+    reason than that "accused" happens to be a substring of "accused in".
+    So a correct plan was thrown away on English morphology, the repair
+    ladder spent all seven rungs re-proposing it, and the run ended
+    "unavailable" for a question the system answers perfectly.
+
+    A SHARED STEM FROM THE FRONT, NOT AN ARBITRARY SUBSTRING. Inflection
+    happens at the end of a word, so two inflections of one word agree at
+    the start and diverge late: "registered" and "registration" share
+    "registr". Two different words do not: "station" and "destination"
+    share nothing from the front, though one contains the other.
+
+    Two ways to be the same word, because one rule cannot do it. A
+    PROPORTION of the shorter word does not separate the cases: "registered"
+    and "registration" share six of ten characters, 0.60, while "complain"
+    and "complete" share five of eight, 0.625 -- the false pair scores
+    HIGHER than the true one. So the test is absolute instead:
+
+      - one word is the whole front of the other ("case"/"cases",
+        "complainant"/"complainants"), which is inflection by suffix; or
+      - they share a stem long enough to be a stem rather than a
+        coincidence ("registr" + "ed"/"ation").
+
+    Both have a floor, so "car" cannot stand in for "carried" and "FIR"
+    cannot stand in for "FIRST".
+
+    Nothing here is a list of suffixes, so a plural, a participle or an
+    agreement ending the author never thought of still matches, in any
+    script, without this function being edited.
+    """
+    if a == b:
+        return True
+    short, long = (a, b) if len(a) <= len(b) else (b, a)
+    if len(short) < least:
+        return False
+    shared = 0
+    for one, other in zip(short, long):
+        if one != other:
+            break
+        shared += 1
+    stem = int(os.getenv("EVIDENCE_TERM_STEM_CHARS", "6"))
+    return shared == len(short) or shared >= stem
+
+
+def _term_appears(form: str, words: list[str], haystack: str) -> bool:
+    """Whether one reading of a term appears among the plan's own words.
+
+    The contiguous test comes first because it is the strictest and the
+    commonest: a phrase written into search text appears verbatim. Failing
+    that, every word of the term must appear somewhere in the plan, in some
+    inflection -- which is what a predicate label does to a question's
+    noun.
+    """
+    if form.lower() in haystack:
+        return True
+    pieces = _words(form)
+    return bool(pieces) and all(
+        any(_same_word(piece, word) for word in words) for piece in pieces)
 
 
 def unused_terms(plan, understanding, concepts, grounded) -> list[str]:
@@ -415,12 +1044,27 @@ def unused_terms(plan, understanding, concepts, grounded) -> list[str]:
         for item in op.filters or []:
             written.append(str(item.value or ""))
             written.append(str(getattr(item, "object_name", "") or ""))
+            # A RESOLVED VALUE SET IS THE QUESTION'S TERM, TRANSLATED.
+            #
+            # MEASURED on "کرمنل ریکارڈ سسٹم میں کتنے کیس مکمل ہو چکے ہیں":
+            # the planner correctly filtered `conviction status in ('Under
+            # trial', 'Convicted, on bail pending appeal', ...)` -- the
+            # recorded values, which are English -- and this gate rejected
+            # the plan because the Urdu words "مکمل" and "زیرِ کارروائی"
+            # appeared nowhere in it. They appeared nowhere because the
+            # records do not write them; the plan had already done the right
+            # thing. Counting the chosen values as written text lets the
+            # gate see a term that was used rather than dropped.
+            written.extend(str(v) for v in (getattr(item, "values", None) or []))
             concept = (concepts or {}).get(item.predicate_id)
             written.append(getattr(concept, "label", "") or "")
         for key in (op.relationship_path or []):
             concept = (concepts or {}).get(key)
             written.append(getattr(concept, "label", "") or "")
     haystack = " ".join(written).lower()
+    # Compared word by word as well as whole, because a question's noun and
+    # a predicate's label are the same word in different clothes.
+    haystack_words = _words(haystack)
 
     confirmed = {f.lower() for f in (grounded or [])}
     missing, used = [], False
@@ -429,7 +1073,7 @@ def unused_terms(plan, understanding, concepts, grounded) -> list[str]:
         usable = [f for f in forms if f and f.lower() in confirmed]
         if not usable:
             continue                      # not in the records; not the plan's fault
-        if any(f.lower() in haystack for f in usable):
+        if any(_term_appears(f, haystack_words, haystack) for f in usable):
             used = True
         else:
             missing.append(reading.term)
@@ -686,6 +1330,47 @@ def planning_reserve() -> int:
     return _tokens(request_preamble(QuestionPlan, PLANNING))
 
 
+def planner_request_budget() -> int:
+    """How large one planning request may be, for the provider serving it.
+
+    THE 8,000 WAS NEVER A PROPERTY OF PLANNING.
+
+    It was Groq's free-tier allowance of tokens per MINUTE, and the 413 it
+    produces is a rate condition wearing a size error's clothes (see
+    `_cloud` in model.py). Carrying that number over to a provider without
+    that cap throws away evidence for nothing.
+
+    MEASURED on "how many complainants are recorded" against gpt-5.5: the
+    budget left 3,499 tokens for the payload after the prompt and schema,
+    and **8 of 35 catalog concepts were dropped** to fit a limit that model
+    does not have. A concept that was not sent cannot be chosen, so the
+    trim was removing the planner's options and then the planner was being
+    judged on the result.
+
+    Derived from the provider rather than written down, so a key with a
+    bigger allowance is used and a smaller one is still respected. An
+    explicit setting always wins.
+    """
+    explicit = os.getenv("EVIDENCE_PLANNER_REQUEST_TOKENS")
+    if explicit:
+        try:
+            return max(1, int(explicit))
+        except ValueError:
+            pass
+    from .model import planner_provider
+    if planner_provider()["name"] == "openai":
+        # Comfortably above anything this corpus produces -- the whole
+        # catalog, every candidate and the retrieved passages together have
+        # never reached 30,000 tokens -- so nothing is trimmed, while a
+        # corpus that grows tenfold still cannot send a single request that
+        # costs a fortune. 200,000 was the context window, which is not the
+        # same thing as a sensible request: INPUT TOKENS ARE BILLED, and the
+        # repair ladder re-sends the payload up to eight times, so an
+        # unbounded request is an unbounded bill multiplied by eight.
+        return int(os.getenv("EVIDENCE_PLANNER_REQUEST_TOKENS_CLOUD", "40000"))
+    return int(os.getenv("EVIDENCE_PLANNER_REQUEST_TOKENS_GROQ", "8000"))
+
+
 def _tokens(value) -> int:
     """A deliberately conservative token estimate for a request fragment.
 
@@ -746,7 +1431,7 @@ def fit(payload: dict, budget: int | None = None,
     # it. MEASURED: budgeting the payload alone at 22,000 sent 24,284
     # characters -- the schema is 7,860 of them -- and trimmed nothing,
     # because the payload was never the part that crossed the line.
-    budget = (budget or int(os.getenv("EVIDENCE_PLANNER_REQUEST_TOKENS", "8000"))) - reserve
+    budget = (budget or planner_request_budget()) - reserve
     # SHED THE RETROSPECTIVE BEFORE THE EVIDENCE.
     #
     # Only the catalog used to be trimmed, so when a repair carried the
@@ -902,7 +1587,12 @@ subjects hold it, and how many hold it EXACTLY. When a filter compares against a
 question names, use the concept value_locations reports for that literal -- prefer the entry with
 the highest exact count. A label that merely sounds right is not evidence; a recorded value is.
 If value_locations is empty for a literal, the records do not hold it in any field, so filtering
-any field for it yields zero and is not the question worth asking. Counts of records,
+any field for it yields zero and is not the question worth asking.
+fields_record_these_values lists, for those fields, EVERY value they actually hold. The question's
+own word is usually not one of them: "completed" is a reading of statuses like "Convicted, on bail
+pending appeal", and "open" is a reading of "Under trial". Filter on the recorded values, never on
+the question's word -- use operator "in" with values set to the recorded strings it covers, as many
+as apply. When no recorded value corresponds to the asked category, say so instead of filtering. Counts of records,
 assertions, entities and physical quantities differ. Never sum text or infer an item quantity from caliber.
 Every relationship has forward/inverse direction, including filters, grouping and traversal.
 Properties have no inverse. Similar names generate candidates, not merged identities.
@@ -1022,10 +1712,18 @@ class Runtime:
         self.strategy = None
         self.failures = []
         self.trace = None
+        self.unrecorded = []
+        self.vocabulary = []
         try:
             async with _until(deadline):
-                answer = await self._run(run_id,question,scope,state,history,preference,
-                                         deadline=deadline,progress=progress,cancelled=cancelled,now=now)
+                try:
+                    answer = await self._run(run_id,question,scope,state,history,preference,
+                                             deadline=deadline,progress=progress,cancelled=cancelled,now=now)
+                except _AnswerEachPart as split:
+                    answer = await self._each_part(
+                        run_id, question, split.parts, scope, preference,
+                        deadline=deadline, progress=progress, cancelled=cancelled,
+                        now=now)
         except TimeoutError:
             answer = Answer(run_id=run_id,status="unavailable",
                             text="The request reached its deadline. No factual zero was inferred.",
@@ -1044,6 +1742,48 @@ class Runtime:
             answer = Answer(run_id=run_id,status="unavailable",
                             text="The evidence service could not complete this request. No factual zero was inferred.",
                             health={"failure":type(exc).__name__})
+        # ── SAY WHAT THE RECORDS DO NOT HOLD, RATHER THAN NOTHING ─────────
+        #
+        # Applied here because every path out of `_run` -- planned,
+        # planless, repaired, failed -- lands in this one place, and the
+        # statement is worth making on all of them.
+        #
+        # MEASURED on a real user's session: "Are all FIRs registered on the
+        # standard cognizable-offense form (Form 154)?" spent 133 seconds
+        # and seven planning attempts before reporting "an answer has not
+        # yet been established". There is no form field in these records, so
+        # no plan could have answered it, and the reply told the reader
+        # nothing they could act on. Only added when the run established
+        # NOTHING -- an answer that stands on its own is never diluted with
+        # a note about what else is missing.
+        # A MEASURED ABSENCE OUTRANKS THIS. When `absent_literals` named the
+        # phrase, the records were checked exhaustively and the sentence it
+        # produced is the better answer; adding "no field for that" on top
+        # only muddies it.
+        already_measured = any(
+            getattr(getattr(r, "coverage", None), "absent_literals", None)
+            for r in (answer.results or []))
+        if should_name_unrecorded(getattr(self, "unrecorded", None),
+                                  answer.status, already_measured):
+            named = ", ".join("'%s'" % t for t in self.unrecorded)
+            body = (answer.text or "").strip()
+            if answer.claims and body:
+                # HALF A QUESTION CAN STILL BE ANSWERED, AND THE OTHER HALF
+                # NAMED. MEASURED: "how many items in the evidence store
+                # (malkhana) vs. the weapons register" answered the weapons
+                # half correctly with 32 and said nothing at all about the
+                # malkhana, which the records do not hold a field for. The
+                # reader was left to assume the silence meant zero.
+                answer.text = (
+                    "%s\n\nThese records carry no field for %s, so that part "
+                    "cannot be counted. It is not a zero." % (body, named))
+            else:
+                held = ", ".join(sorted(dict.fromkeys(self.vocabulary))[:12]) or "none"
+                answer.text = (
+                    "These records carry no field for %s, so no count or filter "
+                    "over them is possible. What they do record includes: %s.%s"
+                    % (named, held, ("\n\n" + body) if body else ""))
+            answer.health["unrecorded_terms"] = self.unrecorded
         # A trace is most valuable on the runs that FAILED, so it is
         # attached on every exit, including the two exception paths above.
         steps = getattr(getattr(self, "trace", None), "steps", None)
@@ -1055,6 +1795,90 @@ class Runtime:
         if steps and not answer.health.get("trace"):
             answer.health["trace"] = steps
         return answer
+
+    async def _each_part(self, run_id, question, parts, scope, preference, *,
+                         deadline, progress=None, cancelled=None, now=None):
+        """Answer a compound question one part at a time, then put it together.
+
+        Each part runs as a whole question -- its own plan, its own slot
+        filling, its own scope correction, its own citations -- because that
+        is what it is. No part may split again: the reader phrased each one
+        as a single ask, and a runaway split would be a loop.
+
+        Conversation state and history are deliberately NOT passed down. A
+        part is not a follow-up turn; handing it the prior turn's plan would
+        invite it to inherit a subject it was never about.
+
+        An answer is assembled from whatever the parts established. If one
+        part answers and another cannot, that is reported as partial with
+        both outcomes shown, rather than discarding the half that worked --
+        which is what the previous behaviour did.
+        """
+        limit = max(2, int(os.getenv("EVIDENCE_MAX_PARTS", "4")))
+        chosen = parts[:limit]
+        self.stage = "parts"
+        texts: list[str] = []
+        statuses: list[str] = []
+        results, claims = [], []
+        for index, part in enumerate(chosen, 1):
+            if cancelled is not None and cancelled():
+                break
+            try:
+                piece = await self._run(uuid4(), part, scope, None, None, preference,
+                                        deadline=deadline, progress=progress,
+                                        cancelled=cancelled, now=now,
+                                        allow_split=False)
+            except Exception as exc:                        # noqa: BLE001
+                logger.exception("part %d failed: %s", index, type(exc).__name__)
+                statuses.append("unavailable")
+                self.failures.append({"stage": "parts", "part": index,
+                                      "error_type": type(exc).__name__})
+                continue
+            statuses.append(piece.status)
+            results.extend(piece.results or [])
+            claims.extend(piece.claims or [])
+            body = " ".join((piece.text or "").split())
+            if body:
+                texts.append(body)
+        answered = [s for s in statuses if s == "answered"]
+        if not statuses:
+            status = "unavailable"
+        elif len(answered) == len(statuses):
+            status = "answered"
+        elif answered:
+            status = "partial"
+        else:
+            # Nothing was established. Keep the strongest thing any part
+            # managed to say rather than inventing a summary of failures.
+            status = next((s for s in ("partial", "clarification", "not_extracted")
+                           if s in statuses), "unavailable")
+        joined = "\n\n".join(texts) or (
+            "None of the parts of this question could be established. "
+            "No factual zero was inferred.")
+        return Answer(run_id=run_id, status=status, text=joined,
+                      results=results, claims=claims,
+                      health={"answered_by_parts": len(chosen),
+                              "part_questions": chosen,
+                              "part_statuses": statuses,
+                              "parts_offered": len(parts)})
+
+    async def _no_case_records(self) -> bool:
+        """Whether this scope can reach no case records at all, measured.
+
+        Only a measured zero counts. A store that cannot answer -- one
+        without the method, one that raises, one that returns something
+        other than a number, which is what a mocked store does -- leaves
+        this False, so the run proceeds and plans as usual. The guard this
+        serves tells a reader they have no access, and that sentence must
+        rest on a count, never on a failure to get one.
+        """
+        try:
+            reachable = await self.store.case_documents()
+        except Exception:                                   # noqa: BLE001
+            logger.debug("case document count unavailable", exc_info=True)
+            return False
+        return isinstance(reachable, int) and not isinstance(reachable, bool) \
+            and reachable == 0
 
     async def _resolved(self, question, trace):
         """Entity candidates for the question, with how each one matched."""
@@ -1070,7 +1894,8 @@ class Runtime:
         return found
 
     async def _run(self, run_id, question, scope, state=None, history=None, preference="auto",
-                   *, deadline, progress=None, cancelled=None, now=None):
+                   *, deadline, progress=None, cancelled=None, now=None,
+                   allow_split=True):
         # None means unbounded; see Runtime.run.
         if state and state.scope_fingerprint != scope.fingerprint():
             state, history = None, []
@@ -1118,6 +1943,63 @@ class Runtime:
         #
         # Its own call, its own trace step, its own validator, and the
         # result actually changes what happens next.
+        # ── NOTHING TO SEARCH IS AN ANSWER, NOT A MALFUNCTION ─────────
+        #
+        # MEASURED: an account with no case assignments asked "how many FIRs
+        # cite the PPC". Row-level security correctly showed it no documents,
+        # and the run then spent 115 seconds over seven planning attempts --
+        # every one rejected for not naming terms that cannot appear in an
+        # empty catalog -- before reporting "the local evidence service could
+        # not complete this request", which reads as a fault in the service.
+        #
+        # The scope is knowable in one query, so it is asked first.
+        # NO CASES ASSIGNED IS AN ANSWER, NOT A MALFUNCTION.
+        #
+        # My first attempt at this tested the wrong thing: whether ANY
+        # document was visible. MEASURED, for an account with no case
+        # assignments: 6,977 documents and 17 concepts ARE visible, because
+        # row-level security admits global reference material. What is
+        # hidden is the 73 case-scoped FIRs -- so a question about case
+        # records found an apparently healthy corpus with none of the
+        # records it needed, and spent 115 seconds over seven rejected plans
+        # before reporting "the local evidence service could not complete
+        # this request".
+        #
+        # The checkable fact is the scope itself: no case ids means no case
+        # records, whatever else is readable.
+        self.stage = "scope"
+        # AN EMPTY CASE LIST IS NOT THE SAME FACT AS NO ACCESS.
+        #
+        # This used to fire on `not scope.case_ids`, which reads a missing
+        # FILTER as a missing PERMISSION. Any caller that drives the runtime
+        # without a case filter -- which is how the runtime's own tests
+        # inspect the planner payload -- was told it had no cases assigned
+        # and the run ended before a plan was ever asked for.
+        #
+        # The checkable fact is how many case records this scope can
+        # actually reach, counted under its own row-level security. When
+        # that cannot be measured the guard stays shut: a check that does
+        # not know must not claim a denial.
+        if not scope.case_ids and not scope.project_id and await self._no_case_records():
+            try:
+                visible = await self.store.visible_documents() if hasattr(
+                    self.store, "visible_documents") else None
+            except Exception:                            # noqa: BLE001
+                visible = None
+            await trace.step("scope", "This account has no cases assigned",
+                             case_documents=0, other_documents_visible=visible,
+                             note="general reference material may be readable, "
+                                  "but no case records are")
+            return Answer(
+                run_id=run_id, status="unavailable",
+                text=("No cases are assigned to you, so no case records -- FIRs, "
+                      "complaints, roznamcha entries -- are visible to this "
+                      "account. That is an access scope, not a finding about the "
+                      "records. Ask whoever administers the cases to assign "
+                      "yours."),
+                health={"failure": "no_cases_assigned",
+                        "case_documents": 0, "other_documents": visible})
+
         self.stage = "classification"
         classification = None
         try:
@@ -1236,7 +2118,24 @@ class Runtime:
         grounded_forms: list[str] = []
         if understanding:
             self.stage = "grounding"
-            proposed = understanding.all_forms()
+            # ── EVERY TERM EXPANDED, NOT ONLY THE ONES NOBODY COULD READ ──
+            #
+            # The reader's own variants were the whole expansion, so a term
+            # it read confidently got no more forms than it happened to
+            # think of. MEASURED: "complainants" was read without its
+            # singular on three runs in five, and the predicate the records
+            # carry is `complainant of` -- so the correct plan was rejected
+            # for a missing "s". A plural is not a judgement call, and it
+            # does not belong to the model.
+            #
+            # Derived in code, for every term: inflections in both scripts,
+            # each word of a phrase, and the phrase's own word runs. Every
+            # one is only a CANDIDATE -- `ground_forms` below keeps only
+            # what the records actually contain, so a wrong guess costs a
+            # row and a missing one costs an answer.
+            read = understanding.all_forms()
+            proposed = term_forms.expand_all(read)
+            derived = [f for f in proposed if f not in set(read)]
             checked = True
             try:
                 counts = await self.store.ground_forms(proposed)
@@ -1267,6 +2166,12 @@ class Runtime:
                 else "Forms could NOT be checked; kept unvalidated",
                 retrieval_candidates=grounded_forms,
                 rejected=rejected,
+                # What the reader gave, and what expansion added on top of
+                # it, kept apart so a form that found records can be traced
+                # to whichever of the two produced it.
+                read_by_the_model=read,
+                derived_in_code=derived,
+                forms_that_occur=[f for f in grounded_forms if counts.get(f)],
                 validated=False,
                 occurrence_checked=checked,
                 note=("occurrence is a retrieval signal, not semantic validation"
@@ -1407,6 +2312,45 @@ class Runtime:
         # values is never cut: that is the one the plan most likely needs, and
         # `statute act` ranked 37th of 41 for the question it answers.
         located = {UUID(v["concept_id"]) for v in value_locations}
+        # ── THE VALUES A STATUS-LIKE FIELD ACTUALLY HOLDS ─────────────────
+        #
+        # Shown, not guessed at. A question's category is usually NOT a
+        # stored value: "how many cases are completed" asks about
+        # `conviction status`, whose recorded values are "Under trial",
+        # "Convicted, on bail pending appeal" and "Sub judice, external
+        # prior case". Nothing lexical connects "completed" to "Convicted",
+        # so `values_covered_by` correctly finds none -- but a planner that
+        # can SEE the four values maps them itself and filters on the right
+        # ones.
+        #
+        # Only for the fields the question's own values already pointed at,
+        # and only short enumerable ones: a field holding free narrative has
+        # no value set worth listing, and this is a hint, not a catalog.
+        recorded_value_sets = []
+        if located and hasattr(self.store, "recorded_values"):
+            for key in list(located)[:6]:
+                concept = ranked_catalog.get(key)
+                if getattr(concept, "value_type", None) != "text":
+                    continue
+                try:
+                    values = await self.store.recorded_values(key, limit=25)
+                except Exception:                            # noqa: BLE001
+                    continue
+                # A field with one value per row is an identifier, not a
+                # status; listing those teaches the planner nothing and
+                # costs the payload a great deal.
+                if 1 < len(values) <= 25:
+                    recorded_value_sets.append({
+                        "field": getattr(concept, "label", str(key)),
+                        "records_these_values": [
+                            {"value": v["value"], "rows": v["rows"]} for v in values]})
+        if recorded_value_sets:
+            await trace.step(
+                "recorded_values",
+                "The values these fields actually hold",
+                fields=[v["field"] for v in recorded_value_sets],
+                note="shown to the planner so a question's category can be "
+                     "mapped onto the values the records really use")
         concepts = {key:c for index,(key,c) in enumerate(ranked_catalog.items())
                     if index < 24 or key in located
                     or c.kind in {'entity_type','relation'} or c.value_type == 'date'}
@@ -1431,6 +2375,28 @@ class Runtime:
         # against a frozen clock rather than against the day the suite
         # happens to run.
         candidates = await self._resolved(question, trace)
+        # ── WHAT THE QUESTION ASKS ABOUT THAT THESE RECORDS DO NOT HOLD ───
+        #
+        # Measured once, before planning, so a question about a field that
+        # does not exist can be answered honestly instead of searched for
+        # over two minutes. See `asks_about_nothing_recorded`.
+        self.unrecorded = []
+        try:
+            if hasattr(self.store, "recorded_vocabulary"):
+                vocabulary = await self.store.recorded_vocabulary()
+                self.vocabulary = list(vocabulary or [])
+                self.unrecorded = asks_about_nothing_recorded(
+                    understanding, vocabulary, value_locations, candidates,
+                    grounded_forms)
+        except Exception:                                # noqa: BLE001
+            logger.debug("recorded vocabulary unavailable", exc_info=True)
+            self.unrecorded = []
+        if self.unrecorded:
+            await trace.step(
+                "unrecorded", "The question names things these records do not hold",
+                terms=self.unrecorded,
+                note="no concept, no recorded value and no entity name matches "
+                     "these, so no plan can answer about them")
         clock = now or datetime.now(ZoneInfo(config.EVIDENCE_TIMEZONE))
         payload = {"question": question,
                    "understanding": understanding.model_dump(mode="json") if understanding else None,
@@ -1440,6 +2406,11 @@ class Runtime:
                    "entity_candidates": candidates,
                    # Measured from the records, not guessed from labels.
                    "value_locations": value_locations,
+                   # What each of those fields actually records, so a filter
+                   # names a value the records hold rather than the word the
+                   # question used for it. Use `in` with `values` to match
+                   # several at once.
+                   "fields_record_these_values": recorded_value_sets,
                    # Advice that only applies to this kind of question.
                    "for_this_kind_of_question": CATEGORY_GUIDANCE.get(
                        "_plan_note_" + (getattr(classification, "category", "") or ""), None),
@@ -1618,6 +2589,49 @@ class Runtime:
                                      {"record": getattr(concepts.get(t), "label", str(t)),
                                       "records": n} for t, n in holders[:2]]}
                                 for key, holders in list(carried.items())[:6]]
+                        # ── COMPLETE WHAT THE QUESTION REQUIRES ───────────
+                        #
+                        # Before any gate runs, because three of the
+                        # failures these gates were rejecting are computable
+                        # from the question and did not need a model. See
+                        # `fill_slots`.
+                        completed = fill_slots(plan, question, classification,
+                                               concepts, understanding,
+                                               grounded_forms)
+                        # ── A FILTER ON A WORD NOBODY RECORDED ────────────
+                        #
+                        # Resolved against the values the predicate actually
+                        # holds, so a question's category reaches the
+                        # statuses that carry it instead of matching zero
+                        # rows and falling through to a search that cannot
+                        # count. See `resolve_value_filters`.
+                        try:
+                            resolved = await resolve_value_filters(
+                                plan, concepts, self.store, trace)
+                        except Exception:                # noqa: BLE001
+                            logger.debug("value resolution failed", exc_info=True)
+                            resolved = []
+                        if resolved:
+                            completed = list(completed) + resolved
+                        # ── A SCOPE THAT EXCLUDES THE WHOLE POPULATION ────
+                        try:
+                            widened = await widen_scope_that_excludes_everything(
+                                plan, concepts, self.store)
+                        except Exception:                # noqa: BLE001
+                            logger.debug("scope check failed", exc_info=True)
+                            widened = []
+                        if widened:
+                            completed = list(completed) + widened
+                        if completed:
+                            await trace.step(
+                                "plan_completed",
+                                "Filled what the question requires",
+                                filled=completed,
+                                outputs=[describe_operation(o, trace)
+                                         for o in plan.outputs],
+                                note="decided in code from the question and the "
+                                     "records, so it costs no planning attempt "
+                                     "and is the same every run")
                         cannot = plan_cannot_match(plan, concepts, carried,
                                                    value_locations)
                         if cannot and carried:
@@ -1673,6 +2687,36 @@ class Runtime:
                                 "decomposition", "Plan does not cover every part",
                                 parts=wanted, outputs=len(plan.outputs),
                                 unanswered=missing)
+                            # ── ANSWER EACH PART AS ITS OWN QUESTION ──────
+                            #
+                            # This used to raise, which sent the repair
+                            # ladder after a plan that was not wrong so much
+                            # as incomplete. MEASURED on a real user's
+                            # session: four questions in a row, every one of
+                            # them compound --
+                            #
+                            #   "...criminal records, AND how many are still
+                            #    under trial?"
+                            #   "...applications AND walk-in complaints?"
+                            #   "...malkhana VS the weapons register?"
+                            #
+                            # -- and all four failed, while their one simple
+                            # question answered correctly. Compound is how
+                            # people actually ask.
+                            #
+                            # The reader has ALREADY split the question
+                            # correctly; the trace shows both parts named.
+                            # Asking one planning call to carry every part,
+                            # then rejecting it when it carries one, spends
+                            # seven rungs re-proposing variations of the same
+                            # shape. Each part is a whole question on its
+                            # own, so each is run as one -- with its own
+                            # plan, its own slots filled, its own scope
+                            # correction and its own citations.
+                            readable = [p for p in missing_all_parts(understanding)
+                                        if p]
+                            if allow_split and len(readable) > 1:
+                                raise _AnswerEachPart(readable)
                             raise InvalidPlan(
                                 "The question has %d parts and the plan has %d outputs. "
                                 "Every part needs its own output. Unanswered: %s"
@@ -1819,7 +2863,8 @@ class Runtime:
                         # stands and says what it is, because a bad answer
                         # shown with its coverage beats no answer at all.
                         if strategy_index < 5:
-                            wrong_shape = outcome_is_not_an_answer(plan, results)
+                            wrong_shape = outcome_is_not_an_answer(plan, results,
+                                                                   classification)
                             if wrong_shape:
                                 await trace.step(
                                     "plan_rejected",

@@ -8,7 +8,7 @@ from src.evidence.types import Scope
 
 
 @pytest.mark.asyncio
-@pytest.mark.parametrize('version',['2.0','2.1'])
+@pytest.mark.parametrize('version',['2.1'])
 async def test_compatible_version_selection_preserves_scope_and_no_cloud_fallback(monkeypatch,version):
     monkeypatch.setenv('EVIDENCE_WORKFLOW_VERSION',version)
     scope=Scope(user_id=uuid4(),session_id=uuid4())
@@ -55,3 +55,27 @@ async def test_compatible_version_selection_preserves_scope_and_no_cloud_fallbac
 def test_unknown_runtime_version_does_not_select_legacy_pipeline(monkeypatch):
     monkeypatch.setenv('EVIDENCE_WORKFLOW_VERSION','legacy')
     with pytest.raises(ValueError,match='no legacy fallback'):build_runtime(None)
+
+
+def test_the_frozen_kernel_refuses_to_load_when_its_seal_cannot_be_verified(monkeypatch):
+    """2.0 is sealed, and its sealed bytes no longer exist anywhere.
+
+    This case used to assert that 2.0 BUILDS AND RUNS, and it had been
+    failing. The reason is not a broken guard -- the guard is working.
+    MEASURED, 16 October 2026: only one commit ever touched
+    runtime_v2_0.py, and neither its committed form nor any line-ending
+    variant of it hashes to the value in runtime_versions.json. The seal
+    was taken from a working tree that was never committed, so the reviewed
+    copy is gone and no one can verify what 2.0 is.
+
+    Refusing is therefore the CORRECT behaviour, and this asserts it. The
+    alternative -- re-sealing to whatever is on disk -- would make the
+    manifest attest to a review that never happened, which defeats the only
+    thing a seal is for. Every request runs 2.1.
+
+    If 2.0 is ever wanted back, someone reviews runtime_v2_0.py as it now
+    stands and re-seals deliberately; this test then changes with it.
+    """
+    monkeypatch.setenv('EVIDENCE_WORKFLOW_VERSION','2.0')
+    with pytest.raises(RuntimeError,match='cannot be verified'):
+        build_runtime(None)

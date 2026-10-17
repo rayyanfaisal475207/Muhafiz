@@ -138,8 +138,30 @@ class EvidenceStore:
         # -> nothing. Devowelling is lossy, so these are CANDIDATES, not
         # identities: they are labelled cross_script so more than one of
         # them is a reason to ask which person is meant, never to merge.
+        # THE QUERY TERM IS SKELETONISED TOO, NOT JUST THE STORED LABEL.
+        #
+        # This compared `lower($1)` devowelled -- the term exactly as typed --
+        # against the ROMANISED skeleton of each stored name. That works for
+        # a Roman query and cannot work for an Urdu one: Urdu text has no
+        # [aeiou] to remove and no Latin letters to match, so the comparison
+        # was Urdu-against-Latin and always false.
+        #
+        # MEASURED: the records spell the name ذیشان, and Urdu typists
+        # routinely write زیشان -- ذ and ز are both "z" and the skeleton
+        # function already collapses them (both give 'zishan', verified).
+        #
+        #     resolve_mentions("زیشان …")  ->  0 matches, run died after 203s
+        #     resolve_mentions("ذیشان …")  -> 10 matches
+        #     resolve_mentions("zeeshan")  -> 11 matches
+        #
+        # So a Pakistani officer typing the commoner spelling got nothing,
+        # while the English spelling worked. Passing the term through the
+        # same skeleton makes Urdu-to-Urdu variants comparable, and leaves
+        # Roman input untouched: roman_skeleton() only rewrites Arabic
+        # script, so 'zeeshan' comes back 'zeeshan'.
         return [dict(r) for r in await self.conn.fetch(r"""
-            WITH q AS (SELECT regexp_replace(lower($1),'[aeiou]','','g') AS k)
+            WITH q AS (SELECT regexp_replace(roman_skeleton(lower($1)),
+                                             '[aeiou]','','g') AS k)
             SELECT DISTINCT e.entity_id,e.concept_id,e.label,e.identity_status,
                             e.canonical_id,e.identifiers->>'cnic' AS cnic,
                             'cross_script' AS match
@@ -614,6 +636,44 @@ class EvidenceStore:
             out.update(await self._ground_batch(unique[start:start + batch]))
         return out
 
+    async def visible_documents(self) -> int:
+        """How many documents this scope can actually see.
+
+        MEASURED: an account with no case assignments asked "how many FIRs
+        cite the PPC". Row-level security correctly showed it nothing, and
+        the runtime then spent 115 seconds and seven planning attempts
+        failing to build a filter over an empty corpus before reporting
+        "the local evidence service could not complete this request" --
+        which reads as a malfunction rather than as "you have no cases".
+
+        Asked once, up front, so an empty scope is answered in a second and
+        in words the reader can act on.
+        """
+        return int(await self.conn.fetchval(
+            "SELECT count(*) FROM evidence.documents") or 0)
+
+    async def case_documents(self) -> int:
+        """How many CASE records this scope can reach, which is the real question.
+
+        `visible_documents` counts everything readable, and that cannot
+        answer it: MEASURED, an account with no assignments still reads
+        6,977 documents -- statutes, circulars, general reference material
+        that row-level security lets through on purpose. A non-zero count
+        there says nothing about whether one FIR is in reach.
+
+        It is also not answerable from the scope's case id list. An empty
+        list means two different things -- "this user has no cases" and "no
+        case filter was asked for" -- and treating the second as the first
+        told a caller that drives the runtime without a case filter that it
+        had no access, which is false.
+
+        So it is counted under this scope's own row-level security, which is
+        the only thing that knows which case records this reader may see.
+        """
+        return int(await self.conn.fetchval(
+            "SELECT count(*) FROM evidence.documents "
+            "WHERE case_ids IS NOT NULL AND cardinality(case_ids) > 0") or 0)
+
     async def carriers(self, predicate_ids: list) -> dict:
         """Which entity TYPES actually carry each predicate, measured.
 
@@ -653,6 +713,133 @@ class EvidenceStore:
         for key in out:
             out[key].sort(key=lambda pair: -pair[1])
         return out
+
+    async def recorded_vocabulary(self) -> list[str]:
+        """Every label this corpus actually carries data under.
+
+        Populations and fields only, and only those with rows behind them: a
+        concept nothing was ever recorded against is not part of what these
+        records can answer about.
+
+        Used to tell a reader that the thing they asked about is not a field
+        here. MEASURED: asked whether FIRs use the standard Form 154, the
+        system searched 602 documents, established nothing, and reported
+        "an answer has not yet been established" after seven planning
+        attempts and two minutes. There is no form field in these records
+        and never was -- none of the 41 predicates mentions one -- so no
+        plan could have answered it. The same question asked of the
+        "malkhana" evidence store has the same shape: `weapon register item
+        detail` exists with 32 rows, an evidence-store field does not.
+
+        "The records carry no field for that, and here is what they do
+        carry" is both true and useful. Silence after two minutes is
+        neither.
+        """
+        rows = await self.conn.fetch(
+            """
+            SELECT c.label, c.kind
+            FROM evidence.concepts c
+            WHERE (c.kind = 'entity_type'
+                   AND EXISTS (SELECT 1 FROM evidence.entities e
+                               WHERE e.concept_id = c.concept_id))
+               OR (c.kind IN ('property', 'relation', 'event_type')
+                   AND EXISTS (SELECT 1 FROM evidence.assertions a
+                               WHERE a.predicate_id = c.concept_id
+                                 AND a.status = 'validated'
+                                 AND a.retracted_at IS NULL))
+            ORDER BY c.label
+            """)
+        return [r["label"] for r in rows if r["label"]]
+
+    async def population_by_scope(self, subject_type) -> dict:
+        """How many records of this type sit inside case documents, and in total.
+
+        THE RECORD TYPES A CASE-SCOPED QUESTION CANNOT SEE.
+
+        `source_scope="case_documents"` compiles to `cardinality(case_ids)>0`,
+        which is the right meaning for "documents attached to a case". The
+        trouble is what that silently excludes. MEASURED on this corpus:
+
+            endpoint            docs   with no case link
+            fir                   73    0
+            roznamcha             74    1
+            criminal-records      33   33      <- every one
+            pkm                   14   14      <- every one
+            cms                    4    4      <- every one
+
+        So criminal records, citizen-service applications and walk-in
+        complaints are attached to no case at all. A plan that counts them
+        under `case_documents` returns 0 with a population of 0 documents,
+        and the run reports that it could not complete the part -- for a
+        question whose answer is 33.
+
+        This was found from a real user's session: four questions in a row
+        failed, every one of them about a record type with no case link,
+        while their fifth question about police stations answered correctly.
+
+        Counting both ways makes the difference visible, so the scope can be
+        corrected from measurement instead of guessed at.
+        """
+        row = await self.conn.fetchrow(
+            """
+            SELECT count(*) FILTER (
+                       WHERE EXISTS (SELECT 1 FROM evidence.documents d
+                                     WHERE d.document_id = e.document_id
+                                       AND cardinality(d.case_ids) > 0)) AS in_cases,
+                   count(*) AS everywhere
+            FROM evidence.entities e
+            WHERE e.concept_id = $1
+              AND EXISTS (SELECT 1 FROM evidence.documents d
+                          WHERE d.document_id = e.document_id)
+            """,
+            subject_type)
+        return {"in_case_documents": int(row["in_cases"] or 0),
+                "anywhere": int(row["everywhere"] or 0)}
+
+    async def recorded_values(self, predicate_id, *, limit: int = 60) -> list[dict]:
+        """Every value this predicate actually holds, with how many rows hold it.
+
+        THE SET A FILTER MAY CHOOSE FROM.
+
+        MEASURED, and the reason this exists: "کرمنل ریکارڈ سسٹم میں کتنے
+        کیس مکمل ہو چکے ہیں اور کتنے ابھی زیرِ کارروائی ہیں" -- how many
+        cases are completed and how many still in process -- compiled to
+        `conviction status = 'completed'` and matched nothing, because the
+        values this corpus stores are
+
+            Under trial                               30
+            Convicted, on bail pending appeal          1
+            Sub judice, external prior case            1
+            Under trial, priority hearing requested    1
+
+        "completed" is not one of them and never will be: it is a READING of
+        the ones that are. With the filter matched literally the plan
+        returned zero, the ladder fell back to `search`, and search cannot
+        count -- so a question whose answer is "1 completed, 32 in process"
+        reported that 0 of 602 documents had been checked.
+
+        Returning the values makes the choice resolvable instead of guessed:
+        the caller matches the asked word against these, and filters on the
+        ones it covers. Measured from the records, so it changes when they
+        do, and no status vocabulary is stored anywhere.
+        """
+        rows = await self.conn.fetch(
+            """
+            SELECT a.value_text AS value, count(*) AS rows
+            FROM evidence.assertions a
+            WHERE a.predicate_id = $1
+              AND a.value_text IS NOT NULL AND a.value_text <> ''
+              AND a.status = 'validated' AND a.retracted_at IS NULL
+              AND a.valid_to IS NULL
+              AND length(a.value_text) <= 120
+              AND EXISTS (SELECT 1 FROM evidence.documents d
+                          WHERE d.document_id = a.document_id)
+            GROUP BY a.value_text
+            ORDER BY count(*) DESC, a.value_text
+            LIMIT $2
+            """,
+            predicate_id, limit)
+        return [{"value": r["value"], "rows": int(r["rows"])} for r in rows]
 
     async def where_values_occur(self, forms: list[str], *,
                                 per_form: int = 3,
@@ -1248,7 +1435,13 @@ def measured_parts(op, concepts) -> dict:
         if value is None:
             value = getattr(item, "object_name", None)
         conditions.append({"field": field, "operator": item.operator,
-                           "value": None if value is None else str(value)[:120]})
+                           "value": None if value is None else str(value)[:120],
+                           # An `in` filter's values live here, and the
+                           # answer has to be able to name them: "statute act
+                           # in None" is what the reader saw before this was
+                           # carried through.
+                           "values": [str(v)[:120]
+                                      for v in (getattr(item, "values", None) or [])]})
     period = None
     if getattr(op, "occurred_after", None) or getattr(op, "occurred_before", None):
         period = {"from": op.occurred_after.isoformat() if op.occurred_after else None,
@@ -1304,11 +1497,26 @@ class ScopedStore:
     async def same_name_forms(self, *args, **kwargs):
         return await self._call("same_name_forms", *args, **kwargs)
 
+    async def visible_documents(self, *args, **kwargs):
+        return await self._call("visible_documents", *args, **kwargs)
+
+    async def case_documents(self, *args, **kwargs):
+        return await self._call("case_documents", *args, **kwargs)
+
     async def carriers(self, *args, **kwargs):
         return await self._call("carriers", *args, **kwargs)
 
     async def where_values_occur(self, *args, **kwargs):
         return await self._call("where_values_occur", *args, **kwargs)
+
+    async def recorded_values(self, *args, **kwargs):
+        return await self._call("recorded_values", *args, **kwargs)
+
+    async def population_by_scope(self, *args, **kwargs):
+        return await self._call("population_by_scope", *args, **kwargs)
+
+    async def recorded_vocabulary(self, *args, **kwargs):
+        return await self._call("recorded_vocabulary", *args, **kwargs)
 
     async def ground_forms(self, *args, **kwargs):
         return await self._call("ground_forms", *args, **kwargs)

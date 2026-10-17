@@ -116,6 +116,31 @@ class Builder:
             field = {"text": "value_text", "number": "value_number", "boolean": "value_boolean", "date": "value_date"}.get(concept.value_type)
             if not field:
                 raise InvalidPlan("Relationship values must resolve to entity ids")
+            # ── MANY RECORDED VALUES, ONE ASKED WORD ──────────────────────
+            #
+            # A question's category is rarely a stored value. MEASURED:
+            # "how many cases are completed and how many still in process"
+            # compiled to `conviction status = 'completed'` and matched
+            # nothing, because the stored values are "Under trial",
+            # "Convicted, on bail pending appeal", "Sub judice, external
+            # prior case" -- "completed" is a READING of those, not one of
+            # them. The filter returned zero, the ladder fell back to
+            # `search`, and search cannot count, so an answer of "1
+            # completed, 32 in process" became "0 of 602 documents checked".
+            #
+            # `in` takes the resolved SET, so the count stays an exhaustive
+            # SQL count with citations instead of a ranked passage list.
+            if f.operator in {"in", "not_in"}:
+                if concept.value_type != "text":
+                    raise InvalidPlan("A value set applies to text values only")
+                chosen = [str(v) for v in (f.values or []) if str(v).strip()]
+                if not chosen:
+                    raise InvalidPlan(
+                        "An 'in' filter needs the recorded values it matches")
+                negate = "NOT " if f.operator == "not_in" else ""
+                parts.append(
+                    f"{negate}({alias}.{field} = ANY({self.param(chosen)}::text[]))")
+                return " AND ".join(parts)
             value = f.value
             if concept.value_type == "number" and (isinstance(value, bool) or not isinstance(value, (int, float))):
                 raise InvalidPlan("Numeric predicates require numeric values with the catalog unit")

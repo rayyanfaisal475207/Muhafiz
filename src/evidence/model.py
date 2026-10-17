@@ -276,6 +276,78 @@ def cache_enabled() -> bool:
     return os.getenv("EVIDENCE_MODEL_CACHE", "true").strip().lower() == "true"
 
 
+def planner_provider() -> dict:
+    """Which cloud serves the planner: its endpoint, its keys, its model.
+
+    WHY THIS IS A SEAM AND NOT A SECOND CODE PATH
+
+    The question "is the planner failing because of the MODEL or because of
+    the ARCHITECTURE?" cannot be answered while the only cloud the planner
+    can reach is one provider. Both speak the same wire format --
+    /chat/completions in, `choices[0].message.content` out -- so everything
+    that makes planning work (the contract, the repair ladder, the catalog,
+    the key pool, the rate arithmetic) is shared, and only four things
+    differ: the endpoint, the keys, the model name, and a couple of
+    parameter spellings.
+
+    Keeping it a seam is the point: a comparison between two providers is
+    only evidence about the model if nothing else changed with it.
+
+    WHAT THE DIALECT CAN DIFFER ON IS DISCOVERED, NOT LISTED
+
+    MEASURED against this key: `max_tokens` is refused by every gpt-5
+    model in favour of `max_completion_tokens`, and gpt-5.5 refuses a
+    `temperature` of anything but its default while gpt-5.4-mini accepts
+    0.0. A hardcoded list of which model tolerates what would be wrong the
+    day a new one ships, so `_cloud` reads the refusal and adapts -- see
+    `_adapt_body`.
+    """
+    from src import config
+    name = os.getenv("EVIDENCE_PLANNER_PROVIDER", "groq").strip().lower()
+    if name == "openai":
+        return {"name": "openai",
+                "url": "https://api.openai.com/v1/chat/completions",
+                "model": os.getenv("EVIDENCE_PLANNER_OPENAI_MODEL", "gpt-5.5"),
+                "keys_env": "OPENAI_API_KEYS",
+                "key_attr": "OPENAI_API_KEY"}
+    return {"name": "groq",
+            "url": "https://api.groq.com/openai/v1/chat/completions",
+            "model": config.GROQ_MODEL,
+            "keys_env": "GROQ_API_KEYS",
+            "key_attr": "GROQ_API_KEY"}
+
+
+# Parameter spellings a provider has already refused, per (provider, model).
+# Remembered so one refusal teaches the whole run rather than every call
+# paying for the same 400.
+_DIALECT: dict[tuple[str, str], set[str]] = {}
+
+
+def _adapt_body(body: dict, message: str, provider: str) -> bool:
+    """Rewrite one request to the dialect a refusal just named. True if changed.
+
+    The server states exactly which parameter it will not take, so the
+    refusal is a specification rather than a failure. Two are worth acting
+    on: a renamed output budget, and a temperature a reasoning model will
+    not vary. Anything else is a real bad request and is left to raise.
+    """
+    low = (message or "").lower()
+    seen = _DIALECT.setdefault((provider, str(body.get("model"))), set())
+    if "max_tokens" in low and "max_completion_tokens" in low and "max_tokens" in body:
+        body["max_completion_tokens"] = body.pop("max_tokens")
+        seen.add("max_tokens")
+        return True
+    if "temperature" in low and "temperature" in body:
+        # A model that will not be cooled plans at its own default. The
+        # temperature ladder still runs; it just has no lever on this model,
+        # which the diagnostic records so a comparison is not read as if it
+        # had one.
+        body.pop("temperature")
+        seen.add("temperature")
+        return True
+    return False
+
+
 class _KeyPool:
     """Several API keys, so a rate-limited one does not stop the run.
 
@@ -306,11 +378,19 @@ class _KeyPool:
 
     @staticmethod
     def keys() -> list[str]:
+        """The keys for whichever provider is serving the planner.
+
+        A pool of several, or the single key, whichever is configured. The
+        pooling, cooldown and round-robin behaviour below is provider
+        independent -- only where the keys are read from moves.
+        """
         from src import config
-        pooled = [k.strip() for k in (os.getenv("GROQ_API_KEYS") or "").split(",") if k.strip()]
+        provider = planner_provider()
+        pooled = [k.strip() for k in (os.getenv(provider["keys_env"]) or "").split(",")
+                  if k.strip()]
         if pooled:
             return pooled
-        single = getattr(config, "GROQ_API_KEY", None)
+        single = os.getenv(provider["key_attr"]) or getattr(config, provider["key_attr"], None)
         return [single] if single else []
 
     def available(self, now: float) -> list[int]:
@@ -351,10 +431,15 @@ KEYS = _KeyPool()
 
 
 def cloud_planning_enabled() -> bool:
-    """Whether PLANNING may leave this machine. Off unless switched on."""
-    from src import config
+    """Whether PLANNING may leave this machine. Off unless switched on.
+
+    The key it requires is the one the CONFIGURED provider needs, not a
+    particular vendor's: pointing the planner at a second cloud used to
+    leave this returning False, which silently demoted the run to the local
+    model and made the comparison measure the wrong thing.
+    """
     return (os.getenv("EVIDENCE_PLANNER_CLOUD", "false").lower() == "true"
-            and bool(config.GROQ_API_KEY))
+            and bool(_KeyPool.keys()))
 
 
 class LocalModel:
@@ -378,9 +463,16 @@ class LocalModel:
         # again. A hit is RECORDED as a hit: a trace that showed a model call
         # which never happened would be a lie of exactly the kind this
         # system exists to prevent.
-        from src import config
         route = "cloud" if (allow_cloud and cloud_planning_enabled()) else "local"
-        model_name = config.GROQ_MODEL if route == "cloud" else "local"
+        # The PROVIDER and its model are both in the key. Without that, a
+        # cached answer from one cloud would be served for a question asked
+        # of another -- and a comparison between two planners would be
+        # comparing one planner with itself.
+        if route == "cloud":
+            chosen = planner_provider()
+            model_name = "%s:%s" % (chosen["name"], chosen["model"])
+        else:
+            model_name = "local"
         key = None
         if cache_enabled():
             key = CACHE.key(contract, system, payload, model_name, temperature,
@@ -565,7 +657,9 @@ class LocalModel:
         remaining = (deadline - time.monotonic()) if deadline is not None else None
         if remaining is not None and remaining <= 0:
             raise ModelUnavailable("The model deadline expired")
-        diagnostic.update(model=config.GROQ_MODEL, route="cloud",
+        provider = planner_provider()
+        diagnostic.update(model=provider["model"], route="cloud",
+                          provider=provider["name"],
                           input_chars=len(prompt) + len(message))
         # MEASURED: gpt-oss-120b spends tokens REASONING before it answers,
         # and those count against max_tokens. At 64 the answer was empty and
@@ -574,7 +668,7 @@ class LocalModel:
         # really a budget fault. The planner's own 4096 is the same trap one
         # size up, so planning gets its own, larger budget and asks for the
         # cheapest reasoning that still produces a plan.
-        body = {"model": config.GROQ_MODEL,
+        body = {"model": provider["model"],
                 "messages": [{"role": "system", "content": prompt},
                              {"role": "user", "content": message}],
                 "temperature": temperature,
@@ -583,6 +677,14 @@ class LocalModel:
         effort = os.getenv("EVIDENCE_PLANNER_REASONING", "low").strip()
         if effort:
             body["reasoning_effort"] = effort
+        # What this provider and model have ALREADY refused, applied before
+        # the request rather than after a 400 that teaches nothing new.
+        for refused in _DIALECT.get((provider["name"], provider["model"]), set()):
+            if refused == "max_tokens" and "max_tokens" in body:
+                body["max_completion_tokens"] = body.pop("max_tokens")
+            elif refused == "temperature":
+                body.pop("temperature", None)
+        diagnostic["temperature_applied"] = "temperature" in body
         try:
             async with httpx.AsyncClient(
                     timeout=(max(5.0, remaining) if remaining is not None else None),
@@ -625,7 +727,7 @@ class LocalModel:
                     diagnostic["key_index"] = index
                     diagnostic.update(KEYS.status(time.monotonic()))
                     response = await client.post(
-                        "https://api.groq.com/openai/v1/chat/completions",
+                        provider["url"],
                         json=body,
                         headers={"Authorization": f"Bearer {pool[index]}"})
                     diagnostic["http_status"] = response.status_code
@@ -659,6 +761,29 @@ class LocalModel:
                     # more likely. Retried as the rate condition it is, the
                     # same request succeeds and the ladder keeps its rungs
                     # for plans that are actually wrong.
+                    # A PARAMETER REFUSAL IS A SPECIFICATION, NOT A FAILURE.
+                    #
+                    # MEASURED: gpt-5.5 refuses `max_tokens` by name and
+                    # tells you to send `max_completion_tokens`, then refuses
+                    # a temperature of 0.0 and tells you only its default is
+                    # allowed. Treated as a bad request, each one failed a
+                    # question the model answers perfectly well; read and
+                    # applied, the same request succeeds on the next line and
+                    # every later call in the run already knows.
+                    #
+                    # It does not cost a key cooldown and it does not spend a
+                    # rung of the repair ladder, because nothing about the
+                    # PLAN was wrong.
+                    if response.status_code == 400:
+                        try:
+                            said = (response.json().get("error") or {}).get("message", "")
+                        except ValueError:
+                            said = ""
+                        if _adapt_body(body, said, provider["name"]):
+                            diagnostic["dialect_adapted"] = sorted(
+                                _DIALECT.get((provider["name"], provider["model"]), set()))
+                            diagnostic["temperature_applied"] = "temperature" in body
+                            continue
                     if response.status_code not in (429, 413):
                         break
                     # MEASURED: the free tier allows 8000 tokens per minute
@@ -737,6 +862,25 @@ class LocalModel:
             raise ModelOutputError("Planner response was not in the expected shape") from exc
         diagnostic.update(finish_reason=finish, empty=not bool(raw),
                           output_chars=len(raw) if isinstance(raw, str) else 0)
+        # WHAT THE PROVIDER CHARGED, AND WHAT IT DISCOUNTED.
+        #
+        # A planning call sends ~6,000 input tokens, most of which is the
+        # same system prompt and schema every time. Providers discount a
+        # repeated PREFIX automatically, but only when the prefix really is
+        # identical and really is first -- so the saving is a property of
+        # how the request is built, not a setting, and it is worth
+        # measuring rather than assuming. Recorded per call so a prefix
+        # that stops being cacheable shows up as a number going to zero
+        # instead of as a bill.
+        usage = data.get("usage") if isinstance(data, dict) else None
+        if isinstance(usage, dict):
+            sent = usage.get("prompt_tokens")
+            cached = ((usage.get("prompt_tokens_details") or {}).get("cached_tokens")
+                      if isinstance(usage.get("prompt_tokens_details"), dict) else None)
+            diagnostic["tokens"] = {"in": sent, "out": usage.get("completion_tokens"),
+                                    "cached_in": cached}
+            if isinstance(sent, int) and isinstance(cached, int) and sent > 0:
+                diagnostic["prefix_cache_hit_ratio"] = round(cached / sent, 3)
         if finish in {"length", "max_tokens"}:
             diagnostic["outcome"] = "truncated"
             raise ModelOutputError("Planner output was truncated", raw=raw)

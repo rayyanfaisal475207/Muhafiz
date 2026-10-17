@@ -65,8 +65,17 @@ class PredicateFilter(Contract):
     predicate_id: UUID
     direction: Literal["forward", "inverse"] = "forward"
     name_match_mode: Literal["unique", "all_matches"] = "unique"
-    operator: Literal["eq", "ne", "gt", "gte", "lt", "lte", "contains", "exists", "not_exists"] = "eq"
+    operator: Literal["eq", "ne", "gt", "gte", "lt", "lte", "contains", "exists",
+                      "not_exists", "in", "not_in"] = "eq"
     value: Scalar | None = None
+    values: list[str] = Field(
+        default_factory=list, max_length=40,
+        description="For 'in' and 'not_in': the RECORDED values to match, "
+                    "exactly as the records write them. A question's own word "
+                    "is usually not one of them -- 'completed' is a reading of "
+                    "the stored statuses, not a stored status -- so the runtime "
+                    "resolves the asked word against the values that actually "
+                    "occur and fills this. Do not invent entries here.")
     object_entity_id: UUID | None = Field(
         default=None,
         description="The related entity's UUID, when one is already known. "
@@ -96,6 +105,17 @@ class PredicateFilter(Contract):
         """
         given = [x for x in (self.value, self.object_entity_id, self.object_name)
                  if x is not None]
+        # `in`/`not_in` carry their values in `values`, not `value`. Without
+        # this, every plan that correctly used the new operator was rejected
+        # as "filter requires a value" -- MEASURED on the Urdu question
+        # asking how many cases are completed, which the planner finally
+        # planned correctly and which failed validation six times running.
+        if self.operator in {"in", "not_in"}:
+            if not [v for v in (self.values or []) if str(v).strip()]:
+                raise ValueError("a value set filter requires values")
+            return self
+        if self.values:
+            raise ValueError("values applies to the 'in' and 'not_in' operators")
         if self.operator not in {"exists", "not_exists"} and not given:
             raise ValueError("filter requires a value")
         if len(given) > 1:

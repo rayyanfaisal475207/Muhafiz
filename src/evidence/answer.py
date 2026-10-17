@@ -103,6 +103,27 @@ def _condition_phrase(conditions, language):
                         "ur": ("%s “%s”" if operator == "eq" else "%s جو “%s” نہ ہو"),
                         "roman_ur": ("%s “%s”" if operator == "eq" else "%s jo “%s” na ho")}[language]
                 said.append(word % (field, value))
+            elif operator in ("in", "not_in"):
+                # A value SET carries its values in `values`, not `value`.
+                # MEASURED: the answer read "61 FIR records have statute act
+                # in None" -- the number was right and the sentence named no
+                # value at all, because this branch did not exist and the
+                # fallback printed an empty `value`. The reader has to be
+                # able to see WHICH recorded values were counted, since
+                # resolving the question's word onto them is exactly the
+                # step that could have gone wrong.
+                shown = [str(v) for v in (item.get("values") or []) if str(v).strip()]
+                listed = "”، “".join(shown) if language == "ur" else "”, “".join(shown)
+                if not shown:
+                    said.append(field)
+                else:
+                    word = {"en": ("%s of “%s”" if operator == "in"
+                                   else "%s other than “%s”"),
+                            "ur": ("%s “%s”" if operator == "in"
+                                   else "%s جو “%s” نہ ہو"),
+                            "roman_ur": ("%s “%s”" if operator == "in"
+                                         else "%s jo “%s” na ho")}[language]
+                    said.append(word % (field, listed))
             else:
                 said.append("%s %s %s" % (field, operator, value))
     tail = {"en": " and ", "ur": " اور ", "roman_ur": " aur "}[language]
