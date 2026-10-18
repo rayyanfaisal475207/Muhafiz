@@ -304,3 +304,38 @@ class TestWhenTheMissingFieldNoteIsWorthMaking:
     def test_nothing_unrecorded_means_nothing_to_say(self):
         assert not should_name_unrecorded([], "unavailable", already_measured=False)
         assert not should_name_unrecorded(None, "unavailable", already_measured=False)
+
+
+class TestTheCheckStaysInsideOneScript:
+    """A lexical comparison against an English vocabulary needs English.
+
+    The recorded field names are English -- `reporting delay reason`,
+    `recovered from` -- so an Urdu or Roman-Urdu phrase cannot match them by
+    letters, and reporting it as missing says nothing true about the
+    records. MEASURED, both on real questions:
+
+        "30 بور پستول کس کے پاس سے برآمد ہوا؟"
+            -> "no field for 'کس کے پاس سے برآمد ہوا'",
+               while `recovered from` holds 31 values
+
+        "Kitne cases mein mudai ne ... wajah batai?"
+            -> "no field for 'kuch arse baad aane ki wajah'",
+               while `reporting delay reason` holds 8
+    """
+
+    def test_an_urdu_term_is_never_reported_missing(self):
+        recovered = "\u06a9\u0633 \u06a9\u06d2 \u067e\u0627\u0633 \u0633\u06d2 \u0628\u0631\u0622\u0645\u062f"
+        assert asks_about_nothing_recorded(
+            understanding((recovered, "attribute")), VOCABULARY, [], [], []) == []
+
+    def test_a_roman_urdu_question_is_never_reported_missing(self):
+        """Roman Urdu is Latin letters, so only the language tag separates it."""
+        said = QueryUnderstanding(
+            language="roman_ur", parts=[],
+            terms=[TermReading(term="kuch arse baad aane ki wajah", role="attribute")])
+        assert asks_about_nothing_recorded(said, VOCABULARY, [], [], []) == []
+
+    def test_an_english_question_still_reports_a_missing_field(self):
+        """The check must keep working where it can actually be made."""
+        assert asks_about_nothing_recorded(
+            understanding(("Form 154", "attribute")), VOCABULARY, [], [], []) == ["Form 154"]

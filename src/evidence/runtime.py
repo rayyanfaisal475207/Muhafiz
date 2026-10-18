@@ -488,6 +488,26 @@ def asks_about_nothing_recorded(understanding, vocabulary, value_locations,
         pieces = [w for w in _words(term) if len(w) > 3]
         if not pieces:
             continue                    # too short to judge
+        # A LEXICAL CHECK ONLY WORKS INSIDE ONE SCRIPT.
+        #
+        # The recorded vocabulary is written in English -- `reporting delay
+        # reason`, `recovered from` -- so an Urdu or Roman-Urdu phrase can
+        # never match it by letters, and declaring it unrecorded says
+        # nothing about the records. MEASURED, both false and both on real
+        # questions:
+        #
+        #   "30 بور پستول کس کے پاس سے برآمد ہوا؟"
+        #     -> "no field for 'کس کے پاس سے برآمد ہوا'", while
+        #        `recovered from` holds 31 values
+        #   "Kitne cases mein mudai ne ... wajah batai?"
+        #     -> "no field for 'kuch arse baad aane ki wajah'", while
+        #        `reporting delay reason` holds 8
+        #
+        # Silence is the honest outcome: the comparison could not be made.
+        if any(URDU_LETTER.search(piece) for piece in pieces):
+            continue
+        if (getattr(understanding, "language", "en") or "en") != "en":
+            continue
         # Every word of the term has to be unknown. A term sharing even one
         # word with the recorded vocabulary is something the records touch,
         # and the plan is the right place to settle it.
@@ -923,6 +943,11 @@ def fill_slots(plan, question, classification, concepts, understanding,
     return filled
 
 
+# Arabic-script letters, for deciding whether a lexical comparison against
+# the English recorded vocabulary is meaningful at all.
+URDU_LETTER = re.compile(r"[؀-ۿ]")
+
+
 def _words(text: str) -> list[str]:
     """The words of a string, for comparing a question against a plan.
 
@@ -1007,90 +1032,80 @@ def _term_appears(form: str, words: list[str], haystack: str) -> bool:
 
 
 def unused_terms(plan, understanding, concepts, grounded) -> list[str]:
-    """Terms the question named that the plan refers to NOWHERE.
+    """A plan that constrains NOTHING, for a question that named something.
 
-    THE CHECK THAT CATCHES A CONFIDENT IRRELEVANT ANSWER
+    WHAT THIS CATCHES
 
-    MEASURED, asking "what is stated in the FIR about the stolen
-    motorcycle": the plan was `list(FIR, predicate=FIR summary)` with no
-    filter, and it returned all fifty FIR summaries -- pistols, fraud,
-    kidnapping -- as though that answered the question. The word
-    "motorcycle" appeared nowhere in the plan. Nothing raised, nothing was
-    rejected, and the answer arrived with 150 citations and "All 73
-    documents were checked".
+    MEASURED, asking "what is stated in the FIR about the stolen motorcycle":
+    the plan was `list(FIR, predicate=FIR summary)` with no filter at all,
+    and it returned every FIR summary in the corpus -- pistols, fraud,
+    kidnapping -- as though that answered the question. Nothing went wrong
+    mechanically, so no exception caught it. The checkable fault is that the
+    operation narrowed the population by nothing whatever.
 
-    No exception handler catches that, because nothing went wrong
-    mechanically. What is checkable is the RELATIONSHIP between the
-    question and the plan: a term the reader found, and the corpus
-    confirmed, that the plan then mentions in no subject, predicate,
-    grouping, filter value, entity name or search text is a term the plan
-    dropped on the floor.
+    WHY THIS IS NO LONGER A WORD COMPARISON
 
-    Only GROUNDED terms count. A term that occurs nowhere in the records
-    cannot be expected to appear in a plan -- that absence is a real answer
-    and `absent_literals` reports it. And a clarification is exempt:
-    asking which کاشف is meant is a legitimate response to a term, not a
-    failure to use it.
+    It used to reject a plan when none of the question's grounded terms
+    appeared, as a STRING, in the plan's labels and values. That made it the
+    single largest source of wrong rejections in the system: MEASURED over
+    217 runs, 208 of 267 plan rejections -- 78% -- came from this one gate,
+    and most of the plans it rejected were correct.
+
+    Two reasons it could not work:
+
+      * The plan's labels are English concept names. A question's words are
+        whatever the asker typed. Asking
+        "30 بور پستول کس کے پاس سے برآمد ہوا؟" produced the right plan --
+        filter `weapon register item detail`, select `recovered from` -- and
+        it was rejected because کس کے پاس سے ("from whom") does not occur
+        inside the English string "recovered from". It never could.
+
+      * Even within English it depended on luck: "complainants" is not a
+        substring of "complainant of", while "accused" happens to be one of
+        "accused in". Stemming helped and did not fix the principle.
+
+    So the test is now STRUCTURAL. A plan that filters, searches for text,
+    names entities, groups, traverses or bounds a time range has narrowed
+    the population, and whether it narrowed it CORRECTLY is what
+    `plan_cannot_match` and `outcome_is_not_an_answer` measure against the
+    records. A plan that does none of those for a question that named
+    something is the fifty-summary dump, in any language.
+
+    Returns the terms that went unused, for the trace, or [] to accept.
     """
-    if plan.clarification or not understanding:
+    if os.getenv("EVIDENCE_REQUIRE_TERM_USE", "true").strip().lower() != "true":
         return []
-    written = []
-    for op in plan.outputs:
-        written.append(op.text or "")
-        for key in ("subject_type", "predicate_id", "group_by",
-                    "start_predicate_id", "end_predicate_id"):
-            concept = (concepts or {}).get(getattr(op, key, None))
-            written.append(getattr(concept, "label", "") or "")
-        for item in op.filters or []:
-            written.append(str(item.value or ""))
-            written.append(str(getattr(item, "object_name", "") or ""))
-            # A RESOLVED VALUE SET IS THE QUESTION'S TERM, TRANSLATED.
-            #
-            # MEASURED on "کرمنل ریکارڈ سسٹم میں کتنے کیس مکمل ہو چکے ہیں":
-            # the planner correctly filtered `conviction status in ('Under
-            # trial', 'Convicted, on bail pending appeal', ...)` -- the
-            # recorded values, which are English -- and this gate rejected
-            # the plan because the Urdu words "مکمل" and "زیرِ کارروائی"
-            # appeared nowhere in it. They appeared nowhere because the
-            # records do not write them; the plan had already done the right
-            # thing. Counting the chosen values as written text lets the
-            # gate see a term that was used rather than dropped.
-            written.extend(str(v) for v in (getattr(item, "values", None) or []))
-            concept = (concepts or {}).get(item.predicate_id)
-            written.append(getattr(concept, "label", "") or "")
-        for key in (op.relationship_path or []):
-            concept = (concepts or {}).get(key)
-            written.append(getattr(concept, "label", "") or "")
-    haystack = " ".join(written).lower()
-    # Compared word by word as well as whole, because a question's noun and
-    # a predicate's label are the same word in different clothes.
-    haystack_words = _words(haystack)
+    if plan.clarification or not understanding or not plan.outputs:
+        return []
 
+    # A question that named nothing cannot have dropped anything.
     confirmed = {f.lower() for f in (grounded or [])}
-    missing, used = [], False
-    for reading in understanding.terms:
-        forms = [reading.term, *(reading.variants or [])]
-        usable = [f for f in forms if f and f.lower() in confirmed]
-        if not usable:
-            continue                      # not in the records; not the plan's fault
-        if any(_term_appears(f, haystack_words, haystack) for f in usable):
-            used = True
-        else:
-            missing.append(reading.term)
-    # ONLY WHEN THE PLAN USES NONE OF THEM.
-    #
-    # Requiring EVERY term to appear was too strict and rejected a correct
-    # plan. MEASURED: `search(text="stolen motorcycle", source_scope=all)`
-    # was refused because "FIR" appeared nowhere -- but a search across all
-    # documents legitimately expresses the record type as scope rather than
-    # as a word, and the plan plainly used the term that carried the
-    # question.
-    #
-    # A plan that mentions NOT ONE of the grounded terms is the case worth
-    # refusing: that is the fifty-summary dump, which referred to nothing
-    # the question asked about and answered anyway.
-    return [] if used else missing
+    named = [reading.term for reading in understanding.terms
+             if any((f or "").lower() in confirmed
+                    for f in [reading.term, *(reading.variants or [])])]
+    if not named:
+        return []
 
+    # A COUNT OF A WHOLE POPULATION IS A REAL ANSWER; A LIST OF ONE IS NOT.
+    #
+    # "How many FIRs are there" is answered by counting every FIR, with no
+    # filter at all, and must pass. The failure this gate exists for is an
+    # ENUMERATION of everything -- `list(FIR, predicate=FIR summary)` with
+    # no filter returned all fifty summaries as an answer about a stolen
+    # motorcycle. So the test applies only to operations that enumerate.
+    enumerating = {"list", "search"}
+    for op in plan.outputs:
+        if op.operation not in enumerating:
+            return []
+        # subject_type and predicate_id choose WHICH population and WHICH
+        # field; they do not narrow it to a subset. The dump had both. Only
+        # these genuinely constrain which records come back.
+        narrowed = (op.filters or op.text or op.entity_ids or op.group_by
+                    or op.relationship_path or op.occurred_after
+                    or op.occurred_before or op.operands)
+        if narrowed:
+            return []
+    return named[:4]
 
 def name_to_recorded(candidates):
     """Rewrite a name the question used into the name the RECORDS use.

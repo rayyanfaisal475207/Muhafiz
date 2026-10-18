@@ -1240,7 +1240,7 @@ class EvidenceStore:
         status = "answered"
         if exact and not coverage.complete:
             status = "partial" if coverage.complete_documents else "not_extracted"
-        elif coverage.truncated:
+        elif coverage.truncated and not _top_is_settled(op, rows):
             status = "partial"
         elif not rows:
             status = "not_extracted" if not coverage.complete else "answered"
@@ -1459,6 +1459,44 @@ def measured_parts(op, concepts) -> dict:
             "grouped_by": name(getattr(op, "group_by", None)),
             "through": [t for t in through if t],
             "conditions": conditions, "period": period}
+
+
+def _top_is_settled(op, rows) -> bool:
+    """Whether cutting rows off the BOTTOM can change the top of a ranking.
+
+    MEASURED: "which police station has the most number of FIRs registered?"
+    returned
+
+        Highest: تھانہ ماڈل ٹاؤن، لاہور (7). All 73 documents were checked.
+
+    which is the correct answer, and the run was reported as `partial`
+    because the grouped result hit its row limit. The rows that were cut off
+    all sat BELOW the top one, so they could not change which station was
+    highest -- the answer was complete and was labelled incomplete.
+
+    Only true for a descending ranking with at least two rows retained, so
+    the lead over the runner-up is visible in what was kept. An ascending
+    order, or a single retained row, says nothing about what was dropped.
+    """
+    if getattr(op, "order_by", None) != "value_desc":
+        return False
+    rows = rows or []
+    if not rows:
+        return False
+    # A plan that asked for ONE row in descending order asked for the top
+    # one. MEASURED: the station ranking kept a single group and was
+    # reported partial, because a lone row cannot show its lead over the
+    # runner-up -- but nothing was missing from the answer that was asked
+    # for. Truncation below a deliberate top-1 is the intent, not a gap.
+    if getattr(op, "limit", None) == 1:
+        return True
+    if len(rows) < 2:
+        return False
+    try:
+        first, second = rows[0].get("value"), rows[1].get("value")
+        return first is not None and second is not None and first >= second
+    except (AttributeError, TypeError):
+        return False
 
 
 class ScopedStore:
