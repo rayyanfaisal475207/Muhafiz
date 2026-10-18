@@ -61,6 +61,7 @@ async def test_airgap_mode_blocks_llm_cloud_fallback_on_local_failure():
         with patch.object(llm_client, "_call_local", AsyncMock(side_effect=RuntimeError("local down"))), \
              patch.object(llm_client, "_call_groq", AsyncMock(return_value="cloud answer")) as mock_groq, \
              patch.object(llm_client, "_call_openai", AsyncMock(return_value="cloud answer")) as mock_openai, \
+             patch.object(llm_client, "_call_azure", AsyncMock(return_value="cloud answer")) as mock_azure, \
              patch.object(llm_client, "_call_gemini", AsyncMock(return_value="cloud answer")) as mock_gemini:
 
             # Air-gapped: must fail closed, never reach a cloud provider.
@@ -70,6 +71,7 @@ async def test_airgap_mode_blocks_llm_cloud_fallback_on_local_failure():
             mock_groq.assert_not_called()
             mock_gemini.assert_not_called()
             mock_openai.assert_not_called()
+            mock_azure.assert_not_called()
 
             # Not air-gapped: the existing local-first-then-cloud-fallback
             # behavior (the ngrok-tunnel deployment this system normally runs
@@ -77,7 +79,8 @@ async def test_airgap_mode_blocks_llm_cloud_fallback_on_local_failure():
             config.AIR_GAP_MODE = False
             result = await llm_client.call_llm("system", "user message")
             assert result == "cloud answer"
-            assert mock_groq.called or mock_gemini.called or mock_openai.called
+            assert (mock_groq.called or mock_gemini.called
+                    or mock_openai.called or mock_azure.called)
     finally:
         config.AIR_GAP_MODE = False
         config.LOCAL_LLM_URL = original_local_url

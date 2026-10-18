@@ -309,8 +309,32 @@ def planner_provider() -> dict:
                 "url": "https://api.openai.com/v1/chat/completions",
                 "model": os.getenv("EVIDENCE_PLANNER_OPENAI_MODEL", "gpt-5.5"),
                 "keys_env": "OPENAI_API_KEYS",
-                "key_attr": "OPENAI_API_KEY"}
+                "key_attr": "OPENAI_API_KEY",
+                "auth": "bearer"}
+    if name == "azure":
+        # AZURE SPEAKS THE SAME BODY AND A DIFFERENT ENVELOPE.
+        #
+        # The chat-completions body is identical -- same messages, same
+        # response_format, same `max_completion_tokens` and the same refusal
+        # to vary temperature, all MEASURED against this deployment -- so
+        # the dialect adaptation below needs no Azure case at all. Only two
+        # things differ, and both live here:
+        #
+        #   * the model is named by the DEPLOYMENT in the path, not by a
+        #     `model` field, and the path carries an api-version;
+        #   * the key goes in an `api-key` header, not in Authorization.
+        base = os.getenv("AZURE_OPENAI_BASE_URL", "").rstrip("/")
+        deployment = os.getenv("AZURE_OPENAI_DEPLOYMENT", "gpt-5-mini")
+        version = os.getenv("AZURE_OPENAI_API_VERSION", "2024-12-01-preview")
+        return {"name": "azure",
+                "url": "%s/deployments/%s/chat/completions?api-version=%s"
+                       % (base, deployment, version),
+                "model": deployment,
+                "keys_env": "AZURE_OPENAI_API_KEYS",
+                "key_attr": "AZURE_OPENAI_API_KEY",
+                "auth": "api-key"}
     return {"name": "groq",
+            "auth": "bearer",
             "url": "https://api.groq.com/openai/v1/chat/completions",
             "model": config.GROQ_MODEL,
             "keys_env": "GROQ_API_KEYS",
@@ -726,10 +750,13 @@ class LocalModel:
                     # reach traces, logs and stored runs.
                     diagnostic["key_index"] = index
                     diagnostic.update(KEYS.status(time.monotonic()))
+                    # Azure carries the key in its own header; everyone else
+                    # uses a bearer token. The body is identical either way.
+                    credential = ({"api-key": pool[index]}
+                                  if provider.get("auth") == "api-key"
+                                  else {"Authorization": f"Bearer {pool[index]}"})
                     response = await client.post(
-                        provider["url"],
-                        json=body,
-                        headers={"Authorization": f"Bearer {pool[index]}"})
+                        provider["url"], json=body, headers=credential)
                     diagnostic["http_status"] = response.status_code
                     # WHAT IS LEFT OF THIS MINUTE'S ALLOWANCE.
                     #

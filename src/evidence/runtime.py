@@ -1663,7 +1663,12 @@ A few retrieved passages may illustrate findings, but cannot complete a corpus-w
 Conversation follow-ups preserve the prior subject, measure and filters unless changed. Topic changes
 remove unrelated filters. Use ur for Arabic-script Urdu, roman_ur for Roman Urdu, en for English;
 respect explicit language preference. Clarifications must ask the user about genuine ambiguity, not
-internal SQL columns. A conversational_response is only for greetings/thanks. Report output_format
+internal SQL columns. ASK ONLY WHEN YOU CANNOT CHOOSE: if one reading is the ordinary meaning of the
+question, answer that reading and say which one you took. "How many people are accused" means distinct
+persons; "how many police stations are recorded" means the stations in these records; a question naming
+one record type means that type. A clarification is warranted when the readings give materially
+different numbers AND none is the plain reading — not merely because more than one reading exists.
+A conversational_response is only for greetings/thanks. Report output_format
 uses the same checked results. Return JSON matching the schema, with no prose outside it.
 """
 

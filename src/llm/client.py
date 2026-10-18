@@ -77,9 +77,11 @@ def _fallback_provider_for(provider: str) -> Optional[str]:
     Returns None when no distinct, configured alternative exists — the
     caller then surfaces the original error rather than pretending to retry.
     """
-    # OpenAI first when configured: the condition that lands here is a
-    # per-request size cap, and Groq's free tier has the smallest one, so
-    # failing over to it is the least likely to help.
+    # OpenAI-shaped providers first when configured: the condition that
+    # lands here is a per-request size cap, and Groq's free tier has the
+    # smallest one, so failing over to it is the least likely to help.
+    if provider != "azure" and os.getenv("AZURE_OPENAI_API_KEY"):
+        return "azure"
     if provider != "openai" and config.OPENAI_API_KEY:
         return "openai"
     if provider != "groq" and config.GROQ_API_KEY:
@@ -235,6 +237,11 @@ async def _call_llm_uncached(
                     system_prompt, user_message, temperature, resolved_cloud_max_tokens,
                     reasoning_effort=reasoning_effort,
                 )
+            elif provider == "azure":
+                return await _call_azure(
+                    system_prompt, user_message, temperature, resolved_cloud_max_tokens,
+                    reasoning_effort=reasoning_effort,
+                )
             elif provider == "gemini":
                 return await _call_gemini(system_prompt, user_message, temperature, resolved_cloud_max_tokens)
             else:
@@ -243,7 +250,7 @@ async def _call_llm_uncached(
                 # deployment did not choose.
                 raise RuntimeError(
                     f"LLM_PROVIDER={provider!r} is not a provider this client "
-                    "implements (groq, openai, gemini)."
+                    "implements (groq, openai, azure, gemini)."
                 )
         except Exception as e:
             # Checked BEFORE _is_rate_limit: Groq reports an oversized request
@@ -270,6 +277,11 @@ async def _call_llm_uncached(
                     )
                 if fallback == "openai":
                     return await _call_openai(
+                        system_prompt, user_message, temperature, resolved_cloud_max_tokens,
+                        reasoning_effort=reasoning_effort,
+                    )
+                if fallback == "azure":
+                    return await _call_azure(
                         system_prompt, user_message, temperature, resolved_cloud_max_tokens,
                         reasoning_effort=reasoning_effort,
                     )
@@ -586,6 +598,47 @@ def _openai_adapt(body: dict, message: str) -> bool:
     return False
 
 
+def _azure_endpoint() -> tuple[str, str]:
+    """The Azure chat-completions URL and the deployment it names.
+
+    Azure names the model by DEPLOYMENT in the path rather than by a `model`
+    field, and requires an api-version. MEASURED against this deployment:
+    every api-version from 2024-02-01 to 2025-01-01-preview answers, so the
+    default is a recent stable one and it stays overridable.
+    """
+    base = os.getenv("AZURE_OPENAI_BASE_URL", "").rstrip("/")
+    deployment = os.getenv("AZURE_OPENAI_DEPLOYMENT", "gpt-5-mini")
+    version = os.getenv("AZURE_OPENAI_API_VERSION", "2024-12-01-preview")
+    if not base:
+        raise RuntimeError("AZURE_OPENAI_BASE_URL is not set; cannot call Azure.")
+    return ("%s/deployments/%s/chat/completions?api-version=%s"
+            % (base, deployment, version)), deployment
+
+
+async def _call_azure(
+    system_prompt: str, user_message: str, temperature: float, max_tokens: int,
+    reasoning_effort: Optional[str] = None,
+) -> str:
+    """One completion from an Azure OpenAI deployment.
+
+    Shares `_call_openai`'s body and its dialect adaptation, because the
+    request body is identical: MEASURED against this deployment, Azure
+    refuses `max_tokens` in favour of `max_completion_tokens` and refuses
+    any temperature but its default, exactly as the gpt-5 models on OpenAI
+    do. Only the envelope differs -- the deployment in the path, and the key
+    in an `api-key` header instead of a bearer token.
+    """
+    key = os.getenv("AZURE_OPENAI_API_KEY", "")
+    if not key:
+        raise RuntimeError("AZURE_OPENAI_API_KEY is not set; cannot call Azure.")
+    url, deployment = _azure_endpoint()
+    return await _openai_style_call(
+        url=url, headers={"api-key": key}, model=deployment,
+        system_prompt=system_prompt, user_message=user_message,
+        temperature=temperature, max_tokens=max_tokens,
+        reasoning_effort=reasoning_effort)
+
+
 async def _call_openai(
     system_prompt: str, user_message: str, temperature: float, max_tokens: int,
     reasoning_effort: Optional[str] = None,
@@ -607,8 +660,30 @@ async def _call_openai(
     """
     if not config.OPENAI_API_KEY:
         raise RuntimeError("OPENAI_API_KEY is not set; cannot call OpenAI.")
+    return await _openai_style_call(
+        url=OPENAI_CHAT_URL,
+        headers={"Authorization": f"Bearer {config.OPENAI_API_KEY}"},
+        model=config.OPENAI_MODEL,
+        system_prompt=system_prompt, user_message=user_message,
+        temperature=temperature, max_tokens=max_tokens,
+        reasoning_effort=reasoning_effort)
+
+
+async def _openai_style_call(
+    *, url: str, headers: dict, model: str, system_prompt: str,
+    user_message: str, temperature: float, max_tokens: int,
+    reasoning_effort: Optional[str] = None,
+) -> str:
+    """One chat completion against any OpenAI-shaped endpoint.
+
+    Shared by OpenAI and Azure because the BODY is identical and only the
+    envelope differs -- Azure names the model by deployment in the path and
+    carries its key in an `api-key` header. Keeping one implementation means
+    the dialect adaptation, which is the part that took measuring, cannot
+    drift between the two.
+    """
     body = {
-        "model": config.OPENAI_MODEL,
+        "model": model,
         "messages": [{"role": "system", "content": system_prompt},
                      {"role": "user", "content": user_message}],
         "temperature": temperature,
@@ -618,17 +693,16 @@ async def _call_openai(
         body["reasoning_effort"] = reasoning_effort
     # What this model has already refused, applied before the request rather
     # than after a 400 that teaches nothing new.
-    for refused in _OPENAI_REFUSED.get(config.OPENAI_MODEL, set()):
+    for refused in _OPENAI_REFUSED.get(model, set()):
         if refused == "max_tokens" and "max_tokens" in body:
             body["max_completion_tokens"] = body.pop("max_tokens")
         elif refused == "temperature":
             body.pop("temperature", None)
 
-    headers = {"Authorization": f"Bearer {config.OPENAI_API_KEY}"}
     async with httpx.AsyncClient(timeout=180.0) as client:
         # Two attempts per refused parameter, plus one to succeed on.
         for _ in range(4):
-            response = await client.post(OPENAI_CHAT_URL, json=body, headers=headers)
+            response = await client.post(url, json=body, headers=headers)
             if response.status_code == 400:
                 try:
                     said = (response.json().get("error") or {}).get("message", "")
