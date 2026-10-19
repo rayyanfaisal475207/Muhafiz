@@ -84,6 +84,81 @@ class Builder:
             clauses.append(f"{alias}.event_time<{self.param(op.occurred_before)}")
         return " AND ".join(clauses)
 
+    def name_reaches(self, label_sql, nm):
+        """SQL matching a recorded label against a name as the question wrote it.
+
+        Exact first, then a cross-script candidate, then -- and only when the
+        corpus holds NO exact match for the name -- a word-boundary prefix.
+
+        MEASURED, on "تھانہ راجہ بازار میں کتنی FIR درج ہیں؟": the planner
+        filtered correctly on `recorded at police station` = "تھانہ راجہ
+        بازار", which is how the question names it, while the record reads
+        "تھانہ راجہ بازار، راولپنڈی" -- the station plus its city. An exact
+        comparison matched nothing, `suspicious_zero` rightly refused the
+        plan as a wrong field, and the repair ladder spent all seven rungs
+        re-proposing the one correct plan before the run ended
+        "unavailable". The English form of the same question answered 4,
+        because there the planner happened to emit the full stored label.
+
+        The prefix is gated on the absence of an exact match because a bare
+        prefix would be unsafe for people: کاشف is a prefix of کاشف محمود,
+        a different man. But کاشف matches 10 records EXACTLY, so the gate
+        never opens for it, while "تھانہ راجہ بازار" matches none exactly
+        and is allowed to reach the longer label. Most specific wins, and
+        the fallback is reached only when nothing more specific exists.
+        Read from the records, so it needs no list of places or of people.
+        """
+        exact = f"lower(btrim({label_sql}))=lower(btrim({nm}))"
+        cross = (f"EXISTS(SELECT 1 FROM unnest(regexp_split_to_array({label_sql},'" + chr(92)*2 + "s+')) w "
+                 f"WHERE regexp_replace(lower({nm}),'[aeiou]','','g') <> '' "
+                 f"AND regexp_replace(roman_skeleton(w),'[aeiou]','','g')"
+                 f"=regexp_replace(lower({nm}),'[aeiou]','','g'))")
+        # length() rather than LIKE, so % and _ in a name cannot act as
+        # wildcards against the records.
+        prefix = (f"(NOT EXISTS(SELECT 1 FROM evidence.entities x "
+                  f"WHERE lower(btrim(x.label))=lower(btrim({nm}))) "
+                  f"AND length(btrim({nm}))>2 "
+                  f"AND left(lower(btrim({label_sql})),length(lower(btrim({nm}))))"
+                  f"=lower(btrim({nm})))")
+        return f"({exact} OR {cross} OR {prefix})"
+
+
+    def coreferent(self, column, ids_param):
+        """Every entity recording the same real thing as the given id(s).
+
+        ONE REAL THING IS RECORDED ONCE PER DOCUMENT.
+
+        MEASURED, on "تھانہ راجہ بازار میں کتنی FIR درج ہیں؟": the planner
+        filtered `recorded at police station` on a single station UUID and
+        the answer came back 1, from the 4 FIRs that station registered.
+        The station تھانہ راجہ بازار، راولپنڈی exists as FOUR entities, one
+        per document, and `canonical_id` is NULL for all 564 entities in
+        this corpus -- 71 labels cover 408 of them. A lone id therefore
+        names one RECORD of a thing, never the thing itself, so an answer
+        built on it is a fraction of the truth with full-coverage wording
+        on top. The same question phrased so the planner emitted
+        `object_name` answered 4, because names already expand this way;
+        the two spellings of one filter must not disagree.
+
+        Co-reference is read from the records, not configured: the same
+        entity type, the same label, and identifiers that agree or are
+        absent. The identifier clause is what keeps this from merging
+        people -- 10 entities are labelled کاشف and they carry 6 distinct
+        CNICs, so this rule reaches the 2 records of ONE Kashif and leaves
+        the other five men alone. Dropping the label comparison would
+        merge them; dropping the identifier comparison would too.
+
+        `canonical_id` wins where it is populated, so a later resolution
+        pass improves this without touching the compiler.
+        """
+        return (f"EXISTS(SELECT 1 FROM evidence.entities t "
+                f"JOIN evidence.entities q ON q.concept_id=t.concept_id AND ("
+                f"(q.canonical_id IS NOT NULL AND q.canonical_id=t.canonical_id) OR ("
+                f"lower(btrim(q.label))=lower(btrim(t.label)) AND ("
+                f"q.identifiers IS NULL OR t.identifiers IS NULL "
+                f"OR q.identifiers=t.identifiers))) "
+                f"WHERE t.entity_id={column} AND q.entity_id=ANY({ids_param}::uuid[]))")
+
     def predicate(self, f: PredicateFilter, alias):
         concept = self.concept(f.predicate_id, {"property", "relation", "event_type"})
         if f.direction == "inverse" and concept.kind != "relation":
@@ -97,19 +172,20 @@ class Builder:
             if concept.value_type != "entity" or f.operator not in {"eq", "ne"}:
                 raise InvalidPlan("Relationship filters require an entity and equality operator")
             if f.object_entity_id:
-                parts.append(f"{alias}.{target_column} {ops[f.operator]} {self.param(f.object_entity_id)}")
+                # An id names one record of the thing; the filter means the
+                # thing. See coreferent() for what that cost, measured.
+                negate = "NOT " if f.operator == "ne" else ""
+                parts.append(negate + self.coreferent(
+                    f"{alias}.{target_column}",
+                    self.param([f.object_entity_id])))
             else:
                 # Named related entity, matched the way resolve() matches:
                 # exact label, or a cross-script candidate so a Roman
                 # spelling reaches the Urdu records.
                 nm = self.param(f.object_name)
                 inside = (f"SELECT 1 FROM evidence.entities t WHERE "
-                          f"t.entity_id={alias}.{target_column} AND ("
-                          f"lower(btrim(t.label))=lower(btrim({nm})) OR EXISTS("
-                          f"SELECT 1 FROM unnest(regexp_split_to_array(t.label,'\\s+')) w "
-                          f"WHERE regexp_replace(lower({nm}),'[aeiou]','','g') <> '' "
-                          f"AND regexp_replace(roman_skeleton(w),'[aeiou]','','g')"
-                          f"=regexp_replace(lower({nm}),'[aeiou]','','g')))")
+                          f"t.entity_id={alias}.{target_column} AND "
+                          + self.name_reaches("t.label", nm))
                 negate = "NOT " if f.operator == "ne" else ""
                 parts.append(f"{negate}EXISTS({inside})")
         else:
@@ -177,7 +253,9 @@ class Builder:
         parts.append(f"EXISTS(SELECT 1 FROM evidence.documents d WHERE d.document_id=e.document_id "
                      f"AND {self.document_predicate('d')})")
         if op.entity_ids:
-            parts.append(f"e.entity_id=ANY({self.param(op.entity_ids)}::uuid[])")
+            # Ids from a lookup name the records it happened to return, not
+            # every record of those things. See coreferent().
+            parts.append(self.coreferent("e.entity_id", self.param(op.entity_ids)))
         if op.text and op.operation not in {"search", "traverse", "network"}:
             # Select entities by the name they are recorded under.
             #
@@ -202,12 +280,9 @@ class Builder:
             # devowels to itself and so never matches a roman skeleton,
             # which keeps this from widening same-script lookups.
             name = self.param(op.text)
-            parts.append(
-                f"(lower(btrim(e.label))=lower(btrim({name})) OR EXISTS("
-                f"SELECT 1 FROM unnest(regexp_split_to_array(e.label,'\\s+')) w "
-                f"WHERE regexp_replace(lower({name}),'[aeiou]','','g') <> '' "
-                f"AND regexp_replace(roman_skeleton(w),'[aeiou]','','g')"
-                f"=regexp_replace(lower({name}),'[aeiou]','','g')))")
+            # The same rule as a named filter, so selecting by name and
+            # filtering by name cannot disagree. See name_reaches().
+            parts.append(self.name_reaches("e.label", name))
         if op.operation=="count_entities" and op.predicate_id:
             # Counting entities THAT HAVE the named fact, within any
             # period asked for.

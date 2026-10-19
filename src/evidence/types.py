@@ -114,6 +114,29 @@ class PredicateFilter(Contract):
             if not [v for v in (self.values or []) if str(v).strip()]:
                 raise ValueError("a value set filter requires values")
             return self
+        # A FILTER THAT NAMES SOMETHING MEANS EQUALITY, NOT MERE PRESENCE.
+        #
+        # `exists` asks only whether the field is recorded at all, so the
+        # compiler never reads a value beside it. A plan that sets both
+        # therefore looks restricted and runs unrestricted.
+        #
+        # MEASURED, on "How many cases is Kashif involved in?": the filter
+        # was `accused in` with operator `exists` and object_name "کاشف".
+        # The name was discarded and the reply was 68 -- every FIR with any
+        # accused at all -- presented as the answer about one man. The
+        # station questions failed the same way round, so this is the same
+        # defect in two spellings: a named restriction dropped in silence.
+        #
+        # The intent is not ambiguous, so it is read rather than refused:
+        # naming a thing means that thing, and `not_exists` with a name
+        # means anything but it. Nothing is coerced when no value is given,
+        # which is what `exists` is actually for.
+        if self.operator in {"exists", "not_exists"}:
+            if [x for x in (self.value, self.object_entity_id, self.object_name)
+                    if x is not None]:
+                self.operator = "eq" if self.operator == "exists" else "ne"
+            else:
+                return self
         if self.values:
             raise ValueError("values applies to the 'in' and 'not_in' operators")
         if self.operator not in {"exists", "not_exists"} and not given:

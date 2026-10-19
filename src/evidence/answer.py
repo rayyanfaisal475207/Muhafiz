@@ -468,7 +468,10 @@ def render(run_id: UUID, plan: QuestionPlan, results: list[EvidenceResult], scop
         # silent about the fact that no station of that name is recorded at
         # all. The store attaches that finding; it must reach the answer.
         for note in result.coverage.notes:
-            if note.startswith("No record carries the name"):
+            # A name shared by several people changes what the number means,
+            # so it travels with the number. See EvidenceStore.execute.
+            if (note.startswith("No record carries the name")
+                    or note.startswith("The name '")):
                 lines.append(note)
         # A LIST THAT DID NOT READ EVERYTHING MUST SAY SO.
         #

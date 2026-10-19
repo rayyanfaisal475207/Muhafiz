@@ -841,6 +841,41 @@ class EvidenceStore:
             predicate_id, limit)
         return [{"value": r["value"], "rows": int(r["rows"])} for r in rows]
 
+    async def distinct_identities(self, name: str) -> dict | None:
+        """How many different real things are recorded under one name.
+
+        Counted by the SAME rule the compiler uses to expand an entity
+        filter -- `canonical_id` where it is populated, else the recorded
+        name together with the recorded identifiers -- so what an answer
+        SAYS a name covers cannot disagree with what the query MATCHED.
+
+        MEASURED, which is why the rule is shared rather than restated: a
+        first attempt counted distinct CNICs and fell back to the entity
+        id when no CNIC was recorded. Police stations carry no CNIC, so
+        every record of one looked like a separate station and the answer
+        to "How many FIRs are registered at Raja Bazar police station?"
+        read "recorded for 4 different people" about a building. Under the
+        shared rule the four records are one station, and کاشف is still
+        six people.
+
+        Returns the entity kind and the number of identities, or None when
+        the name resolves to nothing.
+        """
+        row = await self.conn.fetchrow("""
+            SELECT k.label AS kind, count(*) AS entities,
+                   count(DISTINCT coalesce(e.canonical_id::text,
+                         lower(btrim(e.label))||'|'||coalesce(e.identifiers::text,'')))
+                     AS identities
+            FROM evidence.entities e
+            JOIN evidence.concepts k ON k.concept_id=e.concept_id
+            WHERE lower(btrim(e.label))=lower(btrim($1))
+            GROUP BY k.label ORDER BY count(*) DESC LIMIT 1
+        """, name)
+        if not row:
+            return None
+        return {"kind": row["kind"], "entities": int(row["entities"]),
+                "identities": int(row["identities"])}
+
     async def where_values_occur(self, forms: list[str], *,
                                 per_form: int = 3,
                                 max_concepts: int = 6) -> list[dict]:
@@ -1099,6 +1134,25 @@ class EvidenceStore:
     async def execute(self, op: QueryOperation, concepts: dict[UUID, Concept]) -> EvidenceResult:
         named = [(op.text,op.name_match_mode)] if op.text and op.operation in {'list','count_entities'} and not op.entity_ids else []
         named.extend((f.object_name,f.name_match_mode) for f in op.filters if f.object_name)
+        # ONE NAME, SEVERAL PEOPLE: THE READER MUST BE TOLD.
+        #
+        # Filtering by a name reaches every record of that name, which is
+        # what a question naming no one in particular asks for. But the
+        # answer then reads as a statement about one person. MEASURED, on
+        # "How many cases is Kashif involved in?": the true answer is 4
+        # FIRs, and they are FOUR DIFFERENT MEN -- four CNICs, one case
+        # each. "کاشف is accused in 4 cases" is the reading an investigator
+        # would take from that, and it is false about every one of them.
+        #
+        # Identity is counted from the records: a strong identifier where
+        # one is recorded, else the entity itself. Nothing is suppressed --
+        # the count stays the count -- but the answer says what the name
+        # covers, which is the difference between a lead and a wrong lead.
+        shared = []
+        for name,_mode in named:
+            spans = await self.distinct_identities(name)
+            if spans and spans["identities"] > 1:
+                shared.append((name, spans["identities"], spans["kind"]))
         for name,mode in named:
             if mode != 'unique': continue
             candidates = await self.resolve(name,limit=16)
@@ -1249,6 +1303,11 @@ class EvidenceStore:
             coverage.notes.append(
                 f"No record carries the name '{entry['name']}'."
                 + (f" Recorded names include: {known}." if known else ""))
+        for name,identities,kind in shared:
+            coverage.notes.append(
+                f"The name '{name}' covers {identities} different "
+                f"{kind or 'record'}s in these records, so this is about all "
+                f"of them rather than one.")
         metric = None
         if op.operation == "average_duration":
             unknown = (await self.conn.fetchval(compiled.unknown_cohort_sql, *compiled.unknown_cohort_params)
@@ -1543,6 +1602,9 @@ class ScopedStore:
 
     async def carriers(self, *args, **kwargs):
         return await self._call("carriers", *args, **kwargs)
+
+    async def distinct_identities(self, *args, **kwargs):
+        return await self._call("distinct_identities", *args, **kwargs)
 
     async def where_values_occur(self, *args, **kwargs):
         return await self._call("where_values_occur", *args, **kwargs)
