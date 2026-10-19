@@ -1031,6 +1031,43 @@ def _term_appears(form: str, words: list[str], haystack: str) -> bool:
         any(_same_word(piece, word) for word in words) for piece in pieces)
 
 
+def asked_this_already(plan, state) -> str | None:
+    """The clarification the reader has already been asked and has answered.
+
+    MEASURED, in one session, two turns apart:
+
+        In this case, what item was reported stolen ...
+            -> Which specific case do you mean by "this case"?
+        i am taking genrally in whihc case the items were stolen etc
+            -> Which specific case do you mean by "this case"?
+
+    The reader answered the question -- they said they meant all of them --
+    and were asked it again. Whatever the reply contains, asking twice is
+    wrong both ways round: if the reply resolved the ambiguity there is
+    nothing left to ask, and if it did not, the question is one this reader
+    cannot answer and asking a third time will not help either. Either way
+    the turn must produce evidence or an honest refusal, not the same
+    question.
+
+    This is why it is structural rather than left to the prompt: the
+    planner cannot see that it is repeating itself, because each turn is a
+    fresh call and the loop is only visible from outside it.
+
+    `pending_clarification` is set only when the previous turn ended by
+    asking something, so the reader has necessarily replied since. A
+    clarification-only plan at that point is refused and the planner is
+    told to answer with what it has.
+
+    Returns the question that was already asked, or None.
+    """
+    if not state or plan.outputs:
+        return None
+    if not plan.clarification:
+        return None
+    asked = (getattr(state, "pending_clarification", None) or "").strip()
+    return asked or None
+
+
 def breadth_answers_instead(plan, candidates) -> str | None:
     """The name a clarification asks the reader to pick, when it need not.
 
@@ -1656,6 +1693,25 @@ DECIDE THE SCOPE BEFORE THE OPERATION, FROM THREE PLACES IN ORDER.
      number, no date and no prior turn means the whole corpus is the population, which is a
      legitimate and common investigative question. Plan it and say what was covered. Do not
      refuse for want of a restriction the reader never implied.
+
+A BARE REFERENCE RESOLVES TO THE SCOPE, IT IS NEVER A QUESTION BACK. "this case", "the
+FIR", "the accused", "this group" point at something, and `what_the_reader_has_open` says
+what. If ONE case is selected, they mean that case. If no case is selected and the
+conversation named none, they have no antecedent, and the only reading left is the whole
+scope -- so "In this case, what item was reported stolen" over 73 cases means what items
+were reported stolen, across all of them. ANSWER THAT and say that is the reading you
+took. MEASURED: that question was answered "Which specific case do you mean by 'this
+case'? Provide the FIR number", and when the reader replied that they meant it generally,
+the same question came back. The reader cannot supply a case they never had in mind; they
+are asking because they want the general picture. Never ask the reader to resolve a
+reference that the scope already resolves.
+
+NEVER ASK THE SAME THING TWICE. If `conversation` carries a pending clarification, the
+reader has already answered it. Read their reply as the answer -- "generally", "all of
+them", "I don't know" all resolve it, usually by widening -- and then plan. If the reply
+genuinely does not resolve it, that is proof it is not something this reader can answer,
+so take the ordinary reading or state what the records do not hold. A second clarification
+is never the right output.
 
 A NAME WITH NO OTHER REFERENCE MEANS EVERYONE RECORDED UNDER IT. "How many cases is Kashif
 involved in", with no station, case, CNIC or prior turn naming one man, asks about every
@@ -2520,9 +2576,37 @@ class Runtime:
                 note="no concept, no recorded value and no entity name matches "
                      "these, so no plan can answer about them")
         clock = now or datetime.now(ZoneInfo(config.EVIDENCE_TIMEZONE))
+        # ── WHAT THE READER IS LOOKING AT ────────────────────────────────
+        #
+        # The planner was never told this, and it is the one thing that
+        # resolves a bare "this case". MEASURED, in one session: "In this
+        # case, what item was reported stolen" was answered "Which specific
+        # case do you mean by 'this case'? Provide the FIR number" -- with
+        # all 73 cases already in scope and no case ever named in the
+        # conversation. Told "i am taking genrally", it asked the SAME
+        # question again. It had no way to know a case had not been
+        # selected, so a reference it could not resolve looked like a
+        # reference the reader had made.
+        #
+        # One case in scope means the reader opened that case and every
+        # bare reference means it. More than one means no case is selected,
+        # so a bare reference means the whole scope -- which is a real
+        # question, not a missing detail.
+        selected = len(scope.case_ids) == 1
         payload = {"question": question,
                    "understanding": understanding.model_dump(mode="json") if understanding else None,
                    "catalog": catalog_payload(concepts),
+                   "what_the_reader_has_open": {
+                       "cases_in_scope": len(scope.case_ids),
+                       "one_case_is_selected": selected,
+                       "reference_documents_in_scope": scope.include_global,
+                       "means": ("Every bare reference -- 'this case', 'the FIR', "
+                                 "'the accused' -- means the one selected case."
+                                 if selected else
+                                 "No case is selected. A bare reference such as "
+                                 "'this case' has no antecedent unless the "
+                                 "conversation named one, so it means the whole "
+                                 "scope: plan across all cases and say so.")},
                    "conversation": state.model_dump(mode="json") if state else None,
                    "recent_turns": history or [], "language_preference": preference,
                    "entity_candidates": candidates,
@@ -2900,6 +2984,21 @@ class Runtime:
                         # executed and the note travels with the answer, where
                         # the reader can weigh it against the result.
                         if (plan.clarification or plan.conversational_response) and not plan.outputs:
+                            repeated = asked_this_already(plan, state)
+                            if repeated:
+                                await trace.step(
+                                    "clarification", "Refused to ask the same question twice",
+                                    already_asked=shorten(repeated, 200),
+                                    asking_again=shorten(plan.clarification or "", 200))
+                                raise InvalidPlan(
+                                    "The reader was already asked this and has replied: "
+                                    "\"%s\". Asking again cannot help -- either the reply "
+                                    "settled it, or it is not something this reader can "
+                                    "answer. Plan the most reasonable reading of the "
+                                    "question with what is now known, say which reading "
+                                    "you took, or state plainly what the records do not "
+                                    "hold. Do not return another clarification."
+                                    % shorten(repeated, 200))
                             broaden = breadth_answers_instead(plan, candidates)
                             if broaden:
                                 await trace.step(
