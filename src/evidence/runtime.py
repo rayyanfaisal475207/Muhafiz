@@ -1846,11 +1846,54 @@ uses the same checked results. Return JSON matching the schema, with no prose ou
 """
 
 
+class _PartStore:
+    """A per-part view of one store, so concurrent parts never share `trace`.
+
+    `ScopedStore` is stateless apart from the trace it is handed, and it
+    opens a fresh pooled connection per call -- which is what makes running
+    parts at the same time safe at all. But the trace is set by assignment
+    on the store object, so parts sharing one store would overwrite each
+    other and the Trace panel would show steps from whichever part wrote
+    last. Each part gets its own view instead: `trace` is ours, every other
+    attribute is the shared store.
+    """
+
+    def __init__(self, inner):
+        self._inner = inner
+        self.trace = None
+
+    def __getattr__(self, name):
+        # Reached only for attributes this view does not define itself, so
+        # `trace` stays local and every store method delegates.
+        return getattr(self._inner, name)
+
+
+
 class Runtime:
     workflow_version='2.1'
     def __init__(self, store: EvidenceStore, model=None):
         self.store = store
         self.model = model or LocalModel()
+        # PER-RUN STATE, INITIALISED HERE AND NOT ONLY IN run().
+        #
+        # `_run` appends to `failures` at five stages and reads its length
+        # to number a planning attempt, so it cannot be entered on an
+        # instance that has never had these set. `run()` sets them, which
+        # was enough while it was the only caller.
+        #
+        # MEASURED, the moment it was not: answering a compound question
+        # gives each part its own Runtime and calls `_run` on it directly,
+        # and every part died instantly with AttributeError on
+        # `self.failures`. Both halves of a two-part question came back
+        # "unavailable" and it read exactly like missing data -- the parts
+        # never ran at all. A Runtime is now usable as constructed, and
+        # `run()` still resets these so a reused instance starts clean.
+        self.strategy = None
+        self.failures = []
+        self.trace = None
+        self.unrecorded = []
+        self.vocabulary = []
+        self.stage = None
 
     def _model_quota(self) -> str | None:
         """The quota the model last named, if it named one.
@@ -1976,7 +2019,7 @@ class Runtime:
 
     async def _each_part(self, run_id, question, parts, scope, preference, *,
                          deadline, progress=None, cancelled=None, now=None):
-        """Answer a compound question one part at a time, then put it together.
+        """Answer a compound question part by part, then put it together.
 
         Each part runs as a whole question -- its own plan, its own slot
         filling, its own scope correction, its own citations -- because that
@@ -1984,30 +2027,98 @@ class Runtime:
         as a single ask, and a runaway split would be a loop.
 
         Conversation state and history are deliberately NOT passed down. A
-        part is not a follow-up turn; handing it the prior turn's plan would
+        part is not a follow-up turn; handing it the prior turn plan would
         invite it to inherit a subject it was never about.
 
-        An answer is assembled from whatever the parts established. If one
-        part answers and another cannot, that is reported as partial with
-        both outcomes shown, rather than discarding the half that worked --
-        which is what the previous behaviour did.
+        THE PARTS RUN AT THE SAME TIME.
+
+        Nothing orders them: conversation state is withheld from every part
+        by design, so no part can depend on another. A part repeats the
+        whole preamble -- classification, understanding, catalog ranking,
+        value locations, planning -- so run end to end a compound question
+        costs the SUM of complete pipelines, against one shared deadline.
+
+        MEASURED on a two-part Urdu question, with the parts executing:
+
+            sequentially   264s    over the 240s budget -> unavailable
+            together       142s    inside it            -> partial
+
+        So it is not a tuning gain. Sequentially the question cannot finish
+        at all, and the reader is told nothing was established about either
+        part while both were in fact reachable.
+
+        Recorded because the measurement was got wrong first: an earlier
+        pass compared 94/91/109s against 113/97/71s and read it as no
+        difference. Those parts were dying on entry (see Runtime.__init__)
+        and the numbers were timing the preamble, not the parts. A
+        before-and-after is worth nothing until the after actually runs.
+
+        Each part needs its own Runtime, because `_run` records stage,
+        failures, trace and unrecorded terms on the instance, and parts
+        sharing one would interleave all four. Their traces were also being
+        dropped on the floor -- a part built its own and nothing folded it
+        back -- so the Trace panel showed none of the work that produced
+        the answer. Each part's steps now join this run's trace under a
+        `partN:` stage. They also need their own store view: see
+        `_PartStore`.
+
+        Concurrency requires a store that opens a connection per call. One
+        holding a single connection (`conn`) cannot have two readers, so
+        that case stays sequential and behaves exactly as it did.
         """
         limit = max(2, int(os.getenv("EVIDENCE_MAX_PARTS", "4")))
         chosen = parts[:limit]
         self.stage = "parts"
+        parent = self.trace
+        per_call_connection = not hasattr(self.store, "conn")
+        together = len(chosen) > 1 and per_call_connection and (
+            os.getenv("EVIDENCE_PARTS_CONCURRENT", "true").strip().lower() == "true")
+
+        async def one(index, part):
+            """Run one part in isolation, returning its answer or its failure."""
+            store = _PartStore(self.store) if together else self.store
+            worker = Runtime(store, self.model)
+            try:
+                piece = await worker._run(
+                    uuid4(), part, scope, None, None, preference,
+                    deadline=deadline, progress=None if together else progress,
+                    cancelled=cancelled, now=now, allow_split=False)
+                return index, piece, worker, None
+            except Exception as exc:                        # noqa: BLE001
+                logger.exception("part %d failed: %s", index, type(exc).__name__)
+                return index, None, worker, exc
+
+        if parent is not None:
+            await parent.step("parts", "Answering each part of the question",
+                              parts=len(chosen), offered=len(parts),
+                              concurrently=together,
+                              questions=[shorten(p, 120) for p in chosen])
+        if together:
+            done = list(await asyncio.gather(
+                *(one(i, p) for i, p in enumerate(chosen, 1))))
+        else:
+            done = []
+            for index, part in enumerate(chosen, 1):
+                if cancelled is not None and cancelled():
+                    break
+                done.append(await one(index, part))
+        done.sort(key=lambda row: row[0])
+
         texts: list[str] = []
         statuses: list[str] = []
         results, claims = [], []
-        for index, part in enumerate(chosen, 1):
-            if cancelled is not None and cancelled():
-                break
-            try:
-                piece = await self._run(uuid4(), part, scope, None, None, preference,
-                                        deadline=deadline, progress=progress,
-                                        cancelled=cancelled, now=now,
-                                        allow_split=False)
-            except Exception as exc:                        # noqa: BLE001
-                logger.exception("part %d failed: %s", index, type(exc).__name__)
+        for index, piece, worker, exc in done:
+            # The parts ran with their own traces, so the reader sees nothing
+            # of them unless those steps are folded back into this run.
+            part_trace = getattr(worker, "trace", None)
+            if parent is not None and part_trace is not None:
+                parent.labels.update(getattr(part_trace, "labels", None) or {})
+                for entry in list(getattr(part_trace, "steps", None) or []):
+                    await parent.step(
+                        "part%d:%s" % (index, entry.get("stage")),
+                        entry.get("title") or "", **(entry.get("detail") or {}))
+            self.failures.extend(getattr(worker, "failures", None) or [])
+            if exc is not None:
                 statuses.append("unavailable")
                 self.failures.append({"stage": "parts", "part": index,
                                       "error_type": type(exc).__name__})
@@ -2038,6 +2149,7 @@ class Runtime:
                       health={"answered_by_parts": len(chosen),
                               "part_questions": chosen,
                               "part_statuses": statuses,
+                              "ran_concurrently": together,
                               "parts_offered": len(parts)})
 
     async def _no_case_records(self) -> bool:
