@@ -1148,8 +1148,25 @@ class EvidenceStore:
         # one is recorded, else the entity itself. Nothing is suppressed --
         # the count stays the count -- but the answer says what the name
         # covers, which is the difference between a lead and a wrong lead.
+        # ONE CASE IN SCOPE MEANS ONE PERSON OF THAT NAME.
+        #
+        # This note exists for a corpus-wide answer, where "کاشف is accused
+        # in 4 cases" is four different men and the reader must be told.
+        # Inside a single case the reader has one file open and the name
+        # means the person in it.
+        #
+        # MEASURED, in a case-scoped follow-up demo on FIR 1001/26: asked
+        # "Was it licensed?", the answer correctly read بغیر لائسنس and then
+        # added "The name 'کاشف' covers 4 different persons in these
+        # records, so this is about all of them rather than one" -- about a
+        # case with exactly one accused. The count is of identities the
+        # reader can reach, not of this case, so in a one-case scope it
+        # describes a population the question was never about.
+        one_case = len(getattr(self.scope, "case_ids", None) or []) == 1
         shared = []
         for name,_mode in named:
+            if one_case:
+                continue
             spans = await self.distinct_identities(name)
             if spans and spans["identities"] > 1:
                 shared.append((name, spans["identities"], spans["kind"]))

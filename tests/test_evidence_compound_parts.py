@@ -194,3 +194,73 @@ def test_nothing_established_is_not_reported_as_answered(monkeypatch):
     assert answer.status == "unavailable"
     assert "No factual zero was inferred" in answer.text, (
         "two failed parts must never read as a measured absence")
+
+
+# ── The stream must not go silent while the parts run ─────────────────────
+
+class RecordingTrace:
+    """A trace that only remembers; enough to see whether anything is said."""
+
+    def __init__(self):
+        self.steps = []
+        self.labels = {}
+
+    async def step(self, stage, title, **detail):
+        self.steps.append({"stage": stage, "title": title, "detail": detail})
+
+
+def test_a_heartbeat_is_emitted_while_the_parts_are_still_running(monkeypatch):
+    """Silence is read by the browser as a dead connection.
+
+    The stream carries one SSE chunk per NEW trace step, and the parts
+    trace into their own, so while they run nothing new reaches the client.
+    The frontend treats 150s of silence as a dead connection
+    (STREAM_STALL_TIMEOUT_MS in frontend/src/lib/api.ts) and replaces the
+    answer with "Connection seems stalled".
+
+    MEASURED: the two-part question these run concurrently for took 142s.
+    Eight seconds of margin on a question that already works.
+    """
+    scope = scope_of()
+    parent = Runtime(FakeStore())
+    parent.trace = RecordingTrace()
+
+    async def slow_run(self, run_id, question, *a, **kw):
+        await asyncio.sleep(0.25)
+        return answered("done: " + question)
+
+    monkeypatch.setattr(Runtime, "_run", slow_run, raising=True)
+    monkeypatch.setenv("EVIDENCE_PARTS_CONCURRENT", "true")
+    monkeypatch.setenv("EVIDENCE_PARTS_HEARTBEAT_SECONDS", "0.05")
+
+    answer = asyncio.run(parent._each_part(
+        uuid4(), "whole", ["part one", "part two"], scope, "auto", deadline=None))
+
+    assert answer.status == "answered"
+    beats = [s for s in parent.trace.steps
+             if s["title"] == "Still answering the parts"]
+    assert beats, (
+        "nothing was said for the whole duration of the parts, which is "
+        "exactly what the frontend gives up on")
+    assert all(b["detail"]["of"] == 2 for b in beats)
+    assert beats[0]["detail"]["finished"] < 2, (
+        "a heartbeat should report work still outstanding, not completion")
+
+
+def test_no_heartbeat_once_the_parts_are_done(monkeypatch):
+    """A heartbeat after the work finished would be noise in the trace."""
+    scope = scope_of()
+    parent = Runtime(FakeStore())
+    parent.trace = RecordingTrace()
+
+    async def quick_run(self, run_id, question, *a, **kw):
+        return answered("done: " + question)
+
+    monkeypatch.setattr(Runtime, "_run", quick_run, raising=True)
+    monkeypatch.setenv("EVIDENCE_PARTS_CONCURRENT", "true")
+    monkeypatch.setenv("EVIDENCE_PARTS_HEARTBEAT_SECONDS", "5")
+
+    asyncio.run(parent._each_part(
+        uuid4(), "whole", ["a", "b"], scope, "auto", deadline=None))
+    assert not [s for s in parent.trace.steps
+                if s["title"] == "Still answering the parts"]

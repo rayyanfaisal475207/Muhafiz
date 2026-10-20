@@ -148,3 +148,78 @@ class TestSameWord:
     ])
     def test_different_words_do_not_match(self, a, b):
         assert not _same_word(a, b) and not _same_word(b, a)
+
+
+# ── A selected case is a narrowing, and it is not in the plan ─────────────
+
+FIR_TYPE = UUID("44444444-4444-5444-8444-444444444444")
+CONCEPTS_WITH_FIR = {**CONCEPTS,
+                     FIR_TYPE: concept(FIR_TYPE, "FIR", "entity_type")}
+
+
+def scope_over(*case_ids):
+    from src.evidence.types import Scope
+    from uuid import uuid4
+    return Scope(user_id=uuid4(), session_id=uuid4(), case_ids=list(case_ids))
+
+
+def the_summary_of_whatever_is_in_scope():
+    """list(FIR, FIR summary) with nothing in the plan restricting it.
+
+    Over the whole corpus this is the fifty-summary dump. With one case
+    selected it is exactly the right answer to "Summarize this case."
+    """
+    return plan(QueryOperation(output_id="summary", operation="list",
+                               subject_type=FIR_TYPE, predicate_id=SUMMARY))
+
+
+def asked_to_summarize():
+    return understanding(("Summarize", []), ("this case", []))
+
+
+GROUNDED = ["summarize", "this case"]
+
+
+def test_one_selected_case_narrows_an_otherwise_unrestricted_list():
+    """The regression: the opening question of a case review.
+
+    MEASURED, on "Summarize this case." with FIR 1001/26 selected: the
+    planner produced this exact plan, which is correct, and the gate
+    rejected it on all seven rungs, so the answer was "Candidate sources
+    were retrieved; an answer has not yet been established" at 117s.
+    """
+    assert unused_terms(the_summary_of_whatever_is_in_scope(),
+                        asked_to_summarize(), CONCEPTS_WITH_FIR, GROUNDED,
+                        scope_over("fir-1001-26")) == [], (
+        "the reader put the case in the case selector, not in a filter; the "
+        "scope restricts this plan to one case whether the plan says so or not")
+
+
+def test_the_fifty_summary_dump_is_still_refused_across_many_cases():
+    """The failure this gate exists for must still be caught."""
+    dropped = unused_terms(the_summary_of_whatever_is_in_scope(),
+                           asked_to_summarize(), CONCEPTS_WITH_FIR, GROUNDED,
+                           scope_over(*["case-%d" % i for i in range(73)]))
+    assert dropped, (
+        "with 73 cases in scope this enumerates the whole corpus and refers "
+        "to nothing the question asked -- that is the dump")
+
+
+def test_no_scope_at_all_behaves_as_it_did():
+    """Callers that pass no scope must be unaffected."""
+    assert unused_terms(the_summary_of_whatever_is_in_scope(),
+                        asked_to_summarize(), CONCEPTS_WITH_FIR, GROUNDED)
+
+
+def test_an_empty_scope_is_not_a_selected_case():
+    assert unused_terms(the_summary_of_whatever_is_in_scope(),
+                        asked_to_summarize(), CONCEPTS_WITH_FIR, GROUNDED,
+                        scope_over())
+
+
+def test_a_count_in_one_case_is_still_fine():
+    """Counts were never subject to this gate and must stay that way."""
+    counting = plan(QueryOperation(output_id="n", operation="count_entities",
+                                   subject_type=PERSON))
+    assert unused_terms(counting, asked_to_summarize(), CONCEPTS_WITH_FIR,
+                        GROUNDED, scope_over("fir-1001-26")) == []

@@ -1112,7 +1112,7 @@ def breadth_answers_instead(plan, candidates) -> str | None:
     return None
 
 
-def unused_terms(plan, understanding, concepts, grounded) -> list[str]:
+def unused_terms(plan, understanding, concepts, grounded, scope=None) -> list[str]:
     """A plan that constrains NOTHING, for a question that named something.
 
     WHAT THIS CATCHES
@@ -1174,6 +1174,27 @@ def unused_terms(plan, understanding, concepts, grounded) -> list[str]:
     # ENUMERATION of everything -- `list(FIR, predicate=FIR summary)` with
     # no filter returned all fifty summaries as an answer about a stolen
     # motorcycle. So the test applies only to operations that enumerate.
+    # A SELECTED CASE IS A NARROWING, AND IT IS NOT IN THE PLAN.
+    #
+    # This gate catches the fifty-summary dump: list(FIR, FIR summary) with
+    # nothing restricting it, over the whole corpus, offered as an answer
+    # about one stolen motorcycle. With exactly ONE case in scope that same
+    # plan is the correct answer -- the scope restricts it to that case, so
+    # a filter would be redundant and there is nothing for the plan to say.
+    #
+    # MEASURED, on "Summarize this case." with FIR 1001/26 selected: the
+    # planner produced list(FIR, predicate=FIR summary), which is right,
+    # and this gate rejected it on all seven rungs -- "the question names
+    # 'Summarize', 'this case' and the plan refers to them nowhere" -- so
+    # the opening question of a case review answered nothing, twice, at
+    # 117s and 163s.
+    #
+    # The reader cannot put "this case" in a filter; they put it in the
+    # case selector. Where the scope already names one case, the plan is
+    # narrowed whether or not it says so.
+    if len(getattr(scope, "case_ids", None) or []) == 1:
+        return []
+
     enumerating = {"list", "search"}
     for op in plan.outputs:
         if op.operation not in enumerating:
@@ -1637,6 +1658,20 @@ CATEGORY_GUIDANCE = {
     "existence": ("This asks whether something APPEARS AT ALL. Give the exact written "
                   "forms of the thing itself and nothing else -- no synonyms, no broader "
                   "terms. A near-miss cannot settle an absence."),
+    "_plan_note_narrative": (
+        "A RECORDED SUMMARY BEATS A PASSAGE SEARCH. Every category has a plan note "
+        "except this one, and without it a request to summarize fell through to "
+        "`search`, which reads candidate passages and establishes nothing. MEASURED, "
+        "twice, on \"Summarize this case.\" with one case selected: 117s and 163s, both "
+        "\"Candidate sources were retrieved; an answer has not yet been established. 0 "
+        "of 10 documents were checked\" -- while the case's `FIR summary` sat in the "
+        "records the whole time.\n"
+        "So: when the catalog offers a summary property for the record type being asked "
+        "about (its meaning says it is a short account of one such record), use list "
+        "with that property as predicate_id, not search. If one case is selected the "
+        "scope already restricts the answer to it, so no filter is needed and none "
+        "should be invented; `this case` is not a condition to express. Reach for "
+        "search only when no summary property covers the records asked about."),
     "_plan_note_existence": (
         "A search for an existence question sets text to the NAME OR VALUE being asked "
         "about -- \"Bhara Kahu\" -- never the question itself. Absence is only checkable "
@@ -2094,8 +2129,35 @@ class Runtime:
                               concurrently=together,
                               questions=[shorten(p, 120) for p in chosen])
         if together:
-            done = list(await asyncio.gather(
-                *(one(i, p) for i, p in enumerate(chosen, 1))))
+            # SAY SOMETHING WHILE THEY RUN, OR THE BROWSER GIVES UP.
+            #
+            # The stream carries one SSE chunk per NEW trace step, and the
+            # parts trace into their own. So while they run, nothing new
+            # reaches the client and the connection goes completely silent.
+            # The frontend treats 150s of silence as a dead connection
+            # (STREAM_STALL_TIMEOUT_MS in frontend/src/lib/api.ts) and
+            # replaces the answer with "Connection seems stalled".
+            #
+            # MEASURED: the two-part question these run concurrently for
+            # took 142s. Eight seconds of margin, on a question that
+            # already works -- the reader would have watched a correct
+            # answer be thrown away for being slow.
+            #
+            # A step every 20s keeps the stream alive and, better, says
+            # which parts are still outstanding instead of nothing at all.
+            beat = float(os.getenv("EVIDENCE_PARTS_HEARTBEAT_SECONDS", "20"))
+            running = [asyncio.create_task(one(i, p))
+                       for i, p in enumerate(chosen, 1)]
+            pending, waited = set(running), 0.0
+            while pending:
+                _, pending = await asyncio.wait(pending, timeout=beat)
+                if pending and parent is not None:
+                    waited += beat
+                    await parent.step(
+                        "parts", "Still answering the parts",
+                        finished=len(running) - len(pending),
+                        of=len(running), seconds_so_far=round(waited))
+            done = [task.result() for task in running]
         else:
             done = []
             for index, part in enumerate(chosen, 1):
@@ -2974,7 +3036,7 @@ class Runtime:
                         # A PLAN THAT IGNORES WHAT THE QUESTION NAMED IS
                         # NOT AN ANSWER TO THAT QUESTION. See `unused_terms`.
                         dropped = unused_terms(plan, understanding, concepts,
-                                               grounded_forms)
+                                               grounded_forms, scope)
                         if dropped:
                             await trace.step(
                                 "plan_rejected", "The plan uses none of the "
