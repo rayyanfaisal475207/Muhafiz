@@ -131,3 +131,39 @@ def test_a_blank_pending_question_does_not_count_as_having_asked(pending):
     state = ConversationState(scope_fingerprint=scope.fingerprint(),
                               pending_clarification=pending)
     assert asked_this_already(clarifying(ALREADY_ASKED), state) is None
+
+
+# ── The language setting must actually do something ───────────────────────
+
+from src.evidence.runtime import language_asked_for
+
+
+@pytest.mark.parametrize("stored,expected", [
+    ("english", "en"),
+    ("urdu", "ur"),
+    ("English (always)".split()[0].lower(), "en"),
+    ("ENGLISH", "en"),
+    ("  urdu  ", "ur"),
+])
+def test_the_settings_values_reach_the_runtime(stored, expected):
+    """Settings stores `english`/`urdu`; the runtime tested for `en`/`ur`.
+
+    So picking a fixed language did nothing at all, and the reader kept
+    getting whatever the understanding stage decided. MEASURED on a
+    case-scoped review asked entirely in English: "Who is the accused?"
+    was labelled roman_ur and answered "... 10 mein se 0 documents jaanchi
+    gayin" -- an English question with a Roman Urdu coverage line.
+    """
+    assert language_asked_for(stored) == expected
+
+
+@pytest.mark.parametrize("code", ["en", "ur", "roman_ur"])
+def test_the_runtime_codes_still_work(code):
+    """Accepting both spellings keeps this from being a rename."""
+    assert language_asked_for(code) == code
+
+
+@pytest.mark.parametrize("value", ["auto", "", None, "nonsense", "fr"])
+def test_anything_else_means_match_my_question(value):
+    """`auto` is the default, and an unknown value must not pin a language."""
+    assert language_asked_for(value) is None

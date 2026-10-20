@@ -1881,6 +1881,37 @@ uses the same checked results. Return JSON matching the schema, with no prose ou
 """
 
 
+LANGUAGE_PREFERENCE = {"english": "en", "urdu": "ur", "roman_urdu": "roman_ur",
+                       "en": "en", "ur": "ur", "roman_ur": "roman_ur"}
+
+
+def language_asked_for(preference) -> str | None:
+    """The language code the reader chose, or None for "match my question".
+
+    THE SETTING DID NOTHING.
+
+    Settings offers "Auto (match my question)", "English (always)" and
+    "Urdu (always)", and stores them as `auto`, `english`, `urdu` -- the
+    strings the profile column holds and the API passes straight through.
+    The runtime then tested `preference in {'en','ur','roman_ur'}`, which
+    `english` and `urdu` never satisfy, so a reader who picked a fixed
+    language silently kept getting whatever the understanding stage decided.
+
+    MEASURED, on a case-scoped review asked entirely in English: the
+    understanding stage labelled "Who is the accused?" roman_ur, and the
+    answer came back "The accused is named کاشف ... 10 mein se 0 documents
+    jaanchi gayin; baqi shamil nahin" -- an English question answered with
+    a Roman Urdu coverage line. English and Roman Urdu are both Latin
+    script, so no deterministic check separates them and the model's guess
+    stands; the one thing that CAN settle it is the reader's own choice,
+    and that was being dropped on the floor.
+
+    Both spellings are accepted so this is not a rename: whatever reaches
+    it from the profile, the API or a test maps to one code or to None.
+    """
+    return LANGUAGE_PREFERENCE.get(str(preference or "").strip().lower())
+
+
 class _PartStore:
     """A per-part view of one store, so concurrent parts never share `trace`.
 
@@ -2906,7 +2937,8 @@ class Runtime:
                         # Question echo and access are server-owned, not model-owned.
                         plan.question = question
                         plan.workflow_version=self.workflow_version
-                        preferred_language = preference if preference in {'en','ur','roman_ur'} else (
+                        chosen_language = language_asked_for(preference)
+                        preferred_language = chosen_language or (
                             understanding.requested_language or understanding.language if understanding else None)
                         if preferred_language and plan.language != preferred_language:
                             # Numeric output is localized by deterministic rendering;
@@ -2914,7 +2946,7 @@ class Runtime:
                             plan = QuestionPlan.model_validate({**plan.model_dump(),'language':preferred_language})
                         plan.data_snapshot = snapshot
                         plan.catalog_versions = {str(key):c.version for key,c in concepts.items()}
-                        if preference in {"en", "ur", "roman_ur"} and plan.language != preference:
+                        if chosen_language and plan.language != chosen_language:
                             # Relabelling is not translating. Assigning the
                             # preference directly produced plans marked "ur"
                             # whose clarification text was English -- the
@@ -2927,11 +2959,11 @@ class Runtime:
                             # language. Nothing is relabelled silently.
                             try:
                                 plan = QuestionPlan.model_validate(
-                                    {**plan.model_dump(), "language": preference})
+                                    {**plan.model_dump(), "language": chosen_language})
                             except ValidationError as exc:
                                 raise ModelOutputError(
                                     f"the response must be written in "
-                                    f"{preference}: {exc}"[:300]) from exc
+                                    f"{chosen_language}: {exc}"[:300]) from exc
                         # A question split into parts must be ANSWERED in parts.
                         #
                         # Decomposition produced the parts and then nothing
